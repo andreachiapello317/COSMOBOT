@@ -4,6 +4,8 @@ Bot Telegram in Python (async, `python-telegram-bot` v21+) su **oroscopo, astrol
 
 Il tono è chiaro, curioso e un po’ ironico: planetario tascabile, non biglietto romantico. **Oroscopi, fasi lunari, efemeridi e foto NASA arrivano da API live.** Nel codice non ci sono testi di fatti o previsioni copiati a mano.
 
+Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiapello317/COSMOBOT)
+
 ## Cosa fa
 
 | Comando | Effetto | Fonte live |
@@ -34,8 +36,8 @@ I feed in inglese vengono tradotti in italiano al volo. Se un’API non risponde
 Quando **non** c’è `WEBHOOK_URL` il bot usa il long polling: va bene sul portatile, senza HTTPS pubblico.
 
 ```bash
-git clone <url-del-repo>
-cd stellebot
+git clone https://github.com/andreachiapello317/COSMOBOT.git
+cd COSMOBOT
 
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
