@@ -11,6 +11,7 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | Comando | Effetto | Fonte live |
 | --- | --- | --- |
 | `/start` | Presenta il bot e i comandi | — |
+| `/tema` | Tema natale guidato: data, ora, luogo → Big Three, pianeti, case, aspetti | [CosmyDay `/natal`](https://cosmyday.com/api-docs) |
 | `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Bilancia** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
 | `/tarocchi` | Lettura guidata: 1 carta, 3 carte, amore, lavoro, domanda + storico | [freehoroscopeapi.com/tarot](https://freehoroscopeapi.com/tarot) |
 | `/luna` | Fase, illuminazione, moonrise/moonset + spiegazione del giorno | [sunrisesunset.io](https://sunrisesunset.io/api/) + [CosmyDay](https://api.cosmyday.com/content/moon) |
@@ -20,6 +21,8 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | `/aiuto` | Elenco comandi | — |
 
 Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come `/oroscopo`. Puoi anche scrivere `/oroscopo vergine settimanale` per saltare la scelta.
+
+`/tema` (o `/natale`) chiede data, ora e città una alla volta, geocodifica con CosmyDay e calcola Sole, Luna, Ascendente, pianeti, case e aspetti. Puoi salvare il tema e poi vedere i transiti di oggi rispetto alla carta.
 
 `/tarocchi` (o `/tarot`) è una lettura guidata: scegli lo spread, (se serve) scrivi la domanda, poi **PESCA LE CARTE**. L’API decide quali carte escono; dritta/rovesciata è casuale; i testi sono i significati ufficiali, tradotti e letti insieme. Lo storico resta sul server (su Render free può azzerarsi al riavvio).
 

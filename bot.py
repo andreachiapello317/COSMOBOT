@@ -166,11 +166,84 @@ MONTHS_IT = (
 
 DIGNITY_IT = {
     "rulership": "in domicilio",
+    "domicile": "in domicilio",
     "exaltation": "in esaltazione",
     "detriment": "in esilio",
     "fall": "in caduta",
     "neutral": "in transito",
 }
+
+SIGN_ORDER = tuple(ZODIAC.keys())
+
+HOUSE_LABELS: dict[int, str] = {
+    1: "Ascendente / identità",
+    2: "Risorse",
+    3: "Comunicazione",
+    4: "Casa e famiglia",
+    5: "Creatività",
+    6: "Routine",
+    7: "Relazioni",
+    8: "Trasformazione",
+    9: "Conoscenza",
+    10: "Carriera",
+    11: "Comunità",
+    12: "Mondo interiore",
+}
+
+ASPECT_LABELS = {
+    "conjunction": ("Congiunzione", "☌"),
+    "opposition": ("Opposizione", "☍"),
+    "trine": ("Trigono", "△"),
+    "square": ("Quadratura", "□"),
+    "sextile": ("Sestile", "⚹"),
+}
+
+SIGN_ELEMENT = {
+    "aries": "fuoco",
+    "leo": "fuoco",
+    "sagittarius": "fuoco",
+    "taurus": "terra",
+    "virgo": "terra",
+    "capricorn": "terra",
+    "gemini": "aria",
+    "libra": "aria",
+    "aquarius": "aria",
+    "cancer": "acqua",
+    "scorpio": "acqua",
+    "pisces": "acqua",
+}
+
+SIGN_MODALITY = {
+    "aries": "cardinale",
+    "cancer": "cardinale",
+    "libra": "cardinale",
+    "capricorn": "cardinale",
+    "taurus": "fisso",
+    "leo": "fisso",
+    "scorpio": "fisso",
+    "aquarius": "fisso",
+    "gemini": "mutabile",
+    "virgo": "mutabile",
+    "sagittarius": "mutabile",
+    "pisces": "mutabile",
+}
+
+PLANET_ROLES = {
+    "Sun": "identità e ciò che vuoi esprimere",
+    "Moon": "mondo emotivo, bisogni, reazioni",
+    "Mercury": "mente, parole, come ragioni",
+    "Venus": "gusto, affetti, cosa ti attira",
+    "Mars": "slancio, rabbia, come agisci",
+    "Jupiter": "crescita, fortuna, dove allarghi",
+    "Saturn": "limiti, dovere, dove maturi",
+    "Uranus": "rotture, originalità, scosse",
+    "Neptune": "sogni, nebbia, ispirazione",
+    "Pluto": "potere, crisi, trasformazioni profonde",
+}
+
+NATAL_STATE_KEY = "natal_flow"
+NATAL_PROFILE_PATH = Path("data/natal_profiles.json")
+_natal_profile_lock = asyncio.Lock()
 
 # Alias rapido: "vergine" -> "virgo"
 _SIGN_ALIASES: dict[str, str] = {}
@@ -665,6 +738,102 @@ async def tarot_history_list(user_id: int) -> list[dict[str, Any]]:
     return rows if isinstance(rows, list) else []
 
 
+def _natal_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(NATAL_STATE_KEY, None)
+
+
+def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
+    _tarot_reset(context)
+    _natal_reset(context)
+
+
+def _natal_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(NATAL_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[NATAL_STATE_KEY] = state
+    return state
+
+
+def lon_to_sign(lon: float) -> tuple[str, float]:
+    lon = float(lon) % 360.0
+    idx = int(lon // 30) % 12
+    return SIGN_ORDER[idx], lon % 30
+
+
+def parse_birth_date(raw: str) -> tuple[int, int, int] | None:
+    match = re.fullmatch(r"\s*(\d{1,2})[./-](\d{1,2})[./-](\d{4})\s*", raw)
+    if not match:
+        return None
+    day, month, year = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+    try:
+        datetime(year, month, day)
+    except ValueError:
+        return None
+    if year < 1800 or year > datetime.now(DEFAULT_TZ).year:
+        return None
+    return year, month, day
+
+
+def parse_birth_time(raw: str) -> tuple[int, int] | None:
+    match = re.fullmatch(r"\s*(\d{1,2})[:.](\d{2})\s*", raw)
+    if not match:
+        return None
+    hour, minute = int(match.group(1)), int(match.group(2))
+    if hour > 23 or minute > 59:
+        return None
+    return hour, minute
+
+
+def format_birth_date(year: int, month: int, day: int) -> str:
+    return f"{day} {MONTHS_IT[month - 1]} {year}"
+
+
+def element_bar(counts: dict[str, int], key: str, width: int = 10) -> str:
+    total = sum(counts.values()) or 1
+    filled = min(width, round(width * counts.get(key, 0) / total))
+    return "█" * filled + "░" * (width - filled)
+
+
+def natal_nav_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [_tarot_btn("🪐 Pianeti", "natal:planets"), _tarot_btn("🏠 Case", "natal:houses")],
+            [_tarot_btn("⚡ Aspetti", "natal:aspects"), _tarot_btn("❤️ Amore", "natal:love")],
+            [_tarot_btn("🔮 Lettura", "natal:read"), _tarot_btn("📊 Profilo", "natal:elements")],
+            [_tarot_btn("👤 Il mio tema", "natal:me"), _tarot_btn("🏠 Home", "natal:homebtn")],
+        ]
+    )
+
+
+def _profile_load() -> dict[str, Any]:
+    if not NATAL_PROFILE_PATH.exists():
+        return {}
+    try:
+        data = json.loads(NATAL_PROFILE_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _profile_save(data: dict[str, Any]) -> None:
+    NATAL_PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    NATAL_PROFILE_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+async def natal_profile_get(user_id: int) -> dict[str, Any] | None:
+    async with _natal_profile_lock:
+        row = _profile_load().get(str(user_id))
+    return row if isinstance(row, dict) else None
+
+
+async def natal_profile_set(user_id: int, profile: dict[str, Any]) -> None:
+    async with _natal_profile_lock:
+        data = _profile_load()
+        data[str(user_id)] = profile
+        _profile_save(data)
+
+
 # ---------------------------------------------------------------------------
 # API live
 # ---------------------------------------------------------------------------
@@ -777,6 +946,69 @@ async def api_planets_now(client: httpx.AsyncClient) -> dict[str, Any]:
     if not isinstance(planets, dict):
         raise StelleOfflineError("efemeridi vuote")
     return cache_set(cache_key, data)
+
+
+async def api_geocode_place(client: httpx.AsyncClient, query: str) -> list[dict[str, Any]]:
+    data = await fetch_json(
+        client,
+        "https://api.cosmyday.com/search-location",
+        params={"q": query},
+    )
+    if not isinstance(data, list) or not data:
+        raise StelleOfflineError("luogo non trovato")
+    places: list[dict[str, Any]] = []
+    for item in data[:5]:
+        if not isinstance(item, dict):
+            continue
+        try:
+            lat = float(item.get("lat"))
+            lon = float(item.get("lon"))
+        except (TypeError, ValueError):
+            continue
+        address = item.get("address") if isinstance(item.get("address"), dict) else {}
+        places.append(
+            {
+                "name": str(item.get("name") or query),
+                "display": str(item.get("display_name") or item.get("name") or query),
+                "lat": lat,
+                "lon": lon,
+                "country": str(address.get("country") or ""),
+                "kind": str(item.get("addresstype") or ""),
+            }
+        )
+    if not places:
+        raise StelleOfflineError("luogo non trovato")
+    return places
+
+
+async def api_natal_chart(
+    client: httpx.AsyncClient,
+    *,
+    year: int,
+    month: int,
+    day: int,
+    hour: int,
+    minute: int,
+    lat: float,
+    lon: float,
+) -> dict[str, Any]:
+    data = await fetch_json(
+        client,
+        "https://api.cosmyday.com/natal",
+        method="POST",
+        json_body={
+            "year": year,
+            "month": month,
+            "day": day,
+            "hour": hour,
+            "minute": minute,
+            "lat": lat,
+            "lon": lon,
+        },
+    )
+    if not isinstance(data, dict) or not isinstance(data.get("planets"), dict):
+        raise StelleOfflineError("tema natale vuoto")
+    return data
 
 
 async def api_transit_note(client: httpx.AsyncClient) -> dict[str, Any] | None:
@@ -1001,6 +1233,7 @@ def start_text() -> str:
         f"Se non mi dici un segno, uso {default_emoji} <b>{default_it}</b> "
         f"(costante <code>DEFAULT_SIGN</code>).\n\n"
         "<b>Comandi</b>\n"
+        "• /tema — tema natale guidato (data, ora, luogo)\n"
         "• /oroscopo [segno] — poi scegli giorno, settimana o mese\n"
         "• /tarocchi — lettura guidata: 1 carta, 3 carte, amore, lavoro, domanda\n"
         "• /luna — fase lunare di oggi\n"
@@ -1018,6 +1251,7 @@ def help_text() -> str:
     return (
         "📚 <b>Manuale di sopravvivenza cosmica</b>\n\n"
         "/start — presentazione (e un po' di pepe)\n"
+        "/tema — tema natale: data, ora, luogo, poi Big Three / pianeti / case\n"
         f"/oroscopo [segno] — oroscopo live. Senza segno uso "
         f"{default_emoji} {default_it}. Poi i bottoni: giorno, settimana, mese. "
         f"Segni: {e(list_signs_help())}\n"
@@ -1039,13 +1273,13 @@ def help_text() -> str:
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _tarot_reset(context)
-    await reply_html(update, context, start_text())
+    _flows_reset(context)
+    await reply_html(update, context, start_text(), reply_markup=home_keyboard())
     await delete_user_command(update)
 
 
 async def cmd_aiuto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _tarot_reset(context)
+    _flows_reset(context)
     await reply_html(update, context, help_text())
     await delete_user_command(update)
 
@@ -1060,7 +1294,7 @@ async def begin_oroscopo(
     context: ContextTypes.DEFAULT_TYPE,
     raw: str,
 ) -> None:
-    _tarot_reset(context)
+    _flows_reset(context)
     sign, period, used_default = parse_oroscopo_query(raw)
     if sign is None:
         await reply_html(
@@ -1191,7 +1425,7 @@ async def cmd_tarocchi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def show_tarot_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _tarot_reset(context)
+    _flows_reset(context)
     text = (
         "🔮 <b>Lettura dei Tarocchi</b>\n\n"
         "Concentrati sulla domanda che vuoi portare alle carte.\n"
@@ -1466,8 +1700,809 @@ async def on_tarot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await query.answer("Bottone stanco. Riprova con /tarocchi.")
 
 
+# ---------------------------------------------------------------------------
+# Tema natale — workflow guidato (CosmyDay /natal + geocoding)
+# ---------------------------------------------------------------------------
+
+
+def home_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [_tarot_btn("🌌 Tema Natale", "natal:open"), _tarot_btn("🔮 Tarocchi", "tarot:menu")],
+            [_tarot_btn("♈ Oroscopo", "home:oroscopo"), _tarot_btn("🌙 Luna", "home:luna")],
+        ]
+    )
+
+
+def _remember_from_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is not None and query.message is not None:
+        kind = "text" if query.message.text else "photo"
+        _remember_bot_msg(context, query.message.message_id, kind)
+
+
+def natal_chart_from_state(state: dict[str, Any]) -> dict[str, Any] | None:
+    chart = state.get("chart")
+    return chart if isinstance(chart, dict) else None
+
+
+def natal_body_line(key: str, body: dict[str, Any]) -> str:
+    label, emoji = PLANET_LABELS.get(key, (key, "•"))
+    sign = sign_label(str(body.get("sign") or ""))
+    deg = format_degree(float(body.get("degInSign") or 0))
+    house = body.get("house")
+    house_bit = f" · casa {int(house)}" if house else ""
+    retro = " ℞" if body.get("retrograde") else ""
+    return f"{emoji} <b>{e(label)}</b>  {e(sign)} {e(deg)}{house_bit}{retro}"
+
+
+def natal_point_from_lon(lon: float) -> tuple[str, float, str]:
+    sign, deg = lon_to_sign(lon)
+    it, emoji, _ = ZODIAC[sign]
+    return sign, deg, f"{emoji} {it}"
+
+
+async def cmd_tema(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await natal_open(update, context)
+    await delete_user_command(update)
+
+
+async def natal_open(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    profile = await natal_profile_get(user.id) if user else None
+    if profile:
+        await show_natal_saved_profile(update, context, profile)
+        return
+    await show_natal_intro(update, context)
+
+
+async def show_natal_intro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _natal_state(context).clear()
+    text = (
+        "🌌 <b>Crea il tuo Tema Natale</b>\n\n"
+        "Per calcolare la carta servono tre cose, una alla volta:\n"
+        "📅 data di nascita\n"
+        "🕐 ora di nascita\n"
+        "📍 luogo di nascita\n\n"
+        "I calcoli li fa CosmyDay (Swiss Ephemeris). Tu non devi sapere niente "
+        "di astrologia: inserisci i dati, il resto è automatico."
+    )
+    kb = InlineKeyboardMarkup([[_tarot_btn("✨ Inizia", "natal:start")]])
+    await reply_html(update, context, text, reply_markup=kb)
+
+
+async def show_natal_saved_profile(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    profile: dict[str, Any],
+) -> None:
+    time_txt = "sconosciuta" if profile.get("time_unknown") else f"{int(profile.get('hour', 12)):02d}:{int(profile.get('minute', 0)):02d}"
+    text = (
+        "👤 <b>Il mio profilo</b>\n\n"
+        f"📅 {e(format_birth_date(int(profile['year']), int(profile['month']), int(profile['day'])))}\n"
+        f"🕐 {e(time_txt)}\n"
+        f"📍 {e(profile.get('place') or '—')}\n\n"
+        "Il tema è salvato: puoi rileggerlo senza reinserire i dati."
+    )
+    kb = InlineKeyboardMarkup(
+        [
+            [_tarot_btn("🔮 Rileggi il tema", "natal:reload"), _tarot_btn("🌙 Transiti", "natal:transits")],
+            [_tarot_btn("✨ Nuovo tema", "natal:start"), _tarot_btn("🏠 Home", "natal:homebtn")],
+        ]
+    )
+    await reply_html(update, context, text, reply_markup=kb)
+
+
+async def ask_natal_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _natal_state(context)
+    state["step"] = "date"
+    await reply_html(
+        update,
+        context,
+        "📅 <b>Quando sei nato/a?</b>\n\n"
+        "Scrivi la data così: <code>GG/MM/AAAA</code>\n"
+        "Esempio: <code>14/08/1998</code>",
+    )
+
+
+async def ask_natal_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _natal_state(context)
+    state["step"] = "time"
+    kb = InlineKeyboardMarkup([[_tarot_btn("❓ Non conosco l'ora", "natal:notime")]])
+    await reply_html(
+        update,
+        context,
+        "🕐 <b>A che ora sei nato/a?</b>\n\n"
+        "Scrivi l'orario: <code>HH:MM</code>\n"
+        "Esempio: <code>21:35</code>\n\n"
+        "L'ora serve soprattutto per <b>Ascendente</b> e <b>case</b>. "
+        "Se non la sai, si può andare avanti lo stesso — ma quelle due cose "
+        "diventano poco affidabili.",
+        reply_markup=kb,
+    )
+
+
+async def ask_natal_place(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _natal_state(context)
+    state["step"] = "place"
+    await reply_html(
+        update,
+        context,
+        "📍 <b>Dove sei nato/a?</b>\n\n"
+        "Scrivi città e paese.\n"
+        "Esempio: <code>Milano, Italia</code>\n\n"
+        "Cerco io le coordinate. Non ti chiedo latitudine né fuso orario.",
+    )
+
+
+async def show_natal_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _natal_state(context)
+    state["step"] = "confirm"
+    y, m, d = int(state["year"]), int(state["month"]), int(state["day"])
+    unknown = bool(state.get("time_unknown"))
+    hour, minute = int(state.get("hour") or 12), int(state.get("minute") or 0)
+    place = str(state.get("place") or "—")
+    time_txt = "non indicata (uso mezzogiorno)" if unknown else f"{hour:02d}:{minute:02d}"
+    warn = (
+        "\n\n⚠️ Senza ora di nascita, Ascendente e case potrebbero non essere affidabili."
+        if unknown
+        else ""
+    )
+    text = (
+        "🔮 <b>Controlla i tuoi dati</b>\n\n"
+        f"📅 {e(format_birth_date(y, m, d))}\n"
+        f"🕐 {e(time_txt)}\n"
+        f"📍 {e(place)}\n"
+        "Sistema case: Placidus\n"
+        f"{warn}\n\n"
+        "Tutto corretto?"
+    )
+    kb = InlineKeyboardMarkup(
+        [
+            [_tarot_btn("✅ Calcola tema natale", "natal:calc")],
+            [_tarot_btn("✏️ Modifica", "natal:start")],
+        ]
+    )
+    await reply_html(update, context, text, reply_markup=kb)
+
+
+async def receive_natal_text(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text: str,
+) -> bool:
+    state = context.user_data.get(NATAL_STATE_KEY)
+    if not isinstance(state, dict):
+        return False
+    step = state.get("step")
+    if step == "date":
+        parsed = parse_birth_date(text)
+        if not parsed:
+            await reply_html(
+                update,
+                context,
+                "Questa data non torna. Usa <code>GG/MM/AAAA</code>, tipo <code>14/08/1998</code>.",
+            )
+            return True
+        state["year"], state["month"], state["day"] = parsed
+        await delete_user_command(update)
+        await ask_natal_time(update, context)
+        return True
+    if step == "time":
+        parsed = parse_birth_time(text)
+        if not parsed:
+            await reply_html(
+                update,
+                context,
+                "Orario non valido. Usa <code>HH:MM</code>, tipo <code>21:35</code>.",
+                reply_markup=InlineKeyboardMarkup([[_tarot_btn("❓ Non conosco l'ora", "natal:notime")]]),
+            )
+            return True
+        state["hour"], state["minute"] = parsed
+        state["time_unknown"] = False
+        await delete_user_command(update)
+        await ask_natal_place(update, context)
+        return True
+    if step == "place":
+        await send_typing(update)
+        await deliver_text(update, context, "📍 Cerco il luogo sulle mappe…")
+        client = _http_client(context)
+        try:
+            places = await api_geocode_place(client, text)
+        except StelleOfflineError:
+            await reply_html(
+                update,
+                context,
+                "Non trovo quel luogo. Prova con città e paese, tipo <code>Milano, Italia</code>.",
+            )
+            return True
+        state["places"] = places
+        await delete_user_command(update)
+        if len(places) == 1:
+            _apply_natal_place(state, places[0])
+            await show_natal_confirm(update, context)
+            return True
+        rows = []
+        for idx, place in enumerate(places[:4]):
+            label = clip_text(str(place["display"]), 40)
+            rows.append([_tarot_btn(f"📍 {label}", f"natal:loc:{idx}")])
+        await reply_html(
+            update,
+            context,
+            "Ho trovato più luoghi. Quale è il tuo?",
+            reply_markup=InlineKeyboardMarkup(rows),
+        )
+        return True
+    return False
+
+
+def _apply_natal_place(state: dict[str, Any], place: dict[str, Any]) -> None:
+    state["place"] = place.get("display")
+    state["lat"] = place.get("lat")
+    state["lon"] = place.get("lon")
+    state["place_name"] = place.get("name")
+    state["step"] = "confirm"
+
+
+async def calculate_natal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _natal_state(context)
+    needed = ("year", "month", "day", "lat", "lon")
+    if any(k not in state for k in needed):
+        await show_natal_intro(update, context)
+        return
+    await send_typing(update)
+    await deliver_text(update, context, "🌌 Sto calcolando la carta (Swiss Ephemeris)…")
+    hour = int(state.get("hour") or 12)
+    minute = int(state.get("minute") or 0)
+    client = _http_client(context)
+    try:
+        chart = await api_natal_chart(
+            client,
+            year=int(state["year"]),
+            month=int(state["month"]),
+            day=int(state["day"]),
+            hour=hour,
+            minute=minute,
+            lat=float(state["lat"]),
+            lon=float(state["lon"]),
+        )
+    except StelleOfflineError:
+        logger.exception("Tema natale: calcolo non disponibile")
+        await reply_html(
+            update,
+            context,
+            STARS_OFFLINE + "\n\nPuoi ritentare il calcolo.",
+            reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔁 Riprova", "natal:calc")]]),
+        )
+        return
+    state["chart"] = chart
+    state["step"] = "done"
+    await show_natal_big_three(update, context)
+
+
+async def reload_saved_natal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    profile = await natal_profile_get(user.id) if user else None
+    if not profile:
+        await show_natal_intro(update, context)
+        return
+    state = _natal_state(context)
+    state.clear()
+    state.update(
+        {
+            "year": profile["year"],
+            "month": profile["month"],
+            "day": profile["day"],
+            "hour": profile.get("hour", 12),
+            "minute": profile.get("minute", 0),
+            "time_unknown": profile.get("time_unknown", False),
+            "place": profile.get("place"),
+            "lat": profile.get("lat"),
+            "lon": profile.get("lon"),
+            "step": "confirm",
+        }
+    )
+    await calculate_natal(update, context)
+
+
+async def show_natal_big_three(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _natal_state(context)
+    chart = natal_chart_from_state(state)
+    if not chart:
+        await show_natal_intro(update, context)
+        return
+    planets = chart.get("planets") or {}
+    sun = planets.get("Sun") or {}
+    moon = planets.get("Moon") or {}
+    asc_sign, asc_deg, asc_label = natal_point_from_lon(float(chart.get("ascendant") or 0))
+    unknown = bool(state.get("time_unknown"))
+    warn = "\n⚠️ Ora mancante: l'Ascendente è indicativo (calcolato a mezzogiorno).\n" if unknown else "\n"
+    text = (
+        "🌌 <b>IL TUO BIG THREE</b>\n\n"
+        f"☀️ <b>Sole in {e(sign_label(str(sun.get('sign') or '')))}</b>\n"
+        f"<i>La tua identità, ciò che vuoi esprimere.</i>\n\n"
+        f"🌙 <b>Luna in {e(sign_label(str(moon.get('sign') or '')))}</b>\n"
+        f"<i>Il tuo mondo emotivo, bisogni e reazioni.</i>\n\n"
+        f"⬆️ <b>Ascendente in {e(asc_label)}</b> {e(format_degree(asc_deg))}\n"
+        f"<i>Come ti presenti e affronti ciò che incontri.</i>"
+        f"{warn}\n"
+        "━━━━━━━━━━━━━\n"
+        "✨ Ora possiamo entrare nel dettaglio."
+    )
+    await reply_html(update, context, text, reply_markup=natal_nav_keyboard())
+
+
+async def show_natal_planets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chart = natal_chart_from_state(_natal_state(context))
+    if not chart:
+        await show_natal_intro(update, context)
+        return
+    planets = chart.get("planets") or {}
+    lines = ["🪐 <b>I tuoi pianeti</b>", "Tocca un pianeta per la scheda.", ""]
+    rows: list[list[InlineKeyboardButton]] = []
+    pair: list[InlineKeyboardButton] = []
+    for key in MAIN_PLANETS:
+        body = planets.get(key)
+        if not isinstance(body, dict):
+            continue
+        lines.append(natal_body_line(key, body))
+        label, emoji = PLANET_LABELS[key]
+        pair.append(_tarot_btn(f"{emoji} {label}", f"natal:p:{key}"))
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([_tarot_btn("⬅️ Big Three", "natal:big")])
+    await reply_html(update, context, "\n".join(lines), reply_markup=InlineKeyboardMarkup(rows))
+
+
+async def show_natal_planet(update: Update, context: ContextTypes.DEFAULT_TYPE, key: str) -> None:
+    chart = natal_chart_from_state(_natal_state(context))
+    if not chart or key not in PLANET_LABELS:
+        await show_natal_planets(update, context)
+        return
+    body = (chart.get("planets") or {}).get(key)
+    if not isinstance(body, dict):
+        await show_natal_planets(update, context)
+        return
+    label, emoji = PLANET_LABELS[key]
+    role = PLANET_ROLES.get(key, "")
+    house = int(body.get("house") or 0)
+    house_name = HOUSE_LABELS.get(house, "")
+    dignity = DIGNITY_IT.get(str(body.get("dignity") or "").lower(), "")
+    client = _http_client(context)
+    prompt = (
+        f"In a natal chart, {label} is in {body.get('sign')} in house {house} "
+        f"({house_name}). Dignity: {body.get('dignity')}. "
+        f"{label} is associated with {role}. "
+        f"Write 4 short Italian-ready sentences explaining this placement only from these facts, "
+        f"curious and light, not romantic."
+    )
+    try:
+        blurb = await translate_to_italian(client, prompt)
+    except StelleOfflineError:
+        blurb = f"{label} in {sign_label(str(body.get('sign')))} in casa {house}."
+    text = (
+        f"{emoji} <b>{e(label)} in {e(sign_label(str(body.get('sign') or '')))}</b>"
+        f"{f' — casa {house}' if house else ''}\n"
+        f"<i>{e(role)}</i>\n"
+        f"{e(format_degree(float(body.get('degInSign') or 0)))}"
+        f"{' · ' + e(dignity) if dignity else ''}"
+        f"{' · retrogrado' if body.get('retrograde') else ''}\n\n"
+        f"{e(blurb)}\n\n"
+        f"<i>Dati live CosmyDay · casa {house}: {e(house_name)}</i>"
+    )
+    kb = InlineKeyboardMarkup([[_tarot_btn("⬅️ Pianeti", "natal:planets"), _tarot_btn("🌌 Big Three", "natal:big")]])
+    await reply_html(update, context, text, reply_markup=kb)
+
+
+async def show_natal_houses(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chart = natal_chart_from_state(_natal_state(context))
+    if not chart:
+        await show_natal_intro(update, context)
+        return
+    planets = chart.get("planets") or {}
+    occupants: dict[int, list[str]] = {i: [] for i in range(1, 13)}
+    for key in MAIN_PLANETS:
+        body = planets.get(key)
+        if isinstance(body, dict) and body.get("house"):
+            occupants[int(body["house"])].append(PLANET_LABELS[key][1] + " " + PLANET_LABELS[key][0])
+    lines = ["🏠 <b>Le 12 case</b>", "Tocca una casa per vedere chi c'è dentro.", ""]
+    rows: list[list[InlineKeyboardButton]] = []
+    pair: list[InlineKeyboardButton] = []
+    for num, title in HOUSE_LABELS.items():
+        inside = ", ".join(occupants[num]) or "vuota"
+        lines.append(f"<b>{num}</b> — {e(title)}\n   {e(inside)}")
+        pair.append(_tarot_btn(str(num), f"natal:h:{num}"))
+        if len(pair) == 4:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([_tarot_btn("⬅️ Big Three", "natal:big")])
+    await reply_html(update, context, "\n".join(lines), reply_markup=InlineKeyboardMarkup(rows))
+
+
+async def show_natal_house(update: Update, context: ContextTypes.DEFAULT_TYPE, num: int) -> None:
+    chart = natal_chart_from_state(_natal_state(context))
+    if not chart or num < 1 or num > 12:
+        await show_natal_houses(update, context)
+        return
+    cusps = chart.get("cusps") or []
+    cusp_lon = float(cusps[num - 1]) if len(cusps) >= num else 0.0
+    sign, deg, label = natal_point_from_lon(cusp_lon)
+    planets = chart.get("planets") or {}
+    inside = []
+    for key in MAIN_PLANETS:
+        body = planets.get(key)
+        if isinstance(body, dict) and int(body.get("house") or 0) == num:
+            inside.append(natal_body_line(key, body))
+    text = (
+        f"🏠 <b>Casa {num} — {e(HOUSE_LABELS[num])}</b>\n"
+        f"Cuspide in {e(label)} {e(format_degree(deg))}\n\n"
+    )
+    text += "\n".join(inside) if inside else "Nessun pianeta principale in questa casa."
+    kb = InlineKeyboardMarkup([[_tarot_btn("⬅️ Case", "natal:houses"), _tarot_btn("🌌 Big Three", "natal:big")]])
+    await reply_html(update, context, text, reply_markup=kb)
+
+
+async def show_natal_aspects(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chart = natal_chart_from_state(_natal_state(context))
+    if not chart:
+        await show_natal_intro(update, context)
+        return
+    aspects = chart.get("aspects") if isinstance(chart.get("aspects"), list) else []
+    main = set(MAIN_PLANETS)
+    lines = ["⚡ <b>Aspetti principali</b>", "Calcolati dall'API (orb e tipo live).", ""]
+    shown = 0
+    for asp in aspects:
+        if not isinstance(asp, dict):
+            continue
+        a, b = str(asp.get("a") or ""), str(asp.get("b") or "")
+        kind = str(asp.get("type") or "")
+        if a not in main or b not in main or kind not in ASPECT_LABELS:
+            continue
+        try:
+            orb = abs(float(asp.get("delta") or 0))
+        except (TypeError, ValueError):
+            orb = 0.0
+        if orb > 8:
+            continue
+        it_name, glyph = ASPECT_LABELS[kind]
+        ea, la = PLANET_LABELS[a]
+        eb, lb = PLANET_LABELS[b]
+        lines.append(f"{ea} {e(la)} {glyph} {eb} {e(lb)}\n{e(it_name)} — orb {orb:.1f}°")
+        shown += 1
+        if shown >= 10:
+            break
+    if shown == 0:
+        lines.append("Nessun aspetto stretto tra i pianeti principali.")
+    await reply_html(update, context, "\n".join(lines), reply_markup=natal_nav_keyboard())
+
+
+async def show_natal_love(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chart = natal_chart_from_state(_natal_state(context))
+    if not chart:
+        await show_natal_intro(update, context)
+        return
+    planets = chart.get("planets") or {}
+    lines = ["❤️ <b>Amore nel tema</b>", "Venere, Marte, Luna e casa 7 — dati live.", ""]
+    for key in ("Venus", "Mars", "Moon"):
+        body = planets.get(key)
+        if isinstance(body, dict):
+            lines.append(natal_body_line(key, body))
+            lines.append(f"<i>{e(PLANET_ROLES[key])}</i>")
+            lines.append("")
+    seventh = []
+    for key in MAIN_PLANETS:
+        body = planets.get(key)
+        if isinstance(body, dict) and int(body.get("house") or 0) == 7:
+            seventh.append(PLANET_LABELS[key][0])
+    lines.append("🏠 <b>Casa 7</b> — relazioni")
+    lines.append(", ".join(seventh) if seventh else "Nessun pianeta principale in casa 7.")
+    await reply_html(update, context, "\n".join(lines), reply_markup=natal_nav_keyboard())
+
+
+async def show_natal_reading(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _natal_state(context)
+    chart = natal_chart_from_state(state)
+    if not chart:
+        await show_natal_intro(update, context)
+        return
+    planets = chart.get("planets") or {}
+    sun = planets.get("Sun") or {}
+    moon = planets.get("Moon") or {}
+    asc_sign, _asc_deg, asc_label = natal_point_from_lon(float(chart.get("ascendant") or 0))
+    facts = [
+        f"Sun in {sun.get('sign')} house {sun.get('house')}",
+        f"Moon in {moon.get('sign')} house {moon.get('house')}",
+        f"Ascendant in {asc_sign}",
+    ]
+    for key in ("Mercury", "Venus", "Mars", "Jupiter", "Saturn"):
+        body = planets.get(key)
+        if isinstance(body, dict):
+            facts.append(f"{key} in {body.get('sign')} house {body.get('house')}")
+    prompt = (
+        "Write a natal-chart reading in a curious light Italian-ready tone using ONLY these live placements: "
+        + "; ".join(facts)
+        + ". Four short paragraphs: identity, emotions, style of meeting the world, a connecting thread. "
+        "Do not invent extra planets."
+    )
+    client = _http_client(context)
+    try:
+        reading = await translate_to_italian(client, prompt)
+    except StelleOfflineError:
+        reading = (
+            f"Sole in {sign_label(str(sun.get('sign')))}, "
+            f"Luna in {sign_label(str(moon.get('sign')))}, "
+            f"Ascendente {asc_label}."
+        )
+    text = (
+        "🔮 <b>La tua carta racconta</b>\n\n"
+        f"{e(reading)}\n\n"
+        "<i>Interpretazione costruita sulle posizioni CosmyDay, non inventata a caso. "
+        "Non è un verdetto: è una mappa.</i>"
+    )
+    if user and not await natal_profile_get(user.id):
+        extra_row = [_tarot_btn("💾 Salva il tema", "natal:save")]
+        kb = natal_nav_keyboard()
+        rows = [list(row) for row in kb.inline_keyboard]
+        rows.insert(0, extra_row)
+        await reply_html(update, context, text, reply_markup=InlineKeyboardMarkup(rows))
+        return
+    await reply_html(update, context, text, reply_markup=natal_nav_keyboard())
+
+
+async def show_natal_elements(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chart = natal_chart_from_state(_natal_state(context))
+    if not chart:
+        await show_natal_intro(update, context)
+        return
+    planets = chart.get("planets") or {}
+    elements = {"fuoco": 0, "terra": 0, "aria": 0, "acqua": 0}
+    modes = {"cardinale": 0, "fisso": 0, "mutabile": 0}
+    for key in MAIN_PLANETS:
+        body = planets.get(key)
+        if not isinstance(body, dict):
+            continue
+        sign = str(body.get("sign") or "").lower()
+        el = SIGN_ELEMENT.get(sign)
+        md = SIGN_MODALITY.get(sign)
+        if el:
+            elements[el] += 1
+        if md:
+            modes[md] += 1
+    asc_sign, _, _ = natal_point_from_lon(float(chart.get("ascendant") or 0))
+    if SIGN_ELEMENT.get(asc_sign):
+        elements[SIGN_ELEMENT[asc_sign]] += 1
+    if SIGN_MODALITY.get(asc_sign):
+        modes[SIGN_MODALITY[asc_sign]] += 1
+    text = (
+        "📊 <b>Il tuo profilo</b>\n"
+        "<i>Conteggio Sole–Plutone + Ascendente, dai dati live.</i>\n\n"
+        f"🔥 Fuoco   {element_bar(elements, 'fuoco')} {elements['fuoco']}\n"
+        f"🌍 Terra   {element_bar(elements, 'terra')} {elements['terra']}\n"
+        f"💨 Aria    {element_bar(elements, 'aria')} {elements['aria']}\n"
+        f"💧 Acqua   {element_bar(elements, 'acqua')} {elements['acqua']}\n\n"
+        f"CARDINALE  {element_bar(modes, 'cardinale')} {modes['cardinale']}\n"
+        f"FISSO      {element_bar(modes, 'fisso')} {modes['fisso']}\n"
+        f"MUTABILE   {element_bar(modes, 'mutabile')} {modes['mutabile']}"
+    )
+    await reply_html(update, context, text, reply_markup=natal_nav_keyboard())
+
+
+async def save_natal_profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    state = _natal_state(context)
+    if user is None or "year" not in state:
+        await show_natal_intro(update, context)
+        return
+    await natal_profile_set(
+        user.id,
+        {
+            "year": state["year"],
+            "month": state["month"],
+            "day": state["day"],
+            "hour": state.get("hour", 12),
+            "minute": state.get("minute", 0),
+            "time_unknown": bool(state.get("time_unknown")),
+            "place": state.get("place"),
+            "lat": state.get("lat"),
+            "lon": state.get("lon"),
+            "saved_at": datetime.now(DEFAULT_TZ).isoformat(timespec="minutes"),
+        },
+    )
+    await reply_html(
+        update,
+        context,
+        "💾 Tema salvato. La prossima volta /tema apre il tuo profilo.",
+        reply_markup=natal_nav_keyboard(),
+    )
+
+
+async def show_natal_transits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    profile = await natal_profile_get(user.id) if user else None
+    state = _natal_state(context)
+    if profile and "lat" in profile:
+        natal_src = profile
+    elif "lat" in state:
+        natal_src = state
+    else:
+        await show_natal_intro(update, context)
+        return
+    await send_typing(update)
+    await deliver_text(update, context, "🌙 Confronto il cielo di oggi con la tua carta…")
+    client = _http_client(context)
+    try:
+        today = await api_planets_now(client)
+        if "chart" not in state:
+            state.update(
+                {
+                    "year": natal_src["year"],
+                    "month": natal_src["month"],
+                    "day": natal_src["day"],
+                    "hour": natal_src.get("hour", 12),
+                    "minute": natal_src.get("minute", 0),
+                    "lat": natal_src["lat"],
+                    "lon": natal_src["lon"],
+                    "place": natal_src.get("place"),
+                    "time_unknown": natal_src.get("time_unknown", False),
+                }
+            )
+            state["chart"] = await api_natal_chart(
+                client,
+                year=int(natal_src["year"]),
+                month=int(natal_src["month"]),
+                day=int(natal_src["day"]),
+                hour=int(natal_src.get("hour") or 12),
+                minute=int(natal_src.get("minute") or 0),
+                lat=float(natal_src["lat"]),
+                lon=float(natal_src["lon"]),
+            )
+    except StelleOfflineError:
+        await reply_offline(update, context)
+        return
+    natal_planets = (state.get("chart") or {}).get("planets") or {}
+    now_planets = today.get("planets") or {}
+    lines = [
+        "🌙 <b>Transiti di oggi</b>",
+        "Cielo attuale (Roma, ora) rispetto al tuo tema.",
+        "",
+    ]
+    for key in MAIN_PLANETS:
+        now_b = now_planets.get(key)
+        nat_b = natal_planets.get(key)
+        if not isinstance(now_b, dict) or not isinstance(nat_b, dict):
+            continue
+        label, emoji = PLANET_LABELS[key]
+        same = str(now_b.get("sign")) == str(nat_b.get("sign"))
+        mark = " · stesso segno del natale" if same else ""
+        lines.append(
+            f"{emoji} <b>{e(label)}</b> oggi {e(sign_label(str(now_b.get('sign'))))} "
+            f"(natale: {e(sign_label(str(nat_b.get('sign'))))}){mark}"
+        )
+    await reply_html(update, context, "\n".join(lines), reply_markup=natal_nav_keyboard())
+
+
+async def on_natal_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    parts = query.data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    extra = parts[2] if len(parts) > 2 else ""
+
+    if action == "open":
+        await query.answer()
+        await natal_open(update, context)
+        return
+    if action == "homebtn":
+        await query.answer()
+        _flows_reset(context)
+        await reply_html(update, context, start_text(), reply_markup=home_keyboard())
+        return
+    if action == "start":
+        await query.answer()
+        _natal_state(context).clear()
+        await ask_natal_date(update, context)
+        return
+    if action == "notime":
+        await query.answer()
+        state = _natal_state(context)
+        state["hour"], state["minute"] = 12, 0
+        state["time_unknown"] = True
+        await ask_natal_place(update, context)
+        return
+    if action == "loc" and extra.isdigit():
+        await query.answer()
+        places = _natal_state(context).get("places") or []
+        idx = int(extra)
+        if 0 <= idx < len(places):
+            _apply_natal_place(_natal_state(context), places[idx])
+            await show_natal_confirm(update, context)
+        return
+    if action == "calc":
+        await query.answer("Calcolo in corso…")
+        await calculate_natal(update, context)
+        return
+    if action == "big":
+        await query.answer()
+        await show_natal_big_three(update, context)
+        return
+    if action == "planets":
+        await query.answer()
+        await show_natal_planets(update, context)
+        return
+    if action == "p" and extra:
+        await query.answer()
+        await show_natal_planet(update, context, extra)
+        return
+    if action == "houses":
+        await query.answer()
+        await show_natal_houses(update, context)
+        return
+    if action == "h" and extra.isdigit():
+        await query.answer()
+        await show_natal_house(update, context, int(extra))
+        return
+    if action == "aspects":
+        await query.answer()
+        await show_natal_aspects(update, context)
+        return
+    if action == "love":
+        await query.answer()
+        await show_natal_love(update, context)
+        return
+    if action == "read":
+        await query.answer("Sto componendo la lettura…")
+        await show_natal_reading(update, context)
+        return
+    if action == "elements":
+        await query.answer()
+        await show_natal_elements(update, context)
+        return
+    if action == "save":
+        await query.answer("Salvato")
+        await save_natal_profile(update, context)
+        return
+    if action == "me":
+        await query.answer()
+        await natal_open(update, context)
+        return
+    if action == "reload":
+        await query.answer("Ricalcolo…")
+        await reload_saved_natal(update, context)
+        return
+    if action == "transits":
+        await query.answer()
+        await show_natal_transits(update, context)
+        return
+    await query.answer("Bottone stanco. Riprova con /tema.")
+
+
+async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    action = query.data.split(":")[1] if ":" in query.data else ""
+    if action == "oroscopo":
+        await query.answer()
+        await begin_oroscopo(update, context, "")
+        return
+    if action == "luna":
+        await query.answer()
+        await cmd_luna(update, context)
+        return
+    await query.answer()
+
+
 async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _tarot_reset(context)
+    _flows_reset(context)
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -1545,7 +2580,7 @@ async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _tarot_reset(context)
+    _flows_reset(context)
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -1692,7 +2727,7 @@ async def _deliver_apod(
 
 
 async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _tarot_reset(context)
+    _flows_reset(context)
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -1711,7 +2746,7 @@ async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_stelle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _tarot_reset(context)
+    _flows_reset(context)
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -1738,6 +2773,8 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if message is None or not message.text:
         return
     text = message.text.strip()
+    if await receive_natal_text(update, context, text):
+        return
     state = context.user_data.get(TAROT_STATE_KEY)
     if isinstance(state, dict) and state.get("awaiting_question"):
         await receive_tarot_question(update, context, text)
@@ -1791,6 +2828,7 @@ async def post_init(application: Application) -> None:
         await application.bot.set_my_commands(
             [
                 BotCommand("start", "Presentazione del bot"),
+                BotCommand("tema", "Tema natale guidato"),
                 BotCommand("oroscopo", "Oroscopo: giorno, settimana o mese"),
                 BotCommand("tarocchi", "Lettura guidata dei tarocchi"),
                 BotCommand("luna", "Fase lunare di oggi"),
@@ -1822,6 +2860,7 @@ def build_application(token: str) -> Application:
     )
 
     application.add_handler(CommandHandler("start", cmd_start))
+    application.add_handler(CommandHandler(["tema", "natale", "temanatale"], cmd_tema))
     application.add_handler(CommandHandler("oroscopo", cmd_oroscopo))
     application.add_handler(CommandHandler(["tarocchi", "tarot", "tarocco"], cmd_tarocchi))
     application.add_handler(CommandHandler("luna", cmd_luna))
@@ -1831,6 +2870,8 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler(["aiuto", "help"], cmd_aiuto))
     application.add_handler(CallbackQueryHandler(on_oroscopo_period, pattern=r"^horo:"))
     application.add_handler(CallbackQueryHandler(on_tarot_action, pattern=r"^tarot:"))
+    application.add_handler(CallbackQueryHandler(on_natal_action, pattern=r"^natal:"))
+    application.add_handler(CallbackQueryHandler(on_home_action, pattern=r"^home:"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))
     application.add_error_handler(on_error)
