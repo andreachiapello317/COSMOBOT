@@ -683,6 +683,23 @@ def _is_not_modified(exc: TelegramError) -> bool:
     return "not modified" in str(exc).lower()
 
 
+async def delete_user_command(update: Update) -> None:
+    """Cancella il comando dell'utente dopo una risposta riuscita.
+
+    Non tocca i tap sui bottoni (sarebbe il messaggio del bot) e ignora
+    i casi in cui Telegram non ci lascia cancellare (gruppo senza privilegi).
+    """
+    if update.callback_query is not None:
+        return
+    message = update.effective_message
+    if message is None:
+        return
+    try:
+        await message.delete()
+    except TelegramError as exc:
+        logger.info("Comando utente non cancellato: %s", exc)
+
+
 async def deliver_text(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -837,10 +854,12 @@ def help_text() -> str:
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await reply_html(update, context, start_text())
+    await delete_user_command(update)
 
 
 async def cmd_aiuto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await reply_html(update, context, help_text())
+    await delete_user_command(update)
 
 
 async def cmd_oroscopo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -892,6 +911,7 @@ async def show_oroscopo_picker(
         text,
         reply_markup=oroscopo_keyboard(sign),
     )
+    await delete_user_command(update)
 
 
 async def send_oroscopo_period(
@@ -935,6 +955,7 @@ async def send_oroscopo_period(
         body,
         reply_markup=oroscopo_keyboard(sign, selected=period),
     )
+    await delete_user_command(update)
 
 
 async def on_oroscopo_period(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1030,6 +1051,7 @@ async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "(fase + testo del giorno).</i>"
     )
     await reply_html(update, context, "\n".join(lines))
+    await delete_user_command(update)
 
 
 async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1106,6 +1128,7 @@ async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         "Posizioni tropicali.</i>"
     )
     await reply_html(update, context, "\n".join(lines))
+    await delete_user_command(update)
 
 
 async def _deliver_apod(
@@ -1189,6 +1212,7 @@ async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             item,
             intro="🔭 <b>Astronomy Picture of the Day</b>",
         )
+        await delete_user_command(update)
     except StelleOfflineError:
         logger.exception("APOD odierno non disponibile")
         await reply_offline(update, context)
@@ -1209,6 +1233,7 @@ async def cmd_stelle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 "<i>Niente barzellette sul Big Bang: i fatti sono quelli della foto.</i>"
             ),
         )
+        await delete_user_command(update)
     except StelleOfflineError:
         logger.exception("Curiosità APOD random non disponibile")
         await reply_offline(update, context)
