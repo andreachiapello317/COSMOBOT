@@ -18,7 +18,15 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | `/asteroidi` | Ceres, Vesta, Pallade, Giunone nel tema natale | [NASA JPL Horizons](https://ssd.jpl.nasa.gov/horizons) + case CosmyDay |
 | `/meteore` | Prossimo sciame e calendario dei picchi | [Skytime meteor-showers](https://skytime.live/api/docs) |
 | `/spazio` | Briefing del giorno: Luna, pianeti, eventi, sciami, cielo osservabile | CosmyDay events + Skytime + skymap.sh + sunrisesunset.io |
-| `/osserva` | Cosa si vede stasera da una città (Luna, pianeti, costellazioni) | [skymap.sh](https://skymap.sh) + geocoding CosmyDay |
+| `/osserva` | Cosa si vede stasera da una città (Luna, pianeti, costellazioni, mappa) | [skymap.sh](https://skymap.sh) + geocoding CosmyDay |
+| `/rune` | Rituale Elder Futhark: domanda, 1 o 3 rune, upright/reversed | dataset interno (`services/runes.py`) |
+| `/iss` | Posizione live della ISS + mappa | [Where the ISS at?](https://wheretheiss.at/w/developer) |
+| `/cosmico` | Scheda del momento: Luna, cielo, carta, I Ching, APOD | stesse API già usate, in parallelo |
+| `/esplora` | Mappa a sezioni: me / risposte / cielo / universo | — |
+| `/domanda` | Una domanda, poi scegli tarocchi, I Ching o rune | riusa i workflow esistenti |
+| `/eventi` | Prossimi eventi del cielo | CosmyDay + Skytime |
+| `/sole` | Alba, mezzogiorno, tramonto, durata del giorno | sunrisesunset.io |
+| `/transiti` | Cielo di oggi sul tema salvato | CosmyDay |
 | `/luna` | Fase, illuminazione, moonrise/moonset + spiegazione del giorno | [sunrisesunset.io](https://sunrisesunset.io/api/) + [CosmyDay](https://api.cosmyday.com/content/moon) |
 | `/pianeti` | Posizioni attuali dei pianeti principali sopra Roma | [CosmyDay `/natal`](https://cosmyday.com/api-docs) (Swiss Ephemeris) |
 | `/apod` | Astronomy Picture of the Day (foto o video) | [NASA APOD](https://api.nasa.gov) |
@@ -35,7 +43,9 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 `/asteroidi` legge Ceres, Vesta, Pallade e Giunone sulla carta natale (NASA Horizons + case CosmyDay). Serve un tema salvato o appena calcolato.
 
-`/meteore` mostra il prossimo sciame (picco e ZHR) e quelli in arrivo. `/spazio` è il briefing del giorno. `/osserva` chiede la città e dice cosa c’è sopra l’orizzonte stasera.
+`/meteore` mostra il prossimo sciame (picco e ZHR) e quelli in arrivo. `/spazio` è il briefing del giorno. `/osserva` chiede la città e dice cosa c’è sopra l’orizzonte stasera, con stelle di visibilità ricavate da altezza/magnitudine e un link alla mappa del cielo.
+
+`/start` apre una home a tre aree (astrologia, divinazione, spazio) più **COSMICO**. `/esplora` è la stessa mappa suddivisa in sezioni. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` aggrega i servizi già presenti e se uno cade gli altri restano.
 
 In chat il bot tiene **un solo messaggio**: ogni comando modifica (o sostituisce) la risposta precedente, senza accodarne di nuove. Il comando che hai scritto (`/luna`, `/oroscopo`…) viene cancellato appena la risposta è pronta.
 
@@ -182,9 +192,14 @@ Cambia `DEFAULT_SIGN` in `virgo`, `scorpio`, ecc. (nome inglese minuscolo).
 ## Struttura
 
 ```text
-bot.py           # applicazione completa
+bot.py                 # handler Telegram, polling + webhook
+services/runes.py      # dataset Elder Futhark
+services/iss.py        # posizione ISS
+services/astronomy.py  # visibilità da numeri live
+ui/keyboards.py        # home a sezioni
+ui/texts.py            # testi home / esplora / rune
 requirements.txt
-.env.example     # modello, da copiare in .env (mai committare il token)
+.env.example
 README.md
 ```
 
