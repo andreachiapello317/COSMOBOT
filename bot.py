@@ -626,6 +626,14 @@ TAROT_HISTORY_MAX = 12
 TAROT_HISTORY_PATH = Path("data/tarot_history.json")
 _tarot_history_lock = asyncio.Lock()
 
+ICHING_STATE_KEY = "iching_flow"
+ICHING_HEX_URLS = (
+    "https://raw.githubusercontent.com/jesshewitt/i-ching/main/site/data/hexagrams.json",
+    "https://cdn.jsdelivr.net/gh/jesshewitt/i-ching@main/site/data/hexagrams.json",
+)
+ICHING_YANG = "▬▬▬▬▬▬▬"
+ICHING_YIN = "▬▬▬ ▬▬▬"
+
 MAJOR_CARD_EMOJI = {
     "the fool": "🃏",
     "the magician": "🪄",
@@ -705,6 +713,18 @@ def _tarot_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
     return state
 
 
+def _iching_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(ICHING_STATE_KEY, None)
+
+
+def _iching_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(ICHING_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[ICHING_STATE_KEY] = state
+    return state
+
+
 def _history_load() -> dict[str, Any]:
     if not TAROT_HISTORY_PATH.exists():
         return {}
@@ -745,6 +765,7 @@ def _natal_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
 def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     _tarot_reset(context)
     _natal_reset(context)
+    _iching_reset(context)
 
 
 def _natal_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
@@ -1236,6 +1257,7 @@ def start_text() -> str:
         "• /tema — tema natale guidato (data, ora, luogo)\n"
         "• /oroscopo [segno] — poi scegli giorno, settimana o mese\n"
         "• /tarocchi — lettura guidata: 1 carta, 3 carte, amore, lavoro, domanda\n"
+        "• /iching — consultazione I Ching: domanda, sei lanci, esagramma\n"
         "• /luna — fase lunare di oggi\n"
         "• /pianeti — dove sono i pianeti adesso\n"
         "• /apod — Astronomy Picture of the Day (NASA)\n"
@@ -1257,6 +1279,7 @@ def help_text() -> str:
         f"Segni: {e(list_signs_help())}\n"
         "/luna — fase, illuminazione, alba/tramonto della Luna su Roma\n"
         "/tarocchi — lettura guidata (1 carta, 3 carte, amore, lavoro, domanda)\n"
+        "/iching — I Ching: domanda, rituale, sei lanci, linee mutevoli\n"
         "/pianeti — posizioni attuali (efemeridi CosmyDay / Swiss Ephemeris)\n"
         "/apod — immagine (o video) astronomica del giorno, NASA\n"
         "/stelle — una scheda NASA a caso, tradotta al volo\n"
@@ -1701,6 +1724,456 @@ async def on_tarot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 # ---------------------------------------------------------------------------
+# I Ching — domanda → rituale → sei lanci → esagramma → linee mutevoli
+# Testi Wilhelm 1924 da JSON pubblico; le monete si lanciano qui (3 monete).
+# ---------------------------------------------------------------------------
+
+
+def iching_ready_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[_tarot_btn("✨ SONO PRONTO", "iching:ready")]])
+
+
+def iching_throw_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[_tarot_btn("🪙 LANCIA LE MONETE", "iching:throw")]])
+
+
+def iching_after_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [_tarot_btn("☯️ Nuova consultazione", "iching:new")],
+            [_tarot_btn("🏠 Torna alla Home", "iching:home")],
+        ]
+    )
+
+
+def throw_iching_coins() -> int:
+    """Tre monete: testa=3, croce=2 → 6/7/8/9 (metodo classico)."""
+    return sum(3 if random.random() < 0.5 else 2 for _ in range(3))
+
+
+def cast_iching_lines() -> list[int]:
+    """Sei linee dal basso verso l'alto, come nella tradizione."""
+    return [throw_iching_coins() for _ in range(6)]
+
+
+def lines_to_value(lines: list[int], *, transformed: bool = False) -> str:
+    bits: list[str] = []
+    for number in lines:
+        yang = number in (7, 9)
+        if transformed and number in (6, 9):
+            yang = not yang
+        bits.append("7" if yang else "8")
+    return "".join(reversed(bits))
+
+
+def changing_line_numbers(lines: list[int]) -> list[int]:
+    return [idx + 1 for idx, number in enumerate(lines) if number in (6, 9)]
+
+
+def render_hexagram(lines: list[int]) -> str:
+    rows: list[str] = []
+    for number in reversed(lines):
+        rows.append(ICHING_YANG if number in (7, 9) else ICHING_YIN)
+    return "\n".join(rows)
+
+
+def hex_short_name(ename: str) -> str:
+    cleaned = re.sub(r"\s*\([^)]*\)\s*", " ", ename).strip()
+    return re.sub(r"\s+", " ", cleaned) or ename
+
+
+def first_sentences(text: str, count: int = 1, limit: int = 280) -> str:
+    compact = re.sub(r"\s+", " ", (text or "").strip())
+    if not compact:
+        return ""
+    parts = re.split(r"(?<=[.!?])\s+", compact)
+    out = " ".join(parts[: max(1, count)]).strip()
+    return clip_text(out, limit)
+
+
+def clean_line_oracle(raw: str) -> str:
+    text = (raw or "").strip()
+    text = re.sub(r"^A (nine|six)[^\n]*means:\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^When all lines are (nines|sixes), this means:\s*", "", text, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def it_changing_sentence(nums: list[int]) -> str:
+    labels = [f"{n}ª" for n in nums]
+    if not labels:
+        return "Non ci sono linee mutevoli: l'esagramma si legge così com'è."
+    if len(labels) == 1:
+        return f"La {labels[0]} linea è mutevole."
+    if len(labels) == 2:
+        return f"La {labels[0]} e la {labels[1]} linea sono mutevoli."
+    *rest, last = labels
+    return "La " + ", la ".join(rest) + f" e la {last} linea sono mutevoli."
+
+
+def _index_hexagrams(raw: Any) -> dict[str, dict[int | str, dict[str, Any]]]:
+    if not isinstance(raw, list):
+        raise StelleOfflineError("libro I Ching non valido")
+    by_id: dict[int, dict[str, Any]] = {}
+    by_value: dict[str, dict[str, Any]] = {}
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            hid = int(item.get("id") or 0)
+        except (TypeError, ValueError):
+            continue
+        value = str(item.get("value") or "").strip()
+        if hid < 1 or hid > 64 or len(value) != 6:
+            continue
+        by_id[hid] = item
+        by_value[value] = item
+    if len(by_id) < 64:
+        raise StelleOfflineError("libro I Ching incompleto")
+    return {"by_id": by_id, "by_value": by_value}
+
+
+async def api_iching_book(
+    client: httpx.AsyncClient,
+    context: ContextTypes.DEFAULT_TYPE | None = None,
+) -> dict[str, dict[int | str, dict[str, Any]]]:
+    if context is not None:
+        cached = context.bot_data.get("iching_book")
+        if isinstance(cached, dict) and cached.get("by_id"):
+            return cached
+    last_error: Exception | None = None
+    for url in ICHING_HEX_URLS:
+        try:
+            raw = await fetch_json(client, url)
+            book = _index_hexagrams(raw)
+            if context is not None:
+                context.bot_data["iching_book"] = book
+            return book
+        except StelleOfflineError as exc:
+            last_error = exc
+            logger.warning("I Ching: fonte %s non disponibile: %s", url, exc)
+    raise StelleOfflineError("libro I Ching offline") from last_error
+
+
+def hex_from_lines(
+    book: dict[str, dict[int | str, dict[str, Any]]],
+    lines: list[int],
+    *,
+    transformed: bool = False,
+) -> dict[str, Any]:
+    value = lines_to_value(lines, transformed=transformed)
+    item = book["by_value"].get(value)
+    if not isinstance(item, dict):
+        raise StelleOfflineError("esagramma non trovato nel libro")
+    return item
+
+
+def changing_oracles(hexagram: dict[str, Any], lines: list[int]) -> list[dict[str, str]]:
+    raw_lines = hexagram.get("lines")
+    if not isinstance(raw_lines, list):
+        raw_lines = []
+    out: list[dict[str, str]] = []
+    changing = changing_line_numbers(lines)
+    for num in changing:
+        text = ""
+        if num - 1 < len(raw_lines):
+            text = clean_line_oracle(str(raw_lines[num - 1] or ""))
+        if text:
+            out.append({"n": str(num), "text": text})
+    if len(changing) == 6 and len(raw_lines) > 6:
+        extra = clean_line_oracle(str(raw_lines[6] or ""))
+        if extra:
+            out.append({"n": "tutte", "text": extra})
+    return out
+
+
+def build_iching_reading_en(
+    question: str,
+    primary: dict[str, Any],
+    changing: list[dict[str, str]],
+    transformed: dict[str, Any] | None,
+) -> str:
+    name = hex_short_name(str(primary.get("ename") or "Hexagram"))
+    hid = int(primary.get("id") or 0)
+    theme = first_sentences(str(primary.get("commentary") or ""), 1, 320)
+    judgment = first_sentences(str(primary.get("judgment") or ""), 3, 360)
+    pieces = [
+        f'The question is: "{question}".',
+        f"The I Ching answers with hexagram {hid} — {name}.",
+    ]
+    if theme:
+        pieces.append(theme)
+    if judgment:
+        pieces.append(f"The Judgment says: {judgment}")
+    if changing:
+        pieces.append("The situation is not static. These changing lines speak:")
+        for item in changing:
+            label = "All lines together" if item["n"] == "tutte" else f"Line {item['n']}"
+            pieces.append(f"{label}: {item['text']}")
+        if transformed is not None:
+            tname = hex_short_name(str(transformed.get("ename") or "Hexagram"))
+            tid = int(transformed.get("id") or 0)
+            tjud = first_sentences(str(transformed.get("judgment") or ""), 3, 320)
+            pieces.append(
+                f"The original hexagram describes the present situation. "
+                f"After the changing lines it becomes hexagram {tid} — {tname}, "
+                f"the symbolic direction indicated by the change."
+            )
+            if tjud:
+                pieces.append(f"Its Judgment: {tjud}")
+    else:
+        pieces.append(
+            "There are no changing lines. The hexagram is read as a still image of the situation."
+        )
+    return " ".join(pieces)
+
+
+async def _iching_blank() -> str:
+    return ""
+
+
+def iching_final_en(primary: dict[str, Any], transformed: dict[str, Any] | None) -> str:
+    source = transformed if transformed is not None else primary
+    image = first_sentences(str(source.get("image") or ""), 2, 280)
+    if image:
+        return image
+    return first_sentences(str(source.get("judgment") or ""), 2, 240)
+
+
+async def cmd_iching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_iching_intro(update, context)
+    await delete_user_command(update)
+
+
+async def show_iching_intro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _iching_state(context)
+    state.clear()
+    state["step"] = "intro"
+    text = (
+        "☯️ <b>I CHING</b>\n\n"
+        "L'I Ching può essere usato come strumento di riflessione sulla "
+        "situazione che stai vivendo.\n\n"
+        "Pensa a una domanda precisa.\n\n"
+        "Non deve essere necessariamente una domanda con risposta sì/no.\n\n"
+        "Quando hai formulato la domanda, premi il pulsante."
+    )
+    await reply_html(update, context, text, reply_markup=iching_ready_keyboard())
+
+
+async def show_iching_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _iching_state(context)
+    state["step"] = "ask"
+    state.pop("question", None)
+    text = (
+        "☯️ <b>Qual è la tua domanda?</b>\n\n"
+        "Scrivila in un messaggio.\n\n"
+        "Esempio:\n"
+        "<i>Cosa dovrei comprendere della situazione che sto vivendo?</i>"
+    )
+    await reply_html(update, context, text)
+
+
+async def show_iching_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _iching_state(context)
+    question = str(state.get("question") or "").strip()
+    if not question:
+        await show_iching_ask(update, context)
+        return
+    state["step"] = "confirm"
+    text = (
+        "☯️ <b>La tua domanda</b>\n\n"
+        f"<i>«{e(question)}»</i>\n\n"
+        "Concentrati ancora qualche secondo.\n\n"
+        "Quando sei pronto, lanceremo le monete."
+    )
+    await reply_html(update, context, text, reply_markup=iching_throw_keyboard())
+
+
+async def receive_iching_question(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    question: str,
+) -> None:
+    question = clip_text(question.strip(), 400)
+    if len(question) < 8:
+        await reply_html(
+            update,
+            context,
+            "☯️ Serve una domanda un po' più chiara, anche una sola frase.\n"
+            "Esempio: <i>Cosa dovrei comprendere della situazione che sto vivendo?</i>",
+        )
+        return
+    state = _iching_state(context)
+    state["question"] = question
+    await show_iching_confirm(update, context)
+    await delete_user_command(update)
+
+
+async def send_iching_cast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _iching_state(context)
+    question = str(state.get("question") or "").strip()
+    if not question:
+        await show_iching_ask(update, context)
+        return
+    state["step"] = "throw"
+    lines = cast_iching_lines()
+    state["lines"] = lines
+
+    await send_typing(update)
+    progress = ["☯️ <b>I sei lanci</b>", "", "Le linee si costruiscono dal basso verso l'alto.", ""]
+    await deliver_text(update, context, "\n".join(progress + ["🪙 Le monete sono in mano…"]))
+    for idx in range(1, 7):
+        progress.append(f"🪙 Lancio {idx}...")
+        await asyncio.sleep(0.38)
+        await deliver_text(update, context, "\n".join(progress))
+
+    await asyncio.sleep(0.25)
+    await deliver_text(update, context, "📖 Apro il libro dei mutamenti…")
+    client = _http_client(context)
+    try:
+        book = await api_iching_book(client, context)
+        primary = hex_from_lines(book, lines)
+        changing_nums = changing_line_numbers(lines)
+        transformed = hex_from_lines(book, lines, transformed=True) if changing_nums else None
+        if transformed is not None and int(transformed.get("id") or 0) == int(primary.get("id") or 0):
+            transformed = None
+        oracles = changing_oracles(primary, lines)
+        reading_en = build_iching_reading_en(question, primary, oracles, transformed)
+        final_en = iching_final_en(primary, transformed)
+        name_en = hex_short_name(str(primary.get("ename") or "Hexagram"))
+        tname_en = hex_short_name(str((transformed or {}).get("ename") or "Hexagram"))
+        name_it, tname_it, reading_it, final_it = await asyncio.gather(
+            translate_to_italian(client, name_en),
+            translate_to_italian(client, tname_en) if transformed else _iching_blank(),
+            translate_to_italian(client, reading_en),
+            translate_to_italian(client, final_en),
+        )
+    except StelleOfflineError:
+        logger.exception("I Ching: libro o traduzione non disponibili")
+        await reply_html(
+            update,
+            context,
+            "Le stelle sono temporaneamente offline ✨ riprova tra poco\n\n"
+            "Il libro dei mutamenti non ha risposto. Puoi rilanciare le monete.",
+            reply_markup=iching_throw_keyboard(),
+        )
+        return
+
+    primary_id = int(primary.get("id") or 0)
+    transformed_id = int(transformed.get("id") or 0) if transformed else 0
+    text = format_iching_result(
+        question=question,
+        lines=lines,
+        primary_id=primary_id,
+        primary_name=name_it or name_en,
+        changing=changing_nums,
+        transformed_id=transformed_id,
+        transformed_name=(tname_it or tname_en) if transformed else "",
+        reading=reading_it,
+        final=final_it,
+    )
+    state["step"] = "done"
+    await reply_html(update, context, text, reply_markup=iching_after_keyboard())
+
+
+def format_iching_result(
+    *,
+    question: str,
+    lines: list[int],
+    primary_id: int,
+    primary_name: str,
+    changing: list[int],
+    transformed_id: int,
+    transformed_name: str,
+    reading: str,
+    final: str,
+) -> str:
+    header_name = primary_name.upper()
+    graphic = render_hexagram(lines)
+    change_txt = " · ".join(str(n) for n in changing) if changing else "nessuna"
+    blocks = [
+        "☯️ <b>I CHING</b>",
+        "",
+        f"<b>{primary_id} · {e(header_name)}</b>",
+        "",
+        "La tua domanda:",
+        f"<i>«{e(question)}»</i>",
+        "",
+        "──────────────",
+        "",
+        "☯️ <b>ESAGRAMMA</b>",
+        f"{primary_id} — {e(primary_name)}",
+        "",
+        e(graphic),
+        "",
+        "🔄 <b>LINEE MUTEVOLI</b>",
+        e(change_txt),
+        f"<i>{e(it_changing_sentence(changing))}</i>",
+    ]
+    if changing and transformed_id:
+        blocks.extend(
+            [
+                "",
+                "➡️ <b>TRASFORMAZIONE</b>",
+                f"{primary_id} → {transformed_id}",
+                f"{transformed_id} — {e(transformed_name)}",
+                "",
+                "<i>L'esagramma iniziale descrive la situazione. "
+                "Quello trasformato è la direzione simbolica indicata "
+                "dal cambiamento delle linee.</i>",
+            ]
+        )
+    blocks.extend(
+        [
+            "",
+            "──────────────",
+            "",
+            "🔮 <b>LA LETTURA</b>",
+            "",
+            e(clip_text(reading, 1600)),
+            "",
+            "✨ <b>MESSAGGIO FINALE</b>",
+            "",
+            e(clip_text(final, 400)),
+            "",
+            "──────────────",
+            "",
+            "<i>Testi Wilhelm (1924), da un libro pubblico live, tradotti al volo. "
+            "Non è un oracolo infallibile: è uno specchio su cui riflettere.</i>",
+        ]
+    )
+    return "\n".join(blocks)
+
+
+async def on_iching_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    action = query.data.split(":")[1] if ":" in query.data else ""
+
+    if action in {"open", "new"}:
+        await query.answer()
+        _flows_reset(context)
+        await show_iching_intro(update, context)
+        return
+    if action == "ready":
+        await query.answer()
+        await show_iching_ask(update, context)
+        return
+    if action == "throw":
+        await query.answer("Le monete cadono…")
+        await send_iching_cast(update, context)
+        return
+    if action == "home":
+        await query.answer()
+        _flows_reset(context)
+        await reply_html(update, context, start_text(), reply_markup=home_keyboard())
+        return
+    await query.answer("Bottone stanco. Riprova con /iching.")
+
+
+# ---------------------------------------------------------------------------
 # Tema natale — workflow guidato (CosmyDay /natal + geocoding)
 # ---------------------------------------------------------------------------
 
@@ -1709,7 +2182,8 @@ def home_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [_tarot_btn("🌌 Tema Natale", "natal:open"), _tarot_btn("🔮 Tarocchi", "tarot:menu")],
-            [_tarot_btn("♈ Oroscopo", "home:oroscopo"), _tarot_btn("🌙 Luna", "home:luna")],
+            [_tarot_btn("☯️ I Ching", "iching:open"), _tarot_btn("♈ Oroscopo", "home:oroscopo")],
+            [_tarot_btn("🌙 Luna", "home:luna")],
         ]
     )
 
@@ -2775,6 +3249,10 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     text = message.text.strip()
     if await receive_natal_text(update, context, text):
         return
+    iching = context.user_data.get(ICHING_STATE_KEY)
+    if isinstance(iching, dict) and iching.get("step") == "ask":
+        await receive_iching_question(update, context, text)
+        return
     state = context.user_data.get(TAROT_STATE_KEY)
     if isinstance(state, dict) and state.get("awaiting_question"):
         await receive_tarot_question(update, context, text)
@@ -2791,7 +3269,8 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         update,
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale né un comando.\n"
-        "Scrivi ad esempio <i>vergine</i>, oppure /oroscopo bilancia, oppure /tarocchi.",
+        "Scrivi ad esempio <i>vergine</i>, oppure /oroscopo bilancia, "
+        "oppure /tarocchi o /iching.",
     )
 
 
@@ -2831,6 +3310,7 @@ async def post_init(application: Application) -> None:
                 BotCommand("tema", "Tema natale guidato"),
                 BotCommand("oroscopo", "Oroscopo: giorno, settimana o mese"),
                 BotCommand("tarocchi", "Lettura guidata dei tarocchi"),
+                BotCommand("iching", "Consultazione I Ching"),
                 BotCommand("luna", "Fase lunare di oggi"),
                 BotCommand("pianeti", "Posizioni attuali dei pianeti"),
                 BotCommand("apod", "Foto NASA del giorno"),
@@ -2863,6 +3343,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler(["tema", "natale", "temanatale"], cmd_tema))
     application.add_handler(CommandHandler("oroscopo", cmd_oroscopo))
     application.add_handler(CommandHandler(["tarocchi", "tarot", "tarocco"], cmd_tarocchi))
+    application.add_handler(CommandHandler(["iching", "yijing"], cmd_iching))
     application.add_handler(CommandHandler("luna", cmd_luna))
     application.add_handler(CommandHandler("pianeti", cmd_pianeti))
     application.add_handler(CommandHandler("apod", cmd_apod))
@@ -2870,6 +3351,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler(["aiuto", "help"], cmd_aiuto))
     application.add_handler(CallbackQueryHandler(on_oroscopo_period, pattern=r"^horo:"))
     application.add_handler(CallbackQueryHandler(on_tarot_action, pattern=r"^tarot:"))
+    application.add_handler(CallbackQueryHandler(on_iching_action, pattern=r"^iching:"))
     application.add_handler(CallbackQueryHandler(on_natal_action, pattern=r"^natal:"))
     application.add_handler(CallbackQueryHandler(on_home_action, pattern=r"^home:"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
