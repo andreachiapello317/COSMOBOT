@@ -17,7 +17,7 @@ CLIMATES = (
 )
 NOTES = (
     "Pensato per una sessione di gioco, non per un paper.",
-    "I numeri sono dadi, non misure TAP.",
+    "I numeri sono dadi, non misure dell'archivio NASA.",
     "Se ti serve un mondo reale, torna su /mondi e pesca l'archivio NASA.",
 )
 

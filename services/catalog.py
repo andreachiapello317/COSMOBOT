@@ -72,7 +72,7 @@ LIFE_TOPICS: tuple[dict[str, str], ...] = (
     {"id": "ocean", "it": "Oceani sotto il ghiaccio", "wiki": "Europa_(moon)", "emoji": "🌊"},
     {"id": "exo", "it": "Esopianeti", "wiki": "Exoplanet", "emoji": "🪐"},
     {"id": "seti", "it": "SETI", "wiki": "SETI", "emoji": "📡"},
-    {"id": "bio", "it": "Biosignature", "wiki": "Biosignature", "emoji": "🧫"},
+    {"id": "bio", "it": "Firme biologiche", "wiki": "Biosignature", "emoji": "🧫"},
     {"id": "micro", "it": "Estremofili", "wiki": "Extremophile", "emoji": "🦠"},
     {"id": "hz", "it": "Zona abitabile", "wiki": "Circumstellar_habitable_zone", "emoji": "🌍"},
     {"id": "org", "it": "Molecole organiche", "wiki": "Organic_compound", "emoji": "🧪"},

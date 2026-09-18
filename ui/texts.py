@@ -12,7 +12,7 @@ def home_text() -> str:
         "👽 <b>VITA</b> — esopianeti, zona abitabile, SETI\n"
         "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n\n"
         "✨ <b>COSMICO</b> prende un pezzo da ogni mondo.\n"
-        "🎲 <b>RANDOM</b> pesca nel sacco: carta, cielo o sonda."
+        "🎲 <b>CASUALE</b> pesca nel sacco: carta, cielo o sonda."
     )
 
 
@@ -90,7 +90,7 @@ def world_sky_text() -> str:
         "⭐ Stelle e costellazioni — schede Wikipedia + cielo live\n"
         "🌠 Eventi — eclissi, sciami, attività solare, perigeo/apogeo\n"
         "🛰️ Profondo — Messier, nebulose, quasar, esopianeti\n\n"
-        "I numeri arrivano da skymap.sh, Skytime, Wikidata, NASA. "
+        "I numeri arrivano dalla mappa del cielo, da Skytime, Wikidata e NASA. "
         "Niente visibilità inventata."
     )
 
@@ -101,22 +101,22 @@ def world_mondi_text() -> str:
         "Un esploratore, non un oracolo.\n\n"
         "🌍 <b>Esplora mondi</b> — filtri NASA: terrestri, oceanici (modello),\n"
         "ghiacciati, infernali, multi-stella, strani\n"
-        "⭐ <b>Sistemi</b> — albero TAP di un host, TRAPPIST-1 incluso\n"
+        "⭐ <b>Sistemi</b> — albero di una stella ospite, TRAPPIST-1 incluso\n"
         "☀️ <b>Sistema Solare</b> — schede Wikidata, lune, nani, comete\n"
         "🚀 <b>Chi è andato lì</b> — missione → corpi del catalogo\n"
         "🎲 <b>Casuale</b> o <b>generato</b> (il generato è etichettato finto)\n"
         "📌 I mondi che salvi restano sul server (file locale)\n\n"
-        "Atmosfera e acqua, se non sono nell'API, restano «sconosciute»."
+        "Atmosfera e acqua, se non sono nell'archivio, restano «sconosciute»."
     )
 
 
 def mondi_hub_text() -> str:
     return (
         "🌌 <b>ESPLORA I MONDI</b>\n\n"
-        "Ogni filtro è una query TAP sull'archivio NASA, oppure una scheda Wikipedia.\n"
-        "🌊 Oceanici e 🌱 abitabili = fasce di raggio/Teq, non oceani e non vita.\n"
+        "Ogni filtro è una ricerca sull'archivio NASA, oppure una scheda Wikipedia.\n"
+        "🌊 Oceanici e 🌱 abitabili = fasce di raggio e temperatura, non oceani e non vita.\n"
         "🌋 Vulcanici, 💍 anelli, 🌙 molte lune: corpi del Sistema Solare con voce.\n"
-        "🌑 Senza stella: se TAP non ha righe, apro la voce sui pianeti erranti.\n"
+        "🌑 Senza stella: se l'archivio è vuoto, apro la voce sui pianeti erranti.\n"
         "🎲 Genera = mondo immaginario, scritto grande che è finto."
     )
 
@@ -135,9 +135,9 @@ def cosmo_text() -> str:
 def sistemi_text() -> str:
     return (
         "⭐ <b>SISTEMI STELLARI</b>\n\n"
-        "Un host, i suoi pianeti nell'archivio, un albero. "
-        "Niente lune extrasolari: TAP quasi non le ha.\n"
-        "Il Sistema Solare resta la scheda Wikidata, non un dump Horizons."
+        "Una stella ospite, i suoi pianeti nell'archivio, un albero. "
+        "Niente lune extrasolari: l'archivio quasi non le ha.\n"
+        "Il Sistema Solare resta la scheda Wikidata, non uno scarico JPL."
     )
 
 
@@ -145,7 +145,7 @@ def life_plus_text() -> str:
     return (
         "🧬 <b>E SE CI FOSSE VITA?</b>\n\n"
         "Due piani, tenuti distinti.\n\n"
-        "<b>Osservato / documentato</b> — voci Wikipedia: SETI, biosignature, "
+        "<b>Osservato / documentato</b> — voci Wikipedia: SETI, firme biologiche, "
         "estremofili, zona abitabile, oceani sotto il ghiaccio.\n\n"
         "<b>Speculazione</b> — il paradosso di Fermi è un argomento, "
         "non una rivelazione. I candidati HZ sono un filtro numerico.\n\n"

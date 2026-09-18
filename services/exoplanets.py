@@ -35,7 +35,7 @@ def classify_radius(rade: Any) -> str:
     try:
         value = float(rade)
     except (TypeError, ValueError):
-        return "tipo sconosciuto (manca il raggio TAP)"
+        return "tipo sconosciuto (manca il raggio in archivio)"
     if value < 1.8:
         return "terrestre (modello: raggio < 1.8 R⊕)"
     if value < 4:
@@ -75,7 +75,7 @@ FILTERS: dict[str, tuple[str, str, str]] = {
     "hotjup": (
         "pl_rade>8 and pl_orbper<10 and sy_dist is not null",
         "pl_orbper",
-        "atmosfere estreme (gigante + anno breve: proxy TAP, non spettro)",
+        "atmosfere estreme (gigante + anno breve: stima da archivio, non spettro)",
     ),
     "ecc": (
         "pl_orbeccen>0.5 and sy_dist is not null",
@@ -110,7 +110,7 @@ FILTERS: dict[str, tuple[str, str, str]] = {
     "rogue": (
         "(hostname is null or sy_snum=0)",
         "pl_name",
-        "senza stella (righe TAP senza host)",
+        "senza stella (righe senza stella ospite)",
     ),
 }
 

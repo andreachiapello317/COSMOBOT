@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from services.exoplanets import classify_radius
+from services.i18n import discovery_it
 from services.catalog import (
     ASTRONAUTS,
     BLACK_HOLES,
@@ -158,7 +159,7 @@ def format_sheet(kind: str, item: dict[str, str], payload: dict[str, Any]) -> st
     if wiki and wiki.get("extract"):
         extract = str(wiki["extract"])
         if wiki.get("lang") == "en":
-            lines.append("📖 <b>Wikipedia</b> <i>(originale inglese)</i>")
+            lines.append("📖 <b>Wikipedia</b> <i>(voce inglese, tradotta)</i>")
         else:
             lines.append("📖 <b>Wikipedia</b>")
         lines.append(e(clip(extract, 900)))
@@ -175,7 +176,7 @@ def format_sheet(kind: str, item: dict[str, str], payload: dict[str, Any]) -> st
             lines.append(f'<a href="{e(explore["url"])}">Esplorazione (Wikipedia)</a>')
         lines.append("")
     if image and image.get("title"):
-        lines.append(f"🖼️ NASA: <i>{e(clip(str(image['title']), 120))}</i>")
+        lines.append(f"🖼️ Immagine NASA: <i>{e(clip(str(image['title']), 120))}</i>")
     lines.append("<i>Fonti live: Wikipedia, Wikidata, NASA Images. Nessun numero scritto a mano.</i>")
     return "\n".join(lines)
 
@@ -207,23 +208,23 @@ def format_exoplanet(row: dict[str, Any], *, habitable: bool = False) -> str:
         f"pianeti catalogati: {e(planets if planets is not None else '—')}",
         f"📏 Distanza: {e(_fmt_num(row.get('sy_dist'), fmt='~{:.1f}', suffix=' pc'))}",
         f"🌍 Raggio: {e(_fmt_num(row.get('pl_rade'), fmt='{:.2f}', suffix=' R⊕'))}",
-        f"⚖️ Massa (best mass TAP): {e(_fmt_num(row.get('pl_bmasse'), fmt='{:.2f}', suffix=' M⊕'))}",
+        f"⚖️ Massa (stima migliore dell'archivio): {e(_fmt_num(row.get('pl_bmasse'), fmt='{:.2f}', suffix=' M⊕'))}",
         f"🌡️ Temperatura di equilibrio: {e(_fmt_num(row.get('pl_eqt'), fmt='{:.0f}', suffix=' K'))}",
         f"⏱️ Anno (periodo): {e(_fmt_num(row.get('pl_orbper'), fmt='{:.2f}', suffix=' giorni'))}",
         f"🌀 Eccentricità: {e(_fmt_num(row.get('pl_orbeccen'), fmt='{:.3f}', suffix=''))}",
         f"🌍 Tipo: {e(kind)}",
         "",
         "🧬 <b>POTENZIALE</b>",
-        "Atmosfera: <b>sconosciuta</b> in questa riga TAP",
+        "Atmosfera: <b>sconosciuta</b> in questa riga dell'archivio",
         "Acqua: <b>da verificare</b> — non è un campo dell'archivio",
         "Abitabilità: <b>da studiare</b> — al massimo un filtro su Teq e raggio",
         "",
-        f"🔭 Scoperta: {e(year)} · {e(method)}",
+        f"🔭 Scoperta: {e(year)} · {e(discovery_it(str(method)))}",
         "",
         "Perché è in elenco: ha questi parametri nell'archivio NASA.",
         "Non è una prova di oceani, atmosfere o vita.",
         "",
-        "<i>Fonte live: NASA Exoplanet Archive, tabella ps, default_flag=1.</i>",
+        "<i>Fonte live: archivio NASA degli esopianeti, scheda principale.</i>",
     ]
     return "\n".join(lines)
 
@@ -253,7 +254,7 @@ def format_exo_list(rows: list[dict[str, Any]], *, title: str, blurb: str) -> st
             rad_txt = "—"
         lines.append(f"🪐 <b>{e(name)}</b> · {e(host)}")
         lines.append(f"   {e(dist_txt)} · {e(rad_txt)} · Teq {e(eqt_txt)}")
-    lines.extend(["", "<i>Filtro TAP live. Numeri dell'archivio, non geologia confermata.</i>"])
+    lines.extend(["", "<i>Filtro live sull'archivio NASA. Numeri dell'archivio, non geologia confermata.</i>"])
     return "\n".join(lines)
 
 
@@ -274,7 +275,7 @@ def format_neo(rows: list[dict[str, Any]]) -> str:
     lines = [
         "☄️ <b>ASTEROIDI VICINI ALLA TERRA</b>",
         "",
-        "Passaggi nei prossimi giorni (NASA NeoWs). Distanza = miss distance al massimo avvicinamento.",
+        "Passaggi nei prossimi giorni (NASA NeoWs). Distanza = avvicinamento minimo.",
         "",
     ]
     if not rows:
@@ -302,7 +303,7 @@ def format_neo(rows: list[dict[str, Any]]) -> str:
         lines.append(f"🪨 <b>{e(name)}</b>{flag}")
         lines.append(f"   {e(row.get('day') or '—')} · Ø {e(diam)}")
         lines.append(f"   distanza {e(miss_txt)} · {e(vel_txt)}")
-    lines.extend(["", "<i>PHA = potentially hazardous asteroid nel catalogo NASA, non un allarme.</i>"])
+    lines.extend(["", "<i>PHA = asteroide potenzialmente pericoloso nel catalogo NASA, non un allarme.</i>"])
     return "\n".join(lines)
 
 
@@ -432,7 +433,7 @@ async def build_quiz(client: httpx.AsyncClient, level: str) -> dict[str, Any] | 
     random.shuffle(options)
     return {
         "level": "expert",
-        "question": f"☠️ NASA Archive: quale stella ospita <b>{e(target['pl_name'])}</b>?",
+            "question": f"☠️ Archivio NASA: quale stella ospita <b>{e(target['pl_name'])}</b>?",
         "options": options,
         "correct": options.index(host),
         "source": "NASA Exoplanet Archive (ps)",

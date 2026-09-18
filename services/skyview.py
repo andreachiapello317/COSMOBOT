@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from services.i18n import compass_it, star_it
+
 PLANET_EMOJI = {
     "Sun": "☀️",
     "Moon": "🌙",
@@ -73,7 +75,7 @@ def collect_marks(sky: dict[str, Any]) -> list[dict[str, Any]]:
                 "emoji": "🌙",
                 "alt": _alt(moon),
                 "az": _az(moon),
-                "compass": moon.get("compass") or "",
+                "compass": compass_it(str(moon.get("compass") or "")),
                 "mag": None,
                 "kind": "moon",
             }
@@ -88,7 +90,7 @@ def collect_marks(sky: dict[str, Any]) -> list[dict[str, Any]]:
                 "emoji": PLANET_EMOJI.get(raw, "🪐"),
                 "alt": _alt(body),
                 "az": _az(body),
-                "compass": body.get("compass") or "",
+                "compass": compass_it(str(body.get("compass") or "")),
                 "mag": _mag(body),
                 "kind": "planet",
             }
@@ -98,11 +100,11 @@ def collect_marks(sky: dict[str, Any]) -> list[dict[str, Any]]:
             continue
         marks.append(
             {
-                "name": str(star["name"]),
+                "name": star_it(str(star["name"])),
                 "emoji": "⭐",
                 "alt": _alt(star),
                 "az": _az(star),
-                "compass": star.get("compass") or "",
+                "compass": compass_it(str(star.get("compass") or "")),
                 "mag": _mag(star),
                 "kind": "star",
             }
@@ -120,7 +122,7 @@ def visibility_line(mark: dict[str, Any]) -> str:
         state = f"↑ {alt:.0f}° {mark.get('compass') or ''}{eye}"
     else:
         state = f"↓ sotto l'orizzonte ({alt:.0f}°)"
-    mag_bit = f" · mag {mag:.1f}" if isinstance(mag, float) else ""
+    mag_bit = f" · magnitudine {mag:.1f}" if isinstance(mag, float) else ""
     return f"{mark['emoji']} {mark['name']} — {state}{mag_bit}"
 
 

@@ -154,7 +154,7 @@ def format_system_tree(card: dict[str, Any]) -> str:
         teff_txt = "—"
     lines = [
         f"⭐ <b>{host}</b>",
-        f"☀️ Stelle nel sistema (TAP): {stars if stars is not None else '—'}",
+        f"☀️ Stelle nel sistema (archivio): {stars if stars is not None else '—'}",
         f"🪐 Pianeti catalogati: {nplan} · distanza {dist_txt}",
         f"🌡️ Teff stella: {teff_txt}",
         "",
@@ -179,7 +179,7 @@ def format_system_tree(card: dict[str, Any]) -> str:
         [
             "",
             "🌍 = raggio < 1.8 R⊕ e Teq 180–310 K (filtro modello).",
-            "<i>Albero dall'archivio NASA, default_flag=1. Nessun pianeta aggiunto a mano.</i>",
+            "<i>Albero dall'archivio NASA, scheda principale. Nessun pianeta aggiunto a mano.</i>",
         ]
     )
     return "\n".join(lines)
