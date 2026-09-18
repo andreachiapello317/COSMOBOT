@@ -13,7 +13,12 @@ import httpx
 from services.catalog import (
     ASTRONAUTS,
     BLACK_HOLES,
+    COMETS,
+    CONSTELLATIONS,
     DAILY_MISSIONS,
+    DEEP_SKY,
+    DWARFS,
+    FAMOUS_ASTEROIDS,
     GALAXIES,
     LEARN_TOPICS,
     LIFE_TOPICS,
@@ -25,6 +30,8 @@ from services.catalog import (
     QUIZ_LEVELS,
     RANDOM_OBJECTS,
     SATELLITES,
+    STARS,
+    STAR_TYPES,
     by_id,
 )
 from services.wiki import nasa_image, wikidata_facts, wikipedia_summary
@@ -41,6 +48,13 @@ CATALOGS: dict[str, tuple[dict[str, str], ...]] = {
     "s": SATELLITES,
     "d": PROBES,
     "r": RANDOM_OBJECTS,
+    "f": DWARFS,
+    "c": COMETS,
+    "z": FAMOUS_ASTEROIDS,
+    "t": STARS,
+    "y": STAR_TYPES,
+    "k": CONSTELLATIONS,
+    "o": DEEP_SKY,
 }
 
 TITLES = {
@@ -55,6 +69,13 @@ TITLES = {
     "s": "SATELLITE",
     "d": "SONDA",
     "r": "OGGETTO",
+    "f": "PIANETA NANO",
+    "c": "COMETA",
+    "z": "ASTEROIDE",
+    "t": "STELLA",
+    "y": "TIPO STELLARE",
+    "k": "COSTELLAZIONE",
+    "o": "CIELO PROFONDO",
 }
 
 
@@ -127,6 +148,12 @@ def format_sheet(kind: str, item: dict[str, str], payload: dict[str, Any]) -> st
         for label, value in facts:
             lines.append(f"• {e(label)}: <code>{e(value)}</code>")
         lines.append("")
+    if kind == "k":
+        lines.append(
+            "✨ Mitologia, stelle principali e come trovarla stanno nella voce Wikipedia: "
+            "non aggiungo istruzioni che l'API non dà."
+        )
+        lines.append("")
     if wiki and wiki.get("extract"):
         extract = str(wiki["extract"])
         if wiki.get("lang") == "en":
@@ -192,16 +219,8 @@ def format_exoplanet(row: dict[str, Any], *, habitable: bool = False) -> str:
     return "\n".join(lines)
 
 
-def format_habitable(rows: list[dict[str, Any]]) -> str:
-    lines = [
-        "🌍 <b>PIANETI NELLA ZONA ABITABILE</b>",
-        "",
-        "Questi mondi hanno <b>temperatura di equilibrio</b> tra 180 e 310 K "
-        "e raggio sotto 1.8 R⊕, secondo i modelli dell'archivio NASA.",
-        "Caratteristiche orbitali compatibili con la <b>presenza potenziale</b> "
-        "di acqua liquida — non una dichiarazione di vita.",
-        "",
-    ]
+def format_exo_list(rows: list[dict[str, Any]], *, title: str, blurb: str) -> str:
+    lines = [f"<b>{title}</b>", "", blurb, ""]
     if not rows:
         lines.append("L'archivio non ha risposto, o il filtro non ha restituito righe.")
         return "\n".join(lines)
@@ -225,8 +244,21 @@ def format_habitable(rows: list[dict[str, Any]]) -> str:
             rad_txt = "—"
         lines.append(f"🪐 <b>{e(name)}</b> · {e(host)}")
         lines.append(f"   {e(dist_txt)} · {e(rad_txt)} · Teq {e(eqt_txt)}")
-    lines.extend(["", "<i>Filtro TAP live, non una lista di mondi abitati.</i>"])
+    lines.extend(["", "<i>Filtro TAP live. Numeri dell'archivio, non geologia confermata.</i>"])
     return "\n".join(lines)
+
+
+def format_habitable(rows: list[dict[str, Any]]) -> str:
+    return format_exo_list(
+        rows,
+        title="🌍 PIANETI NELLA ZONA ABITABILE",
+        blurb=(
+            "Questi mondi hanno <b>temperatura di equilibrio</b> tra 180 e 310 K "
+            "e raggio sotto 1.8 R⊕, secondo i modelli dell'archivio NASA. "
+            "Caratteristiche orbitali compatibili con la <b>presenza potenziale</b> "
+            "di acqua liquida — non una dichiarazione di vita."
+        ),
+    )
 
 
 def format_neo(rows: list[dict[str, Any]]) -> str:

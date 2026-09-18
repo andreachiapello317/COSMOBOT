@@ -34,10 +34,21 @@ from dotenv import load_dotenv
 from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
 
 from services.astronomy import stellarium_url, visibility_stars
-from services.catalog import GALAXIES, MIRROR_QUESTIONS, PLANETS
+from services.catalog import (
+    CONSTELLATIONS,
+    GALAXIES,
+    GIANT_STARS,
+    MIRROR_QUESTIONS,
+    NEAR_STARS,
+    PLANETS,
+    STARS,
+    by_id,
+)
 from services.wiki import wikidata_facts
+from services.skyview import collect_marks, milky_way_hint, text_sky_map, visibility_line
+from services.spaceweather import kp_index, latest_flare, moon_distance_events, next_distance_event
+from services.exoplanets import exoplanets_by_filter, habitable_candidates, random_exoplanet
 from services.eclipses import fetch_eclipses, kind_it, next_of, parse_peak
-from services.exoplanets import habitable_candidates, random_exoplanet
 from services.iss import fetch_iss_position, reverse_iss_place
 from services.neo import near_earth_asteroids
 from services.progress import mission_done, mission_is_done, quiz_board, quiz_record
@@ -61,6 +72,7 @@ from services.sheets import (
     catalog_item,
     countdown_it,
     daily_mission,
+    format_exo_list,
     format_exoplanet,
     format_habitable,
     format_neo,
@@ -74,7 +86,12 @@ from ui.keyboards import (
     astronauts_keyboard,
     blackholes_keyboard,
     cielo_keyboard,
+    comets_keyboard,
+    costellazioni_keyboard,
     cosmico_keyboard,
+    dwarfs_keyboard,
+    eventi_extra_keyboard,
+    famous_asteroids_keyboard,
     domanda_keyboard,
     esplora_keyboard,
     exo_keyboard,
@@ -98,6 +115,8 @@ from ui.keyboards import (
     nav_universo_keyboard,
     planets_keyboard,
     probes_keyboard,
+    profondo_keyboard,
+    stelle_menu_keyboard,
     quiz_menu_keyboard,
     quiz_options_keyboard,
     random_after_keyboard,
@@ -170,6 +189,7 @@ TELEGRAM_CAPTION_MAX = 1024
 
 # In chat_data: ultimo messaggio del bot, da sostituire al comando successivo.
 LAST_BOT_MSG_KEY = "last_bot_msg"
+CIELO_LAST_KEY = "cielo_last"
 
 USER_AGENT = "StelleBot/1.0 (Telegram; https://github.com; educational astrology bot)"
 
@@ -1044,6 +1064,7 @@ def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     _leno_reset(context)
     _lettura_reset(context)
     _oq_reset(context)
+    context.user_data["cielo_ask"] = False
 
 
 def _natal_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
@@ -1770,11 +1791,16 @@ def help_text() -> str:
         "/oracoloplanetario — Sole–Saturno, lettura simbolica\n"
         "/oracololunare — messaggio coerente con la fase live\n"
         "/oracolodande — una domanda introspettiva, poi rifletti\n"
-        "/asteroidi — vicini alla Terra (NeoWs) oppure Ceres/Vesta/Pallade/Giunone nel tema\n"
+        "/asteroidi — NeoWs, asteroidi noti (Wikipedia) o Ceres/Vesta/Pallade/Giunone nel tema\n"
         "/meteore — prossimi sciami, con picco e meteore/ora\n"
         "/spazio — briefing astronomico del giorno\n"
-        "/osserva — cielo di stasera da una città (Luna, pianeti, costellazioni)\n"
-        "/cielo — dashboard sopra Roma: Luna, pianeti, sciami, finestra migliore\n"
+        "/osserva — cielo di stasera da una città, elenco dettagliato\n"
+        "/cielo [città] — cosa vedi ADESSO: mappa testuale, visibile/sotto, città memorizzata\n"
+        "/stelle — menu: casuale, del giorno, visibili ora, tipi (giganti, nane, pulsar…)\n"
+        "/costellazioni — del giorno, casuale, visibili stasera, schede Wikipedia\n"
+        "/nani — Plutone, Cerere, Eris, Haumea, Makemake\n"
+        "/comete — selezione con voce Wikipedia (non il dump JPL da 4000+)\n"
+        "/profondo — Messier, NGC, nebulose, quasar, supernovae\n"
         "/pianeta — scheda live di un pianeta (Wikipedia + Wikidata)\n"
         "/lune — Europa, Titano, Encelado e le altre\n"
         "/sistema — Sistema Solare interattivo\n"
@@ -1788,7 +1814,7 @@ def help_text() -> str:
         "/sonde — Voyager, New Horizons, Cassini, Juno…\n"
         "/impara — mini-lezioni da Wikipedia\n"
         "/quiz — facile / medio / difficile / esperto + classifica personale\n"
-        "/esopianeta — un mondo extrasolare a caso (archivio NASA)\n"
+        "/esopianeta — menu NASA: casuale, terrestre, infernale, estremo, oceanico (modello), recente\n"
         "/abitabile — candidati in zona abitabile (modelli, non vita)\n"
         "/vita — come cerchiamo la vita, senza dichiararla\n"
         "/specchio — una domanda introspettiva, poi una riflessione\n"
@@ -1804,8 +1830,7 @@ def help_text() -> str:
         "/sole — come /alba\n"
         "/transiti — cielo di oggi sul tuo tema\n"
         "/pianeti — posizioni attuali (efemeridi CosmyDay / Swiss Ephemeris)\n"
-        "/apod — immagine (o video) astronomica del giorno, NASA\n"
-        "/stelle — una scheda NASA a caso, tradotta al volo\n"
+        "/apod — foto NASA del giorno, distinta dal menu /stelle\n"
         "/aiuto — questo messaggio\n\n"
         "Scrivere solo «bilancia» o «Vergine» vale come /oroscopo.\n\n"
         "Se un'API fa i capricci sentirai: "
@@ -3569,7 +3594,23 @@ async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     if action == "esopianeta":
         await query.answer()
-        await send_esopianeta(update, context)
+        await show_esopianeta_menu(update, context)
+        return
+    if action == "nani":
+        await query.answer()
+        await show_nani_menu(update, context)
+        return
+    if action == "comete":
+        await query.answer()
+        await show_comete_menu(update, context)
+        return
+    if action == "costellazioni":
+        await query.answer()
+        await show_costellazioni_menu(update, context)
+        return
+    if action == "profondo":
+        await query.answer()
+        await show_profondo_menu(update, context)
         return
     if action == "abitabile":
         await query.answer()
@@ -3658,7 +3699,7 @@ async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     if action == "stelle":
         await query.answer()
-        await cmd_stelle(update, context)
+        await show_stelle_menu(update, context)
         return
     await query.answer()
 
@@ -3909,6 +3950,11 @@ async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_stelle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _flows_reset(context)
+    await show_stelle_menu(update, context)
+    await delete_user_command(update)
+
+
+async def send_stelle_nasa(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -3923,7 +3969,6 @@ async def cmd_stelle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 "<i>Niente barzellette sul Big Bang: i fatti sono quelli della foto.</i>"
             ),
         )
-        await delete_user_command(update)
     except StelleOfflineError:
         logger.exception("Curiosità APOD random non disponibile")
         await reply_offline(update, context)
@@ -4000,8 +4045,9 @@ async def cmd_asteroidi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def show_asteroid_chooser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (
         "☄️ <b>ASTEROIDI</b>\n\n"
-        "Due porte, due fonti.\n\n"
+        "Tre porte, tre fonti.\n\n"
         "☄️ <b>Vicini alla Terra</b> — NASA NeoWs, passaggi dei prossimi giorni.\n"
+        "🪨 <b>Asteroidi noti</b> — Vesta, Pallade, Igea, Eros, Bennu, Psyche (Wikipedia).\n"
         "🌌 <b>Nel tema natale</b> — Ceres, Vesta, Pallade, Giunone da Horizons."
     )
     await reply_html(update, context, text, reply_markup=asteroid_chooser_keyboard())
@@ -4375,7 +4421,11 @@ async def cmd_osserva(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def cmd_cielo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _flows_reset(context)
-    await send_cielo(update, context)
+    raw = " ".join(context.args) if context.args else ""
+    if raw:
+        await receive_cielo_city(update, context, raw)
+    else:
+        await send_cielo(update, context)
     await delete_user_command(update)
 
 
@@ -5052,7 +5102,8 @@ async def send_eventi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     lines.extend(["", "<i>Fonti live: CosmyDay, Skytime. Date calcolate, non copiate a mano.</i>"])
     kb = InlineKeyboardMarkup(
         [
-            [_tarot_btn("🌠 Sciami", "home:meteore"), _tarot_btn("🌌 Spazio", "home:spazio")],
+            [_tarot_btn("🌠 Sciami", "home:meteore"), _tarot_btn("🌑 Eclissi", "home:eclissi")],
+            [_tarot_btn("☀️ Attività solare", "ev:solar"), _tarot_btn("🌙 Distanza Luna", "ev:moon")],
             [_tarot_btn("🏠 Home", "home:menu")],
         ]
     )
@@ -5301,84 +5352,606 @@ async def on_sheet_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await send_wiki_sheet(update, context, parts[1], parts[2])
 
 
-async def send_cielo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def _cielo_place(context: ContextTypes.DEFAULT_TYPE) -> tuple[str, float, float]:
+    last = context.user_data.get(CIELO_LAST_KEY)
+    if isinstance(last, dict) and last.get("lat") is not None:
+        return (
+            str(last.get("name") or DEFAULT_PLACE_NAME),
+            float(last["lat"]),
+            float(last["lon"]),
+        )
+    osserva = context.user_data.get(OSSERVA_STATE_KEY)
+    if isinstance(osserva, dict):
+        prev = osserva.get("last")
+        if isinstance(prev, dict) and prev.get("lat") is not None:
+            return (
+                str(prev.get("name") or DEFAULT_PLACE_NAME),
+                float(prev["lat"]),
+                float(prev["lon"]),
+            )
+    return DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON
+
+
+def _remember_cielo_place(context: ContextTypes.DEFAULT_TYPE, name: str, lat: float, lon: float) -> None:
+    context.user_data[CIELO_LAST_KEY] = {"name": name, "lat": lat, "lon": lon}
+
+
+async def send_cielo(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    name: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+) -> None:
+    if name is None or lat is None or lon is None:
+        name, lat, lon = _cielo_place(context)
+    _remember_cielo_place(context, name, lat, lon)
     await send_typing(update)
-    await deliver_text(update, context, "🔭 Compongo il cielo sopra Roma…")
+    await deliver_text(update, context, f"🔭 Cosa si vede adesso sopra {name}…")
     client = _http_client(context)
-    now = datetime.now(DEFAULT_TZ)
-    sky_res, sun_res, showers_res = await asyncio.gather(
-        api_skymap(client, DEFAULT_LAT, DEFAULT_LON),
-        api_sun_times(client, DEFAULT_LAT, DEFAULT_LON, "Europe/Rome"),
-        api_meteor_showers(client),
-        return_exceptions=True,
-    )
-    lines = ["🔭 <b>CIELO SOPRA ROMA</b>", f"📅 {e(format_day_it(now))}", ""]
+    try:
+        tz_name = await api_timezone_name(client, lat, lon)
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = DEFAULT_TZ
+        now = datetime.now(tz)
+        sky_res, sun_res, showers_res = await asyncio.gather(
+            api_skymap(client, lat, lon),
+            api_sun_times(client, lat, lon, tz_name),
+            api_meteor_showers(client),
+            return_exceptions=True,
+        )
+    except StelleOfflineError:
+        await reply_offline(update, context)
+        return
+
+    lines = [
+        "🌌 <b>IL CIELO DI OGGI</b>",
+        f"📍 {e(name)}",
+        f"🕘 {now.strftime('%H:%M')} · {e(format_day_it(now))}",
+        "",
+    ]
+    marks: list[dict[str, Any]] = []
     if isinstance(sky_res, dict):
+        marks = collect_marks(sky_res)
+        chart = text_sky_map(marks)
+        if chart:
+            lines.append("🔭 <b>Cosa guardare adesso</b>")
+            lines.append(f"<pre>{e(chart)}</pre>")
+            lines.append("")
+        for mark in marks[:8]:
+            lines.append(visibility_line(mark))
         moon = sky_res.get("moon") if isinstance(sky_res.get("moon"), dict) else {}
-        if moon:
-            phase = moon_phase_label(str(moon.get("phase") or ""))
-            illum = moon.get("illum")
-            try:
-                illum_txt = f"{int(illum)}%" if illum is not None else "—"
-            except (TypeError, ValueError):
-                illum_txt = "—"
-            lines.append(f"🌙 <b>Luna</b> — {e(phase)} · {e(illum_txt)}")
-        else:
-            lines.append("🌙 <b>Luna</b> — dato non in mappa")
-        bodies = [b for b in (sky_res.get("bodies") or []) if isinstance(b, dict) and b.get("name")]
-        if bodies:
-            shown = []
-            for body in bodies[:5]:
-                raw = str(body.get("name"))
-                label, emoji = PLANET_LABELS.get(raw, (raw, "🪐"))
-                shown.append(f"{emoji} {label}")
-            lines.append(" · ".join(shown))
-        else:
-            lines.append("Nessun pianeta sopra l'orizzonte in questo istante.")
+        sun_alt = sky_res.get("sun_alt")
+        moon_alt = moon.get("alt") if moon else None
+        moon_illum = moon.get("illum") if moon else None
+        try:
+            sun_alt_f = float(sun_alt) if sun_alt is not None else None
+        except (TypeError, ValueError):
+            sun_alt_f = None
+        try:
+            moon_alt_f = float(moon_alt) if moon_alt is not None else None
+        except (TypeError, ValueError):
+            moon_alt_f = None
+        try:
+            moon_illum_f = float(moon_illum) if moon_illum is not None else None
+        except (TypeError, ValueError):
+            moon_illum_f = None
+        lines.append("")
+        lines.append(milky_way_hint(sun_alt=sun_alt_f, moon_alt=moon_alt_f, moon_illum=moon_illum_f))
         asterisms = [str(a) for a in (sky_res.get("asterisms") or []) if a]
         if asterisms:
-            name = asterisms[0]
             try:
-                name_it = await translate_to_italian(client, name)
+                names_it = await translate_to_italian(client, ", ".join(asterisms[:6]))
             except StelleOfflineError:
-                name_it = name
-            lines.append(f"⭐ {e(name_it)}")
+                names_it = ", ".join(asterisms[:6])
+            lines.append(f"✨ Costellazioni in mappa: {e(names_it)}")
     else:
         lines.append("<i>Mappa del cielo offline</i>")
 
-    lines.append("")
-    if isinstance(showers_res, list):
-        upcoming = upcoming_showers(showers_res, now, limit=1)
-        if upcoming:
-            when, shower = upcoming[0]
-            delta = when.date() - now.date()
-            if delta.days <= 7:
-                lines.append(
-                    f"🌠 {e(shower_it_name(str(shower.get('name'))))} — picco {e(format_date_it(when.isoformat()))}"
-                )
-            else:
-                lines.append("🌠 Nessuno sciame importante nei prossimi giorni")
-        else:
-            lines.append("🌠 Nessuno sciame importante nei prossimi giorni")
-    else:
-        lines.append("🌠 Calendario sciami offline")
+    if isinstance(sun_res, dict):
+        lines.append("")
+        lines.append(
+            f"🌅 Sole tramonta {e(sun_res.get('sunset') or '—')} · "
+            f"⏰ Luna sorge {e(sun_res.get('moonrise') or '—')} · "
+            f"tramonta {e(sun_res.get('moonset') or '—')}"
+        )
+        if sun_res.get("sunrise"):
+            lines.append(
+                f"☀️ Sole sorge {e(sun_res.get('sunrise'))} · "
+                f"durata {e(sun_res.get('daylight') or sun_res.get('day_length') or '—')}"
+            )
 
     lines.append("")
-    if isinstance(sun_res, dict):
-        sunset = str(sun_res.get("sunset") or "—")
-        last_light = str(sun_res.get("last_light") or sun_res.get("dusk") or "—")
-        lines.append(f"👁️ <b>Miglior momento</b> (dopo il tramonto, prima del crepuscolo astronomico):")
-        lines.append(f"{e(sunset)}–{e(last_light)}")
+    if isinstance(showers_res, list):
+        upcoming = upcoming_showers(showers_res, datetime.now(DEFAULT_TZ), limit=1)
+        if upcoming:
+            when, shower = upcoming[0]
+            lines.append(
+                f"☄️ Prossimo sciame — {e(shower_it_name(str(shower.get('name'))))} "
+                f"({e(format_date_it(when.isoformat()))})"
+            )
+        else:
+            lines.append("☄️ Prossimo evento — nessun sciame in calendario vicino")
     else:
-        lines.append("👁️ Finestra: 22:30–00:10 (stima locale se il Sole è offline)")
+        lines.append("☄️ Calendario sciami offline")
+
     lines.extend(
         [
             "",
-            "<i>Fonti: skymap.sh, sunrisesunset.io, Skytime. "
-            "Per un'altra città usa /osserva.</i>",
+            "↑ sopra · ↓ sotto · 👁 mag ≤ 6 (soglia applicata al dato live)",
+            "<i>skymap.sh + sunrisesunset.io + Skytime. Nessuna posizione scritta a mano.</i>",
         ]
     )
     await reply_html(update, context, "\n".join(lines), reply_markup=cielo_keyboard())
+
+
+def cielo_picker_keyboard() -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    pair: list[InlineKeyboardButton] = []
+    for idx, (city, _lat, _lon) in enumerate(OSSERVA_CITIES):
+        pair.append(_tarot_btn(f"📍 {city}", f"cielo:city:{idx}"))
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([_tarot_btn("✍️ Altra città", "cielo:ask")])
+    rows.append([_tarot_btn("🔭 Cielo", "home:cielo"), _tarot_btn("🏠 Home", "home:menu")])
+    return InlineKeyboardMarkup(rows)
+
+
+async def show_cielo_picker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _osserva_reset(context)
+    context.user_data["cielo_ask"] = True
+    await reply_html(
+        update,
+        context,
+        "📍 <b>DA DOVE GUARDI?</b>\n\n"
+        "Il cielo di adesso dipende da latitudine, data e ora.\n"
+        "Scegli una città o scrivila.",
+        reply_markup=cielo_picker_keyboard(),
+    )
+
+
+async def receive_cielo_city(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    await send_typing(update)
+    await deliver_text(update, context, "📍 Cerco la città…")
+    client = _http_client(context)
+    try:
+        places = await api_geocode_place(client, text)
+    except StelleOfflineError:
+        await reply_html(
+            update,
+            context,
+            "Non trovo quel luogo. Prova <code>Bologna, Italia</code>.",
+            reply_markup=cielo_picker_keyboard(),
+        )
+        return
+    place = places[0]
+    context.user_data["cielo_ask"] = False
+    await delete_user_command(update)
+    await send_cielo(
+        update,
+        context,
+        name=str(place.get("name") or text),
+        lat=float(place["lat"]),
+        lon=float(place["lon"]),
+    )
+
+
+async def show_stelle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(
+        update,
+        context,
+        "⭐ <b>STELLE</b>\n\n"
+        "Schede Wikipedia/Wikidata, oppure il cielo live sopra di te.\n"
+        "La foto NASA resta un bottone a parte: non mescolo catalogo e APOD.",
+        reply_markup=stelle_menu_keyboard(),
+    )
+
+
+async def send_stars_now(update: Update, context: ContextTypes.DEFAULT_TYPE, *, brightest_only: bool = False) -> None:
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    client = _http_client(context)
+    try:
+        sky = await api_skymap(client, lat, lon)
+    except StelleOfflineError:
+        await reply_offline(update, context)
+        return
+    stars = [s for s in (sky.get("brightest") or []) if isinstance(s, dict) and s.get("name")]
+    if not stars:
+        await reply_html(update, context, "Nessuna stella luminosa in questa mappa.", reply_markup=stelle_menu_keyboard())
+        return
+    if brightest_only:
+        top = stars[0]
+        match = next(
+            (
+                s
+                for s in STARS
+                if s["en"].lower() == str(top["name"]).lower() or s["it"].lower() == str(top["name"]).lower()
+            ),
+            None,
+        )
+        if match:
+            await send_wiki_sheet(update, context, "t", match["id"])
+            return
+        lines = [
+            "✨ <b>STELLA PIÙ LUMINOSA ORA</b>",
+            f"📍 {e(name)}",
+            visibility_line(
+                {
+                    "name": str(top["name"]),
+                    "emoji": "⭐",
+                    "alt": top.get("alt"),
+                    "az": top.get("az"),
+                    "compass": top.get("compass") or "",
+                    "mag": top.get("mag"),
+                }
+            ),
+        ]
+        await reply_html(update, context, "\n".join(lines), reply_markup=stelle_menu_keyboard())
+        return
+    lines = [f"👁 <b>STELLE VISIBILI ORA</b>", f"📍 {e(name)}", ""]
+    for star in stars[:8]:
+        lines.append(
+            visibility_line(
+                {
+                    "name": str(star["name"]),
+                    "emoji": "⭐",
+                    "alt": star.get("alt"),
+                    "az": star.get("az"),
+                    "compass": star.get("compass") or "",
+                    "mag": star.get("mag"),
+                }
+            )
+        )
+    lines.append("")
+    lines.append("<i>Elenco skymap.sh (brightest). Tocca una scheda dal menu per Wikipedia.</i>")
+    await reply_html(update, context, "\n".join(lines), reply_markup=stelle_menu_keyboard())
+
+
+async def send_star_of_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    item = STARS[datetime.now(DEFAULT_TZ).timetuple().tm_yday % len(STARS)]
+    await send_wiki_sheet(update, context, "t", item["id"])
+
+
+async def send_random_star(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    item = random.choice(STARS)
+    await send_wiki_sheet(update, context, "t", item["id"])
+
+
+async def send_near_or_giants(update: Update, context: ContextTypes.DEFAULT_TYPE, ids: tuple[str, ...]) -> None:
+    lines = ["⭐ <b>SELEZIONE</b>", "Tocca per la scheda live.", ""]
+    buttons = []
+    for sid in ids:
+        item = by_id(STARS, sid)
+        if not item:
+            continue
+        lines.append(f"{item['emoji']} {item['it']}")
+        buttons.append(_tarot_btn(f"{item['emoji']} {item['it']}", f"w:t:{item['id']}"))
+    rows = []
+    pair: list[InlineKeyboardButton] = []
+    for btn in buttons:
+        pair.append(btn)
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([_tarot_btn("⭐ Stelle", "home:stelle")])
+    await reply_html(update, context, "\n".join(lines), reply_markup=InlineKeyboardMarkup(rows))
+
+
+async def show_costellazioni_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(
+        update,
+        context,
+        "✨ <b>COSTELLAZIONI</b>\n\n"
+        "Schede Wikipedia (mitologia inclusa nella voce).\n"
+        "Visibili stasera = asterismi nella mappa skymap della tua città.",
+        reply_markup=costellazioni_keyboard(),
+    )
+
+
+async def send_constellations_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    client = _http_client(context)
+    try:
+        sky = await api_skymap(client, lat, lon)
+    except StelleOfflineError:
+        await reply_offline(update, context)
+        return
+    asterisms = [str(a) for a in (sky.get("asterisms") or []) if a]
+    if not asterisms:
+        await reply_html(update, context, "Nessun asterismo in questa ora.", reply_markup=costellazioni_keyboard())
+        return
+    try:
+        names_it = await translate_to_italian(client, ", ".join(asterisms[:10]))
+    except StelleOfflineError:
+        names_it = ", ".join(asterisms[:10])
+    await reply_html(
+        update,
+        context,
+        f"👁 <b>IN MAPPA STASERA</b>\n📍 {e(name)}\n\n{e(names_it)}\n\n"
+        "<i>Nomi dalla mappa live. Apri una scheda per storia e stelle principali.</i>",
+        reply_markup=costellazioni_keyboard(),
+    )
+
+
+async def show_profondo_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(
+        update,
+        context,
+        "🛰️ <b>CIELO PROFONDO</b>\n\n"
+        "Messier, nebulose, ammassi, quasar, supernovae. "
+        "Poi galassie, buchi neri, esopianeti.",
+        reply_markup=profondo_keyboard(),
+    )
+
+
+async def show_nani_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(
+        update,
+        context,
+        "🧊 <b>PIANETI NANI</b>\n\nPlutone, Cerere, Eris, Haumea, Makemake.\n"
+        "Schede Wikipedia + misure Wikidata.",
+        reply_markup=dwarfs_keyboard(),
+    )
+
+
+async def show_comete_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(
+        update,
+        context,
+        "☄️ <b>COMETE</b>\n\n"
+        "Una selezione con voce Wikipedia. "
+        "JPL Horizons cataloga migliaia di comete: qui non invento effemeridi che l'API pubblica non mi dà in blocco.",
+        reply_markup=comets_keyboard(),
+    )
+
+
+async def send_solar_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_typing(update)
+    client = _http_client(context)
+    kp, flare = await asyncio.gather(kp_index(client), latest_flare(client))
+    lines = ["☀️ <b>ATTIVITÀ SOLARE</b>", ""]
+    if kp:
+        lines.append(f"Kp: <b>{e(kp.get('kp'))}</b> · {e(kp.get('label') or '')}")
+    else:
+        lines.append("Indice Kp non arrivato.")
+    if flare:
+        lines.append(
+            f"Ultimo flare X-ray: {e(flare.get('maxClass') or '—')} "
+            f"({e(flare.get('maxTime') or flare.get('beginTime') or '')})"
+        )
+    else:
+        lines.append("Flare X-ray non arrivati.")
+    lines.extend(["", "<i>Skytime / NOAA SWPC. Non è una previsione di aurore sulla tua città.</i>"])
+    await reply_html(update, context, "\n".join(lines), reply_markup=eventi_extra_keyboard())
+
+
+async def send_moon_distance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_typing(update)
+    client = _http_client(context)
+    now = datetime.now(timezone.utc)
+    rows = await moon_distance_events(client, now.year)
+    nxt = next_distance_event(rows, now)
+    if nxt is None:
+        await reply_offline(update, context)
+        return
+    when = nxt.get("date") or ""
+    kind = str(nxt.get("kind") or "")
+    kind_it = {"perigee": "perigeo (più vicina)", "apogee": "apogeo (più lontana)"}.get(kind, kind)
+    try:
+        dist = f"{float(nxt['distanceKm']):,.0f} km".replace(",", ".")
+    except (TypeError, ValueError, KeyError):
+        dist = "—"
+    text = (
+        "🌙 <b>DISTANZA DELLA LUNA</b>\n\n"
+        f"Prossimo {e(kind_it)}: {e(when)}\n"
+        f"Distanza: <code>{e(dist)}</code>\n\n"
+        "Una superluna è un plenilunio vicino al perigeo. "
+        "Qui do le date di distanza; la fase piena sta in /eclissi e /eventi. "
+        "Non unisco i due se l'API non li marca insieme."
+    )
+    await reply_html(update, context, text, reply_markup=eventi_extra_keyboard())
+
+
+async def show_esopianeta_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(
+        update,
+        context,
+        "👽 <b>ESOPIANETI</b>\n\n"
+        "Archivio NASA, tabella ps. I filtri sono numerici:\n"
+        "🌍 raggio/Teq simili alla Terra\n"
+        "🔥 Teq molto alta\n"
+        "💎 raggio o temperatura estremi\n"
+        "🌊 raggio 1.8–3.5 R⊕ in fascia Teq — <b>modello</b>, non oceano confermato\n"
+        "🔭 ordinati per anno di scoperta\n\n"
+        "Oltre 6000 mondi confermati nell'archivio: ne pesco un sottoinsieme live.",
+        reply_markup=exo_keyboard(),
+    )
+
+
+async def send_exo_filter(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    await send_typing(update)
+    await deliver_text(update, context, "🪐 Interrogo l'archivio NASA…")
+    client = _http_client(context)
+    if kind == "rand":
+        row = await random_exoplanet(client)
+        if row is None:
+            await reply_offline(update, context)
+            return
+        await reply_html(update, context, format_exoplanet(row), reply_markup=exo_keyboard())
+        return
+    rows = await exoplanets_by_filter(client, kind, limit=8)
+    titles = {
+        "earth": "🌍 Candidati simili alla Terra (raggio/Teq)",
+        "hell": "🔥 Teq molto alta",
+        "extreme": "💎 Estremi (Teq o raggio)",
+        "ocean": "🌊 Raggio 1.8–3.5 R⊕ in fascia Teq — modello, non oceano",
+        "recent": "🔭 Scoperti di recente (anno archivio)",
+        "hz": "🌍 Zona abitabile (modello)",
+    }
+    blurbs = {
+        "earth": "Filtro TAP: raggio 0.8–1.5 R⊕ e Teq 200–280 K. Similitudine numerica, non analoghi confermati.",
+        "hell": "Filtro TAP: Teq sopra 1500 K. Mondi caldi secondo il modello, non una geologia infernale visitata.",
+        "extreme": "Filtro TAP: Teq sopra 2000 K oppure raggio sopra 12 R⊕.",
+        "ocean": "Filtro TAP: raggio 1.8–3.5 R⊕ e Teq 180–320 K. Fascia usata nei modelli per mondi ricchi di volatili — non oceani confermati.",
+        "recent": "Filtro TAP: ordinati per anno di scoperta nell'archivio (default_flag=1).",
+        "hz": "Filtro TAP: Teq 180–310 K e raggio sotto 1.8 R⊕. Modello orbitale, non vita.",
+    }
+    if not rows:
+        await reply_offline(update, context)
+        return
+    text = format_exo_list(
+        rows,
+        title=titles.get(kind, "Esopianeti"),
+        blurb=blurbs.get(kind, "Filtro TAP live."),
+    )
+    await reply_html(update, context, text, reply_markup=exo_keyboard())
+
+
+async def on_cielo_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    parts = query.data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    extra = parts[2] if len(parts) > 2 else ""
+    if action == "pick":
+        await query.answer()
+        await show_cielo_picker(update, context)
+        return
+    if action == "ask":
+        await query.answer()
+        _osserva_reset(context)
+        context.user_data["cielo_ask"] = True
+        await reply_html(
+            update,
+            context,
+            "📍 <b>Da dove guardi?</b>\n\n"
+            "Scrivi città e paese.\n"
+            "Esempio: <code>Bologna, Italia</code>",
+            reply_markup=cielo_picker_keyboard(),
+        )
+        return
+    if action == "city":
+        try:
+            idx = int(extra)
+        except ValueError:
+            await query.answer()
+            return
+        if 0 <= idx < len(OSSERVA_CITIES):
+            name, lat, lon = OSSERVA_CITIES[idx]
+            await query.answer(name)
+            context.user_data["cielo_ask"] = False
+            await send_cielo(update, context, name=name, lat=lat, lon=lon)
+            return
+        await query.answer()
+        return
+    if action == "planets":
+        await query.answer()
+        name, lat, lon = _cielo_place(context)
+        await send_osserva(update, context, name=name, lat=lat, lon=lon)
+        return
+    await query.answer()
+
+
+async def on_st_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    action = query.data.split(":")[1] if ":" in query.data else ""
+    if action == "rand":
+        await query.answer()
+        await send_random_star(update, context)
+        return
+    if action == "day":
+        await query.answer()
+        await send_star_of_day(update, context)
+        return
+    if action == "bright":
+        await query.answer("skymap…")
+        await send_stars_now(update, context, brightest_only=True)
+        return
+    if action == "now":
+        await query.answer("skymap…")
+        await send_stars_now(update, context)
+        return
+    if action == "near":
+        await query.answer()
+        await send_near_or_giants(update, context, NEAR_STARS)
+        return
+    if action == "rg":
+        await query.answer()
+        await send_near_or_giants(update, context, GIANT_STARS)
+        return
+    if action == "nasa":
+        await query.answer("NASA…")
+        await send_stelle_nasa(update, context)
+        return
+    await query.answer()
+
+
+async def on_co_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    action = query.data.split(":")[1] if ":" in query.data else ""
+    if action == "day":
+        await query.answer()
+        item = CONSTELLATIONS[datetime.now(DEFAULT_TZ).timetuple().tm_yday % len(CONSTELLATIONS)]
+        await send_wiki_sheet(update, context, "k", item["id"])
+        return
+    if action == "rand":
+        await query.answer()
+        item = random.choice(CONSTELLATIONS)
+        await send_wiki_sheet(update, context, "k", item["id"])
+        return
+    if action == "now":
+        await query.answer("skymap…")
+        await send_constellations_now(update, context)
+        return
+    await query.answer()
+
+
+async def on_ev_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    action = query.data.split(":")[1] if ":" in query.data else ""
+    if action == "solar":
+        await query.answer("Skytime…")
+        await send_solar_activity(update, context)
+        return
+    if action == "moon":
+        await query.answer("Skytime…")
+        await send_moon_distance(update, context)
+        return
+    await query.answer()
+
+
+async def on_xp_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    kind = query.data.split(":")[1] if ":" in query.data else ""
+    if kind in {"rand", "earth", "hell", "extreme", "ocean", "recent", "hz"}:
+        await query.answer("NASA…")
+        await send_exo_filter(update, context, kind)
+        return
+    await query.answer()
 
 
 async def send_eclissi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -5459,7 +6032,22 @@ async def on_aster_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.answer("Horizons…")
         await show_natal_asteroids(update, context)
         return
+    if action == "famous":
+        await query.answer()
+        await show_famous_asteroids(update, context)
+        return
     await query.answer()
+
+
+async def show_famous_asteroids(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(
+        update,
+        context,
+        "🪨 <b>ASTEROIDI NOTI</b>\n\n"
+        "Schede Wikipedia + misure Wikidata.\n"
+        "Non è il catalogo JPL da 1,5 milioni di oggetti: è una selezione con voce pubblica.",
+        reply_markup=famous_asteroids_keyboard(),
+    )
 
 
 async def show_quiz_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -5826,7 +6414,31 @@ async def cmd_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_esopianeta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _flows_reset(context)
-    await send_esopianeta(update, context)
+    await show_esopianeta_menu(update, context)
+    await delete_user_command(update)
+
+
+async def cmd_costellazioni(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_costellazioni_menu(update, context)
+    await delete_user_command(update)
+
+
+async def cmd_nani(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_nani_menu(update, context)
+    await delete_user_command(update)
+
+
+async def cmd_comete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_comete_menu(update, context)
+    await delete_user_command(update)
+
+
+async def cmd_profondo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_profondo_menu(update, context)
     await delete_user_command(update)
 
 
@@ -6288,6 +6900,9 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if isinstance(rune, dict) and rune.get("step") == "ask":
         await receive_rune_question(update, context, text)
         return
+    if context.user_data.get("cielo_ask"):
+        await receive_cielo_city(update, context, text)
+        return
     osserva = context.user_data.get(OSSERVA_STATE_KEY)
     if isinstance(osserva, dict) and osserva.get("step") in {"ask", "pick"}:
         await receive_osserva_city(update, context, text)
@@ -6313,7 +6928,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale né un comando.\n"
         "Scrivi ad esempio <i>vergine</i>, oppure /oroscopo bilancia, "
-        "oppure /tarocchi, /iching o /osserva.",
+        "oppure /cielo, /stelle, /tarocchi o /osserva.",
     )
 
 
@@ -6360,12 +6975,14 @@ async def post_init(application: Application) -> None:
                 BotCommand("sibille", "Petit Lenormand"),
                 BotCommand("esplora", "I sei mondi"),
                 BotCommand("cosmico", "Scheda da ogni mondo"),
-                BotCommand("cielo", "Dashboard sopra Roma"),
-                BotCommand("osserva", "Cielo da una città"),
+                BotCommand("cielo", "Cosa vedi ADESSO"),
+                BotCommand("osserva", "Cielo da una città, dettaglio"),
+                BotCommand("stelle", "Stelle, tipi, visibili ora"),
+                BotCommand("costellazioni", "Costellazioni e mitologia"),
                 BotCommand("pianeta", "Scheda di un pianeta"),
                 BotCommand("quiz", "Quiz a quattro difficoltà"),
                 BotCommand("missione", "Missione del giorno"),
-                BotCommand("esopianeta", "Un esopianeta a caso"),
+                BotCommand("esopianeta", "Filtri NASA sugli esopianeti"),
                 BotCommand("random", "Sorprendimi"),
                 BotCommand("aiuto", "Elenco comandi"),
             ]
@@ -6419,6 +7036,10 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler(["spazio", "sky"], cmd_spazio))
     application.add_handler(CommandHandler("osserva", cmd_osserva))
     application.add_handler(CommandHandler("cielo", cmd_cielo))
+    application.add_handler(CommandHandler(["costellazioni", "costellazione"], cmd_costellazioni))
+    application.add_handler(CommandHandler(["nani", "pianetinani"], cmd_nani))
+    application.add_handler(CommandHandler(["comete", "cometa"], cmd_comete))
+    application.add_handler(CommandHandler(["profondo", "cieloprofondo", "messier"], cmd_profondo))
     application.add_handler(CommandHandler(["pianeta", "pianetiwiki"], cmd_pianeta))
     application.add_handler(CommandHandler(["lune", "lunae"], cmd_lune))
     application.add_handler(CommandHandler("sistema", cmd_sistema))
@@ -6462,6 +7083,11 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_quiz_action, pattern=r"^quiz:"))
     application.add_handler(CallbackQueryHandler(on_miss_action, pattern=r"^miss:"))
     application.add_handler(CallbackQueryHandler(on_home_action, pattern=r"^home:"))
+    application.add_handler(CallbackQueryHandler(on_cielo_action, pattern=r"^cielo:"))
+    application.add_handler(CallbackQueryHandler(on_st_action, pattern=r"^st:"))
+    application.add_handler(CallbackQueryHandler(on_co_action, pattern=r"^co:"))
+    application.add_handler(CallbackQueryHandler(on_ev_action, pattern=r"^ev:"))
+    application.add_handler(CallbackQueryHandler(on_xp_action, pattern=r"^xp:"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))
     application.add_error_handler(on_error)

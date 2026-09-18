@@ -123,7 +123,7 @@ DAILY_MISSIONS: tuple[dict[str, str | int], ...] = (
     {"id": "quiz", "title": "Completa un quiz (almeno una domanda).", "diff": 2, "mins": 5, "kind": "quiz", "hint": "Parti dal livello facile: le domande nascono da Wikipedia/Wikidata."},
     {"id": "planet", "title": "Scegli un pianeta e leggi la scheda.", "diff": 1, "mins": 8, "kind": "planet", "hint": "Apri /pianeta, poi un mondo. Masse e diametri arrivano da Wikidata."},
     {"id": "reading", "title": "Completa una lettura: tarocchi, I Ching o rune.", "diff": 2, "mins": 10, "kind": "reading", "hint": "Una sola, fatta per intero. È un rituale, non un dato astronomico."},
-    {"id": "star", "title": "Impara una stella: apri /stelle.", "diff": 1, "mins": 5, "kind": "star", "hint": "Una scheda NASA a caso, tradotta. Poi segna fatto."},
+    {"id": "star", "title": "Impara una stella: apri /stelle.", "diff": 1, "mins": 5, "kind": "star", "hint": "Apri /stelle: casuale, del giorno o visibili ora. Poi segna fatto."},
     {"id": "exo", "title": "Scopri un esopianeta casuale.", "diff": 2, "mins": 6, "kind": "exo", "hint": "/esopianeta pesca dalla NASA Exoplanet Archive."},
 )
 
@@ -142,6 +142,100 @@ MIRROR_QUESTIONS: tuple[str, ...] = (
     "Quale verità piccola stai già sapendo, ma non hai detto ad alta voce?",
     "Dove stai usando la forza, e dove basterebbe l'attenzione?",
     "Che cosa, se lo lasciassi andare, ti renderebbe più leggero?",
+)
+
+
+DWARFS: tuple[dict[str, str], ...] = (
+    {"id": "pluto", "qid": "Q339", "en": "Pluto", "it": "Plutone", "wiki": "Pluto", "emoji": "🧊"},
+    {"id": "ceres", "qid": "Q596", "en": "Ceres", "it": "Cerere", "wiki": "Ceres_(dwarf_planet)", "emoji": "🪨"},
+    {"id": "eris", "qid": "Q601", "en": "Eris", "it": "Eris", "wiki": "Eris_(dwarf_planet)", "emoji": "💜"},
+    {"id": "haumea", "qid": "Q10756", "en": "Haumea", "it": "Haumea", "wiki": "Haumea", "emoji": "🥚"},
+    {"id": "makemake", "qid": "Q10757", "en": "Makemake", "it": "Makemake", "wiki": "Makemake", "emoji": "🔴"},
+)
+
+COMETS: tuple[dict[str, str], ...] = (
+    {"id": "halley", "qid": "Q23054", "en": "Halley's Comet", "it": "Halley", "wiki": "Halley's_Comet", "emoji": "☄️"},
+    {"id": "encke", "qid": "Q14153", "en": "Comet Encke", "it": "Encke", "wiki": "Comet_Encke", "emoji": "☄️"},
+    {"id": "67p", "qid": "Q13888", "en": "67P/Churyumov–Gerasimenko", "it": "67P", "wiki": "67P/Churyumov–Gerasimenko", "emoji": "🥔"},
+    {"id": "halebopp", "qid": "Q14372", "en": "Comet Hale–Bopp", "it": "Hale-Bopp", "wiki": "Comet_Hale–Bopp", "emoji": "☄️"},
+    {"id": "neowise", "qid": "Q85734766", "en": "C/2020 F3 (NEOWISE)", "it": "NEOWISE", "wiki": "C/2020_F3_(NEOWISE)", "emoji": "☄️"},
+    {"id": "tsuchinshan", "qid": "Q123468937", "en": "C/2023 A3 (Tsuchinshan–ATLAS)", "it": "Tsuchinshan–ATLAS", "wiki": "C/2023_A3_(Tsuchinshan–ATLAS)", "emoji": "☄️"},
+)
+
+FAMOUS_ASTEROIDS: tuple[dict[str, str], ...] = (
+    {"id": "vesta", "qid": "Q3030", "en": "4 Vesta", "it": "Vesta", "wiki": "4_Vesta", "emoji": "🪨"},
+    {"id": "pallas", "qid": "Q3034", "en": "2 Pallas", "it": "Pallade", "wiki": "2_Pallas", "emoji": "🪨"},
+    {"id": "hygiea", "qid": "Q3049", "en": "10 Hygiea", "it": "Igea", "wiki": "10_Hygiea", "emoji": "🪨"},
+    {"id": "eros", "qid": "Q16711", "en": "433 Eros", "it": "Eros", "wiki": "433_Eros", "emoji": "🪨"},
+    {"id": "bennu", "qid": "Q11518", "en": "101955 Bennu", "it": "Bennu", "wiki": "101955_Bennu", "emoji": "🪨"},
+    {"id": "psyche", "qid": "Q59164", "en": "16 Psyche", "it": "Psyche", "wiki": "16_Psyche", "emoji": "🪨"},
+)
+
+STARS: tuple[dict[str, str], ...] = (
+    {"id": "sirius", "qid": "Q1290", "en": "Sirius", "it": "Sirio", "wiki": "Sirius", "emoji": "⭐"},
+    {"id": "vega", "qid": "Q3427", "en": "Vega", "it": "Vega", "wiki": "Vega", "emoji": "⭐"},
+    {"id": "betel", "qid": "Q12133", "en": "Betelgeuse", "it": "Betelgeuse", "wiki": "Betelgeuse", "emoji": "🔴"},
+    {"id": "rigel", "qid": "Q105513", "en": "Rigel", "it": "Rigel", "wiki": "Rigel", "emoji": "🔵"},
+    {"id": "polaris", "qid": "Q12980", "en": "Polaris", "it": "Stella Polare", "wiki": "Polaris", "emoji": "⭐"},
+    {"id": "proxima", "qid": "Q14266", "en": "Proxima Centauri", "it": "Proxima Centauri", "wiki": "Proxima_Centauri", "emoji": "🔴"},
+    {"id": "barnard", "qid": "Q12147", "en": "Barnard's Star", "it": "Stella di Barnard", "wiki": "Barnard's_Star", "emoji": "🔴"},
+    {"id": "altair", "qid": "Q12975", "en": "Altair", "it": "Altair", "wiki": "Altair", "emoji": "⭐"},
+    {"id": "capella", "qid": "Q12174", "en": "Capella", "it": "Capella", "wiki": "Capella", "emoji": "⭐"},
+    {"id": "aldebaran", "qid": "Q12923", "en": "Aldebaran", "it": "Aldebaran", "wiki": "Aldebaran", "emoji": "🟠"},
+    {"id": "antares", "qid": "Q5921", "en": "Antares", "it": "Antares", "wiki": "Antares", "emoji": "🔴"},
+    {"id": "arcturus", "qid": "Q12982", "en": "Arcturus", "it": "Arcturo", "wiki": "Arcturus", "emoji": "🟠"},
+    {"id": "deneb", "qid": "Q13094", "en": "Deneb", "it": "Deneb", "wiki": "Deneb", "emoji": "⭐"},
+    {"id": "canopus", "qid": "Q911579", "en": "Canopus", "it": "Canopo", "wiki": "Canopus", "emoji": "⭐"},
+    {"id": "procyon", "qid": "Q12169", "en": "Procyon", "it": "Procione", "wiki": "Procyon", "emoji": "⭐"},
+    {"id": "spica", "qid": "Q12767", "en": "Spica", "it": "Spica", "wiki": "Spica", "emoji": "⭐"},
+    {"id": "fomalhaut", "qid": "Q12163", "en": "Fomalhaut", "it": "Fomalhaut", "wiki": "Fomalhaut", "emoji": "⭐"},
+    {"id": "polaris_a", "qid": "Q9971149", "en": "Sirius B", "it": "Sirio B", "wiki": "Sirius", "emoji": "⚪"},
+)
+
+STAR_TYPES: tuple[dict[str, str], ...] = (
+    {"id": "rg", "it": "Giganti rosse", "wiki": "Red_giant", "emoji": "🔴"},
+    {"id": "wd", "it": "Nane bianche", "wiki": "White_dwarf", "emoji": "⚪"},
+    {"id": "ns", "it": "Stelle di neutroni", "wiki": "Neutron_star", "emoji": "💠"},
+    {"id": "pu", "it": "Pulsar", "wiki": "Pulsar", "emoji": "📡"},
+    {"id": "sn", "it": "Supernovae", "wiki": "Supernova", "emoji": "💥"},
+    {"id": "bi", "it": "Stelle doppie", "wiki": "Binary_star", "emoji": "⭐"},
+)
+
+NEAR_STARS: tuple[str, ...] = ("proxima", "barnard")
+GIANT_STARS: tuple[str, ...] = ("betel", "antares", "aldebaran", "arcturus")
+
+CONSTELLATIONS: tuple[dict[str, str], ...] = (
+    {"id": "ori", "qid": "Q10506", "en": "Orion", "it": "Orione", "wiki": "Orion_(constellation)", "emoji": "🏹"},
+    {"id": "uma", "qid": "Q8918", "en": "Ursa Major", "it": "Orsa Maggiore", "wiki": "Ursa_Major", "emoji": "🐻"},
+    {"id": "cas", "qid": "Q10448", "en": "Cassiopeia", "it": "Cassiopea", "wiki": "Cassiopeia_(constellation)", "emoji": "👑"},
+    {"id": "cyg", "qid": "Q8921", "en": "Cygnus", "it": "Cigno", "wiki": "Cygnus_(constellation)", "emoji": "🦢"},
+    {"id": "sco", "qid": "Q8860", "en": "Scorpius", "it": "Scorpione", "wiki": "Scorpius", "emoji": "🦂"},
+    {"id": "leo", "qid": "Q8853", "en": "Leo", "it": "Leone", "wiki": "Leo_(constellation)", "emoji": "🦁"},
+    {"id": "tau", "qid": "Q10570", "en": "Taurus", "it": "Toro", "wiki": "Taurus_(constellation)", "emoji": "🐂"},
+    {"id": "gem", "qid": "Q8849", "en": "Gemini", "it": "Gemelli", "wiki": "Gemini_(constellation)", "emoji": "👯"},
+    {"id": "sgr", "qid": "Q8866", "en": "Sagittarius", "it": "Sagittario", "wiki": "Sagittarius_(constellation)", "emoji": "🏹"},
+    {"id": "and", "qid": "Q8891", "en": "Andromeda", "it": "Andromeda", "wiki": "Andromeda_(constellation)", "emoji": "👸"},
+    {"id": "lyr", "qid": "Q10464", "en": "Lyra", "it": "Lira", "wiki": "Lyra", "emoji": "🎵"},
+    {"id": "cru", "qid": "Q10578", "en": "Crux", "it": "Croce del Sud", "wiki": "Crux", "emoji": "✝️"},
+    {"id": "umi", "qid": "Q8922", "en": "Ursa Minor", "it": "Orsa Minore", "wiki": "Ursa_Minor", "emoji": "⭐"},
+    {"id": "aqr", "qid": "Q8843", "en": "Aquarius", "it": "Acquario", "wiki": "Aquarius_(constellation)", "emoji": "🏺"},
+    {"id": "psc", "qid": "Q8678", "en": "Pisces", "it": "Pesci", "wiki": "Pisces_(constellation)", "emoji": "🐟"},
+    {"id": "vir", "qid": "Q8842", "en": "Virgo", "it": "Vergine", "wiki": "Virgo_(constellation)", "emoji": "🌾"},
+)
+
+DEEP_SKY: tuple[dict[str, str], ...] = (
+    {"id": "m31", "qid": "Q2469", "en": "Andromeda Galaxy", "it": "M31 Andromeda", "wiki": "Andromeda_Galaxy", "emoji": "🌀"},
+    {"id": "m42", "qid": "Q14238", "en": "Orion Nebula", "it": "M42 Orione", "wiki": "Orion_Nebula", "emoji": "🌫️"},
+    {"id": "m13", "qid": "Q14260", "en": "Messier 13", "it": "M13 Ercole", "wiki": "Messier_13", "emoji": "✨"},
+    {"id": "m45", "qid": "Q24357", "en": "Pleiades", "it": "M45 Pleiadi", "wiki": "Pleiades", "emoji": "✨"},
+    {"id": "m51", "qid": "Q14380", "en": "Whirlpool Galaxy", "it": "M51 Vortice", "wiki": "Whirlpool_Galaxy", "emoji": "💫"},
+    {"id": "m57", "qid": "Q13875", "en": "Ring Nebula", "it": "M57 Anello", "wiki": "Ring_Nebula", "emoji": "💍"},
+    {"id": "m1", "qid": "Q14860", "en": "Crab Nebula", "it": "M1 Granchio", "wiki": "Crab_Nebula", "emoji": "🦀"},
+    {"id": "m87", "qid": "Q199738", "en": "Messier 87", "it": "M87", "wiki": "Messier_87", "emoji": "🕳️"},
+    {"id": "ngc224", "qid": "Q2469", "en": "NGC 224", "it": "NGC 224", "wiki": "Andromeda_Galaxy", "emoji": "📘"},
+    {"id": "3c273", "qid": "Q218419", "en": "3C 273", "it": "3C 273", "wiki": "3C_273", "emoji": "🔴"},
+    {"id": "pillars", "qid": "Q23652", "en": "Pillars of Creation", "it": "Pilastri della Creazione", "wiki": "Pillars_of_Creation", "emoji": "🌫️"},
+    {"id": "sn1987a", "qid": "Q404892", "en": "SN 1987A", "it": "SN 1987A", "wiki": "SN_1987A", "emoji": "💥"},
 )
 
 

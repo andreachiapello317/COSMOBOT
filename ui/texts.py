@@ -7,7 +7,7 @@ def home_text() -> str:
         "Esplorare sé stessi, il cielo e l'universo. Sei mondi, un filo.\n\n"
         "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, specchio, rituale\n"
         "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, mazzi COSMOBOT\n"
-        "🔭 <b>CIELO</b> — Roma, Luna, meteore, eclissi, alba\n"
+        "🔭 <b>CIELO</b> — cosa vedi adesso, stelle, eventi, cielo profondo\n"
         "🪐 <b>MONDI</b> — pianeti, lune, asteroidi, buchi neri, galassie\n"
         "👽 <b>VITA</b> — esopianeti, zona abitabile, SETI\n"
         "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n\n"
@@ -22,7 +22,7 @@ def esplora_text() -> str:
         "Sei mondi. Tocca quello che vuoi aprire.\n\n"
         "🔮 Te stesso — carta e rituali interiori\n"
         "🔮 Oracoli — tradizionali e mazzi COSMOBOT\n"
-        "🔭 Cielo — quello che c'è sopra la testa\n"
+        "🔭 Cielo — astronomia reale, adesso e sopra di te\n"
         "🪐 Mondi — Sistema Solare e oltre\n"
         "👽 Vita — come la cerchiamo, senza dichiararla\n"
         "🚀 Missioni — voli, lezioni, sfide del giorno"
@@ -84,16 +84,21 @@ def world_div_text() -> str:
 def world_sky_text() -> str:
     return (
         "🔭 <b>CIELO</b>\n\n"
-        "Dashboard sopra Roma, oppure osserva da un'altra città.\n"
-        "Luna, sciami, eclissi, alba/tramonto, satelliti e ISS.\n"
-        "I passaggi ISS sopra una città non li invento: manca un'API passi gratuita affidabile."
+        "Astronomia reale. Gli oracoli stanno nell'altro mondo.\n\n"
+        "🔭 <b>Adesso</b> — mappa testuale, visibile / sotto l'orizzonte\n"
+        "🌍 Sistema — pianeti, nani, lune, comete, asteroidi, sciami\n"
+        "⭐ Stelle e costellazioni — schede Wikipedia + cielo live\n"
+        "🌠 Eventi — eclissi, sciami, attività solare, perigeo/apogeo\n"
+        "🛰️ Profondo — Messier, nebulose, quasar, esopianeti\n\n"
+        "I numeri arrivano da skymap.sh, Skytime, Wikidata, NASA. "
+        "Niente visibilità inventata."
     )
 
 
 def world_mondi_text() -> str:
     return (
         "🪐 <b>MONDI</b>\n\n"
-        "Sistema Solare interattivo, schede pianeta e luna,\n"
+        "Sistema Solare interattivo, pianeti nani, lune, comete,\n"
         "asteroidi vicini o nel tema, buchi neri, galassie.\n"
         "Masse, diametri e gravità arrivano da Wikidata."
     )
