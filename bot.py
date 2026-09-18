@@ -41,6 +41,20 @@ from services.exoplanets import habitable_candidates, random_exoplanet
 from services.iss import fetch_iss_position, reverse_iss_place
 from services.neo import near_earth_asteroids
 from services.progress import mission_done, mission_is_done, quiz_board, quiz_record
+from services.lenormand import SPREADS as LENORMAND_SPREADS, draw_lenormand
+from services.oracles import (
+    DECK_META,
+    LUNAR_ORACLE,
+    ORACLE_QUESTIONS,
+    format_lenormand_reading,
+    format_simple_card,
+    draw_deck,
+    lunar_key,
+    surprise_oracle,
+    yesno_from_iching_lines,
+    yesno_from_rune,
+    yesno_from_tarot,
+)
 from services.runes import draw_runes, synthesize_runes
 from services.sheets import (
     build_quiz,
@@ -68,6 +82,12 @@ from ui.keyboards import (
     home_keyboard as section_home_keyboard,
     iss_keyboard,
     learn_keyboard,
+    lenormand_after_keyboard,
+    lenormand_menu_keyboard,
+    lettura_method_keyboard,
+    oracle_question_keyboard,
+    oracoli_keyboard,
+    deck_after_keyboard,
     life_keyboard,
     mission_keyboard,
     missions_keyboard,
@@ -93,11 +113,14 @@ from ui.keyboards import (
     world_self_keyboard,
     world_sky_keyboard,
     world_vita_keyboard,
+    yesno_keyboard,
 )
 from ui.texts import (
     domanda_text,
     esplora_text,
     home_text,
+    lettura_text,
+    oracoli_text,
     rune_intro_text,
     world_div_text,
     world_miss_text,
@@ -764,6 +787,33 @@ TAROT_SPREADS: dict[str, dict[str, Any]] = {
         "positions": ("Nocciolo", "Ostacolo", "Indicazione"),
         "ritual": "Ho la tua domanda. Concentrati su ciò che vuoi comprendere, poi pesca.",
     },
+    "day": {
+        "count": 1,
+        "include_minor": False,
+        "button": "☀️ Carta del giorno",
+        "title": "Carta del giorno",
+        "positions": ("Energia di oggi",),
+        "ritual": "Una carta per la giornata. Non è un oroscopo: è un'indicazione del mazzo live.",
+    },
+    "celtic": {
+        "count": 10,
+        "include_minor": True,
+        "button": "✝️ Croce Celtica",
+        "title": "Croce Celtica",
+        "positions": (
+            "Situazione presente",
+            "Incrocio / sfida",
+            "Fondamento",
+            "Passato recente",
+            "Corona / possibile",
+            "Futuro prossimo",
+            "Tu",
+            "Ambiente",
+            "Speranze e paure",
+            "Esito",
+        ),
+        "ritual": "Dieci carte. La Croce Celtica è ampia: tieni una domanda chiara, poi pesca.",
+    },
 }
 
 TAROT_STATE_KEY = "tarot_flow"
@@ -776,6 +826,9 @@ OSSERVA_STATE_KEY = "osserva_flow"
 RUNE_STATE_KEY = "rune_flow"
 QUIZ_STATE_KEY = "quiz_flow"
 MIRROR_STATE_KEY = "mirror_flow"
+LENO_STATE_KEY = "leno_flow"
+LETTURA_STATE_KEY = "lettura_flow"
+OQ_STATE_KEY = "oq_flow"
 ICHING_HEX_URLS = (
     "https://raw.githubusercontent.com/jesshewitt/i-ching/main/site/data/hexagrams.json",
     "https://cdn.jsdelivr.net/gh/jesshewitt/i-ching@main/site/data/hexagrams.json",
@@ -834,8 +887,9 @@ def tarot_menu_keyboard() -> InlineKeyboardMarkup:
         [
             [_tarot_btn("🔹 1 carta", "tarot:pick:one"), _tarot_btn("🔹 3 carte", "tarot:pick:three")],
             [_tarot_btn("❤️ Amore", "tarot:pick:love"), _tarot_btn("💼 Lavoro", "tarot:pick:work")],
-            [_tarot_btn("❓ Domanda", "tarot:pick:ask")],
-            [_tarot_btn("📖 Storico", "tarot:hist")],
+            [_tarot_btn("❓ Domanda", "tarot:pick:ask"), _tarot_btn("☀️ Carta del giorno", "tarot:pick:day")],
+            [_tarot_btn("✝️ Croce Celtica", "tarot:pick:celtic")],
+            [_tarot_btn("📖 Storico", "tarot:hist"), _tarot_btn("🔮 Oracoli", "home:oracoli")],
         ]
     )
 
@@ -880,6 +934,42 @@ def _quiz_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 def _mirror_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.pop(MIRROR_STATE_KEY, None)
+
+
+def _leno_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(LENO_STATE_KEY, None)
+
+
+def _lettura_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(LETTURA_STATE_KEY, None)
+
+
+def _oq_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(OQ_STATE_KEY, None)
+
+
+def _leno_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(LENO_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[LENO_STATE_KEY] = state
+    return state
+
+
+def _lettura_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(LETTURA_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[LETTURA_STATE_KEY] = state
+    return state
+
+
+def _oq_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(OQ_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[OQ_STATE_KEY] = state
+    return state
 
 
 def _rune_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
@@ -951,6 +1041,9 @@ def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     _rune_reset(context)
     _quiz_reset(context)
     _mirror_reset(context)
+    _leno_reset(context)
+    _lettura_reset(context)
+    _oq_reset(context)
 
 
 def _natal_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
@@ -1664,8 +1757,19 @@ def help_text() -> str:
         f"{default_emoji} {default_it}. Poi i bottoni: giorno, settimana, mese. "
         f"Segni: {e(list_signs_help())}\n"
         "/luna — fase, illuminazione, alba/tramonto della Luna su Roma\n"
-        "/tarocchi — lettura guidata (1 carta, 3 carte, amore, lavoro, domanda)\n"
+        "/oracoli — reparto oracoli: tradizionali e mazzi COSMOBOT\n"
+        "/lettura — scrivi la situazione, poi scegli il metodo\n"
+        "/tarocchi — 1/3 carte, amore, lavoro, domanda, carta del giorno, Croce Celtica\n"
         "/iching — I Ching: domanda, rituale, sei lanci, linee mutevoli\n"
+        "/sibille — Petit Lenormand, 1/3/5/9 carte\n"
+        "/sino — sì/no simbolico (tarocco, runa o I Ching)\n"
+        "/archetipi — mazzo originale COSMOBOT, 48 figure\n"
+        "/animali — oracolo degli animali\n"
+        "/simboli — chiave, specchio, porta…\n"
+        "/elementi — fuoco, acqua, aria, terra, etere\n"
+        "/oracoloplanetario — Sole–Saturno, lettura simbolica\n"
+        "/oracololunare — messaggio coerente con la fase live\n"
+        "/oracolodande — una domanda introspettiva, poi rifletti\n"
         "/asteroidi — vicini alla Terra (NeoWs) oppure Ceres/Vesta/Pallade/Giunone nel tema\n"
         "/meteore — prossimi sciami, con picco e meteore/ora\n"
         "/spazio — briefing astronomico del giorno\n"
@@ -1856,6 +1960,11 @@ async def cmd_tarocchi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "work": "work",
         "domanda": "ask",
         "ask": "ask",
+        "giorno": "day",
+        "day": "day",
+        "celtica": "celtic",
+        "croce": "celtic",
+        "celtic": "celtic",
     }.get(raw)
     if shortcut == "ask":
         await show_tarot_ask_prompt(update, context)
@@ -1878,7 +1987,9 @@ async def show_tarot_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "🔹 <b>3 carte</b> — situazione / ostacolo / direzione\n"
         "❤️ <b>Amore</b> — tu / l'altra persona / dinamica\n"
         "💼 <b>Lavoro</b> — situazione / sfida / possibile sviluppo\n"
-        "❓ <b>Domanda</b> — tre carte sulla tua domanda"
+        "❓ <b>Domanda</b> — tre carte sulla tua domanda\n"
+        "☀️ <b>Carta del giorno</b> — un'indicazione per oggi\n"
+        "✝️ <b>Croce Celtica</b> — dieci carte, lettura ampia"
     )
     await reply_html(update, context, text, reply_markup=tarot_menu_keyboard())
 
@@ -2030,11 +2141,14 @@ async def send_tarot_draw(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     for idx, item in enumerate(drawn):
         mark = circles[idx] if idx < len(circles) else f"{idx + 1}."
         rev = " — rovesciata" if item["reversed"] == "1" else ""
+        meaning = item["meaning_it"]
+        if len(drawn) >= 8:
+            meaning = clip_text(meaning, 180)
         lines.append(
             f"{mark} <b>{e(item['position'].upper())}</b>\n"
             f"{item['emoji']} <b>{e(item['name_it'])}</b>{e(rev)}\n"
             f"<i>{e(item['kind'])}</i>\n\n"
-            f"{e(item['meaning_it'])}"
+            f"{e(meaning)}"
         )
         lines.append("")
     if len(drawn) > 1 and synthesis:
@@ -3481,6 +3595,18 @@ async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.answer()
         await send_missione(update, context)
         return
+    if action == "oracoli":
+        await query.answer()
+        await show_oracoli_hub(update, context)
+        return
+    if action == "sibille":
+        await query.answer()
+        await show_lenormand_menu(update, context)
+        return
+    if action == "lettura":
+        await query.answer()
+        await show_lettura_ask(update, context)
+        return
     if action == "menu":
         await query.answer()
         _flows_reset(context)
@@ -4608,13 +4734,11 @@ async def on_rune_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def show_domanda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await reply_html(update, context, domanda_text(), reply_markup=domanda_keyboard())
+    await show_lettura_ask(update, context)
 
 
 async def cmd_domanda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
-    await show_domanda(update, context)
-    await delete_user_command(update)
+    await cmd_lettura(update, context)
 
 
 async def cmd_esplora(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -5742,6 +5866,398 @@ async def cmd_missione(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await delete_user_command(update)
 
 
+async def show_oracoli_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(update, context, oracoli_text(), reply_markup=oracoli_keyboard())
+
+
+async def cmd_oracoli(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_oracoli_hub(update, context)
+    await delete_user_command(update)
+
+
+async def show_lenormand_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _leno_state(context)
+    state["step"] = "pick"
+    question = str(state.get("question") or "").strip()
+    extra = f"\n\n❓ <i>{e(question)}</i>" if question else ""
+    await reply_html(
+        update,
+        context,
+        "🌿 <b>SIBILLE · PETIT LENORMAND</b>\n\n"
+        "36 carte. Nomi tradizionali; i testi sono il dataset COSMOBOT.\n"
+        "1, 3, 5 o 9 carte. Le combinazioni lego le carte vicine."
+        f"{extra}",
+        reply_markup=lenormand_menu_keyboard(),
+    )
+
+
+async def cmd_sibille(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_lenormand_menu(update, context)
+    await delete_user_command(update)
+
+
+async def send_lenormand_draw(update: Update, context: ContextTypes.DEFAULT_TYPE, n: str) -> None:
+    meta = LENORMAND_SPREADS.get(n)
+    if meta is None:
+        await show_lenormand_menu(update, context)
+        return
+    question = str(_leno_state(context).get("question") or _lettura_state(context).get("question") or "")
+    drawn = draw_lenormand(int(meta["count"]))
+    text = format_lenormand_reading(drawn, tuple(meta["positions"]), question)
+    _leno_state(context)["step"] = "done"
+    await reply_html(update, context, text, reply_markup=lenormand_after_keyboard())
+
+
+async def send_deck_card(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    cards = draw_deck(kind, 1)
+    meta = DECK_META.get(kind)
+    if not cards or meta is None:
+        await show_oracoli_hub(update, context)
+        return
+    emoji, title, hint = meta
+    body = format_simple_card(cards[0], kind=kind)
+    text = (
+        f"{emoji} <b>{e(title)}</b>\n"
+        f"<i>{e(hint)}</i>\n\n"
+        f"{body}\n\n"
+        "<i>Mazzo originale COSMOBOT. Lettura simbolica, non previsione certa.</i>"
+    )
+    await reply_html(update, context, text, reply_markup=deck_after_keyboard(kind))
+
+
+async def send_lunar_oracle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_typing(update)
+    client = _http_client(context)
+    try:
+        moon = await api_moon_observatory(client)
+        phase = str(moon.get("moon_phase") or "")
+    except StelleOfflineError:
+        phase = ""
+    pack = LUNAR_ORACLE[lunar_key(phase)]
+    label = moon_phase_label(phase) if phase else "fase non arrivata"
+    extra = draw_deck("arch", 1)
+    extra_bit = ""
+    if extra:
+        card = extra[0]
+        extra_bit = f"\n\n🧿 Carta del ciclo: {card['emoji']} <b>{e(card['it'])}</b>\n{e(card['message'])}"
+    text = (
+        f"🌙 <b>ORACOLO LUNARE</b>\n\n"
+        f"Fase live: <b>{e(label)}</b>\n"
+        f"{pack['title']} → <b>{e(pack['verb'])}</b>\n\n"
+        f"🔮 {e(pack['message'])}\n\n"
+        f"💭 {e(pack['question'])}"
+        f"{extra_bit}\n\n"
+        "<i>La fase è astronomica (API). Il messaggio è simbolico, non un effetto dimostrato.</i>"
+    )
+    await reply_html(update, context, text, reply_markup=deck_after_keyboard("lunar"))
+
+
+async def send_yesno(update: Update, context: ContextTypes.DEFAULT_TYPE, method: str | None = None) -> None:
+    method = method or random.choice(("tarot", "rune", "iching"))
+    await send_typing(update)
+    result: dict[str, str]
+    if method == "tarot":
+        client = _http_client(context)
+        try:
+            cards = await api_tarot_draw(client, count=1, include_minor=False)
+            name_en = str((cards[0] or {}).get("name") or "Carta")
+            name_it = await translate_to_italian(client, name_en)
+        except StelleOfflineError:
+            await reply_offline(update, context)
+            return
+        reversed_card = bool(random.choice((False, True)))
+        result = yesno_from_tarot(reversed_card, name_it)
+    elif method == "iching":
+        result = yesno_from_iching_lines(cast_iching_lines())
+    else:
+        result = yesno_from_rune()
+    icon = {"yes": "✅", "no": "❌", "maybe": "〰️"}.get(result["lean"], "🔮")
+    text = (
+        "🪞 <b>DOMANDA SÌ / NO</b>\n\n"
+        f"Strumento: {e(result['method'])}\n"
+        f"{icon} <b>{e(result['label'])}</b>\n\n"
+        f"{e(result['detail'])}\n\n"
+        "<i>Non è una previsione certa. È una lettura simbolica: "
+        "un'inclinazione, non un verdetto.</i>"
+    )
+    await reply_html(update, context, text, reply_markup=yesno_keyboard())
+
+
+async def show_oracle_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    question = random.choice(ORACLE_QUESTIONS)
+    state = _oq_state(context)
+    state.clear()
+    state["step"] = "idle"
+    state["question"] = question
+    await reply_html(
+        update,
+        context,
+        "🕯️ <b>DOMANDA PER TE</b>\n\n"
+        f"<b>{e(question)}</b>\n\n"
+        "Non usa carte. Se vuoi, tocca 💭 e rispondi in un messaggio.",
+        reply_markup=oracle_question_keyboard(),
+    )
+
+
+async def receive_oq_answer(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    state = _oq_state(context)
+    question = str(state.get("question") or "")
+    _oq_reset(context)
+    words = len(text.split())
+    body = (
+        "🕯️ <b>ORACOLO DELLE DOMANDE</b>\n\n"
+        f"La domanda era: <i>{e(question)}</i>\n\n"
+        f"Hai risposto in {words} parole. Rileggi. "
+        "Cosa resta se togli la giustificazione?\n\n"
+        "<i>Non è un oracolo che predice. È una domanda che ti tiene fermo.</i>"
+    )
+    kb = InlineKeyboardMarkup(
+        [
+            [_tarot_btn("🕯️ Un'altra", "ora:askq")],
+            [_tarot_btn("🔮 Oracoli", "home:oracoli")],
+        ]
+    )
+    await reply_html(update, context, body, reply_markup=kb)
+    await delete_user_command(update)
+
+
+async def show_lettura_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _lettura_state(context)
+    state.clear()
+    state["step"] = "ask"
+    await reply_html(update, context, lettura_text())
+
+
+async def show_lettura_methods(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _lettura_state(context)
+    question = str(state.get("question") or "").strip()
+    state["step"] = "pick"
+    await reply_html(
+        update,
+        context,
+        "🔮 <b>SCEGLI IL METODO</b>\n\n"
+        f"<i>«{e(question)}»</i>\n\n"
+        "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n"
+        "🎲 Sorprendimi — scelgo io lo strumento e avvio il rituale.",
+        reply_markup=lettura_method_keyboard(),
+    )
+
+
+async def start_lettura_method(update: Update, context: ContextTypes.DEFAULT_TYPE, method: str) -> None:
+    question = str(_lettura_state(context).get("question") or "").strip()
+    if not question:
+        await show_lettura_ask(update, context)
+        return
+    if method == "surprise":
+        method = random.choice(("tarot", "iching", "rune", "leno"))
+    if method == "tarot":
+        await show_tarot_ritual(update, context, "ask", question=question)
+        return
+    if method == "iching":
+        state = _iching_state(context)
+        state.clear()
+        state["question"] = question
+        await show_iching_confirm(update, context)
+        return
+    if method == "rune":
+        state = _rune_state(context)
+        state.clear()
+        state["question"] = question
+        state["step"] = "draw"
+        await reply_html(
+            update,
+            context,
+            f"🪶 <b>La tua domanda</b>\n\n<i>«{e(question)}»</i>\n\nQuante rune vuoi estrarre?",
+            reply_markup=rune_draw_keyboard(),
+        )
+        return
+    if method == "leno":
+        state = _leno_state(context)
+        state.clear()
+        state["question"] = question
+        await show_lenormand_menu(update, context)
+        return
+    await show_lettura_methods(update, context)
+
+
+async def cmd_lettura(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    raw = " ".join(context.args).strip() if context.args else ""
+    if raw:
+        _lettura_state(context)["question"] = clip_text(raw, 400)
+        await show_lettura_methods(update, context)
+    else:
+        await show_lettura_ask(update, context)
+    await delete_user_command(update)
+
+
+async def on_ora_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    action = query.data.split(":")[1] if ":" in query.data else ""
+    await query.answer()
+    if action == "arch":
+        await send_deck_card(update, context, "arch")
+        return
+    if action == "anim":
+        await send_deck_card(update, context, "anim")
+        return
+    if action == "symb":
+        await send_deck_card(update, context, "symb")
+        return
+    if action == "elem":
+        await send_deck_card(update, context, "elem")
+        return
+    if action == "plan":
+        await send_deck_card(update, context, "plan")
+        return
+    if action == "lunar":
+        await send_lunar_oracle(update, context)
+        return
+    if action == "yes":
+        await reply_html(
+            update,
+            context,
+            "🪞 <b>DOMANDA SÌ / NO</b>\n\n"
+            "Pensa alla domanda. Non serve scriverla.\n"
+            "Pesco un tarocco, una runa o un I Ching e ti do un'inclinazione simbolica.\n"
+            "Non è un verdetto.",
+            reply_markup=yesno_keyboard(),
+        )
+        return
+    if action == "askq":
+        await show_oracle_question(update, context)
+        return
+    if action == "surprise":
+        pick = surprise_oracle()
+        dispatch = {
+            "tarot": lambda: show_tarot_menu(update, context),
+            "iching": lambda: show_iching_intro(update, context),
+            "rune": lambda: show_rune_intro(update, context),
+            "leno": lambda: show_lenormand_menu(update, context),
+            "arch": lambda: send_deck_card(update, context, "arch"),
+            "anim": lambda: send_deck_card(update, context, "anim"),
+            "symb": lambda: send_deck_card(update, context, "symb"),
+            "elem": lambda: send_deck_card(update, context, "elem"),
+            "plan": lambda: send_deck_card(update, context, "plan"),
+            "lunar": lambda: send_lunar_oracle(update, context),
+            "yes": lambda: send_yesno(update, context),
+        }
+        fn = dispatch.get(pick)
+        if fn:
+            await fn()
+        return
+
+
+async def on_leno_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    parts = query.data.split(":")
+    extra = parts[2] if len(parts) > 2 else ""
+    if extra in LENORMAND_SPREADS:
+        await query.answer("Le sibille cadono…")
+        await send_lenormand_draw(update, context, extra)
+        return
+    await query.answer()
+    await show_lenormand_menu(update, context)
+
+
+async def on_yn_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    extra = query.data.split(":")[1] if ":" in query.data else "go"
+    await query.answer("Estraggo…")
+    method = None if extra == "go" else extra
+    await send_yesno(update, context, method)
+
+
+async def on_oq_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None:
+        return
+    _remember_from_callback(update, context)
+    await query.answer()
+    state = _oq_state(context)
+    state["step"] = "ask"
+    await reply_html(
+        update,
+        context,
+        "🕯️ <b>Rispondi in un messaggio</b>\n\n"
+        f"<i>{e(state.get('question') or '')}</i>",
+    )
+
+
+async def on_lett_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    extra = query.data.split(":")[1] if ":" in query.data else ""
+    await query.answer()
+    await start_lettura_method(update, context, extra)
+
+
+async def cmd_sino(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await reply_html(
+        update,
+        context,
+        "🪞 <b>DOMANDA SÌ / NO</b>\n\nPensa alla domanda. Poi estrai.",
+        reply_markup=yesno_keyboard(),
+    )
+    await delete_user_command(update)
+
+
+async def cmd_archetipi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await send_deck_card(update, context, "arch")
+    await delete_user_command(update)
+
+
+async def cmd_animali(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await send_deck_card(update, context, "anim")
+    await delete_user_command(update)
+
+
+async def cmd_simboli(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await send_deck_card(update, context, "symb")
+    await delete_user_command(update)
+
+
+async def cmd_elementi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await send_deck_card(update, context, "elem")
+    await delete_user_command(update)
+
+
+async def cmd_oracoloplanetario(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await send_deck_card(update, context, "plan")
+    await delete_user_command(update)
+
+
+async def cmd_oracololunare(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await send_lunar_oracle(update, context)
+    await delete_user_command(update)
+
+
+async def cmd_oracolodande(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_oracle_question(update, context)
+    await delete_user_command(update)
+
+
 async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Domanda tarocchi in corso, oppure un segno trattato come /oroscopo."""
     message = update.effective_message
@@ -5749,6 +6265,20 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     text = message.text.strip()
     if await receive_natal_text(update, context, text):
+        return
+    oq = context.user_data.get(OQ_STATE_KEY)
+    if isinstance(oq, dict) and oq.get("step") == "ask":
+        await receive_oq_answer(update, context, text)
+        return
+    lettura = context.user_data.get(LETTURA_STATE_KEY)
+    if isinstance(lettura, dict) and lettura.get("step") == "ask":
+        question = clip_text(text, 400)
+        if len(question) < 6:
+            await reply_html(update, context, "📖 Serve una frase un po' più chiara. Riprova.")
+            return
+        _lettura_state(context)["question"] = question
+        await show_lettura_methods(update, context)
+        await delete_user_command(update)
         return
     mirror = context.user_data.get(MIRROR_STATE_KEY)
     if isinstance(mirror, dict) and mirror.get("step") == "ask":
@@ -5822,9 +6352,12 @@ async def post_init(application: Application) -> None:
                 BotCommand("start", "Presentazione del bot"),
                 BotCommand("tema", "Tema natale guidato"),
                 BotCommand("oroscopo", "Oroscopo: giorno, settimana o mese"),
-                BotCommand("tarocchi", "Lettura guidata dei tarocchi"),
+                BotCommand("oracoli", "Reparto oracoli"),
+                BotCommand("lettura", "Scrivi e scegli il metodo"),
+                BotCommand("tarocchi", "Tarocchi, anche Croce Celtica"),
                 BotCommand("iching", "Consultazione I Ching"),
                 BotCommand("rune", "Lettura delle rune"),
+                BotCommand("sibille", "Petit Lenormand"),
                 BotCommand("esplora", "I sei mondi"),
                 BotCommand("cosmico", "Scheda da ogni mondo"),
                 BotCommand("cielo", "Dashboard sopra Roma"),
@@ -5865,7 +6398,17 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler(["iching", "yijing"], cmd_iching))
     application.add_handler(CommandHandler(["rune", "runee"], cmd_rune))
     application.add_handler(CommandHandler(["esplora", "explore"], cmd_esplora))
-    application.add_handler(CommandHandler(["domanda", "oracolo"], cmd_domanda))
+    application.add_handler(CommandHandler(["oracoli", "oracolo"], cmd_oracoli))
+    application.add_handler(CommandHandler(["lettura", "domanda"], cmd_lettura))
+    application.add_handler(CommandHandler(["sibille", "lenormand"], cmd_sibille))
+    application.add_handler(CommandHandler(["sino", "siono", "yesno"], cmd_sino))
+    application.add_handler(CommandHandler(["archetipi", "archetipo"], cmd_archetipi))
+    application.add_handler(CommandHandler(["animali", "animale"], cmd_animali))
+    application.add_handler(CommandHandler(["simboli", "simbolo"], cmd_simboli))
+    application.add_handler(CommandHandler(["elementi", "elemento"], cmd_elementi))
+    application.add_handler(CommandHandler(["oracoloplanetario", "orop"], cmd_oracoloplanetario))
+    application.add_handler(CommandHandler(["oracololunare", "lunare"], cmd_oracololunare))
+    application.add_handler(CommandHandler(["oracolodande", "domande"], cmd_oracolodande))
     application.add_handler(CommandHandler(["iss", "stazione"], cmd_iss))
     application.add_handler(CommandHandler(["cosmico", "momento"], cmd_cosmico))
     application.add_handler(CommandHandler(["sole", "alba"], cmd_sole))
@@ -5908,6 +6451,11 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_rune_action, pattern=r"^rune:"))
     application.add_handler(CallbackQueryHandler(on_nav_action, pattern=r"^nav:"))
     application.add_handler(CallbackQueryHandler(on_sole_action, pattern=r"^sole:"))
+    application.add_handler(CallbackQueryHandler(on_ora_action, pattern=r"^ora:"))
+    application.add_handler(CallbackQueryHandler(on_leno_action, pattern=r"^leno:"))
+    application.add_handler(CallbackQueryHandler(on_yn_action, pattern=r"^yn:"))
+    application.add_handler(CallbackQueryHandler(on_oq_action, pattern=r"^oq:"))
+    application.add_handler(CallbackQueryHandler(on_lett_action, pattern=r"^lett:"))
     application.add_handler(CallbackQueryHandler(on_world_action, pattern=r"^world:"))
     application.add_handler(CallbackQueryHandler(on_sheet_action, pattern=r"^w:"))
     application.add_handler(CallbackQueryHandler(on_aster_action, pattern=r"^aster:"))

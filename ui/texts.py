@@ -6,7 +6,7 @@ def home_text() -> str:
         "🌌 <b>COSMOBOT</b>\n\n"
         "Esplorare sé stessi, il cielo e l'universo. Sei mondi, un filo.\n\n"
         "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, specchio, rituale\n"
-        "☯️ <b>DIVINAZIONE</b> — tarocchi, I Ching, rune\n"
+        "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, mazzi COSMOBOT\n"
         "🔭 <b>CIELO</b> — Roma, Luna, meteore, eclissi, alba\n"
         "🪐 <b>MONDI</b> — pianeti, lune, asteroidi, buchi neri, galassie\n"
         "👽 <b>VITA</b> — esopianeti, zona abitabile, SETI\n"
@@ -21,7 +21,7 @@ def esplora_text() -> str:
         "🧭 <b>ESPLORA</b>\n\n"
         "Sei mondi. Tocca quello che vuoi aprire.\n\n"
         "🔮 Te stesso — carta e rituali interiori\n"
-        "☯️ Divinazione — tarocchi, I Ching, rune\n"
+        "🔮 Oracoli — tradizionali e mazzi COSMOBOT\n"
         "🔭 Cielo — quello che c'è sopra la testa\n"
         "🪐 Mondi — Sistema Solare e oltre\n"
         "👽 Vita — come la cerchiamo, senza dichiararla\n"
@@ -30,13 +30,31 @@ def esplora_text() -> str:
 
 
 def domanda_text() -> str:
+    return lettura_text()
+
+
+def lettura_text() -> str:
     return (
-        "🔮 <b>HO UNA DOMANDA</b>\n\n"
-        "Cosa vuoi usare?\n\n"
-        "🃏 Tarocchi — carte live, poi la lettura\n"
-        "☯️ I Ching — domanda, monete, esagramma\n"
-        "🪶 Rune — Elder Futhark, una o tre rune\n\n"
-        "Stessa domanda, tre rituali diversi."
+        "📖 <b>LETTURA</b>\n\n"
+        "Scrivi cosa sta succedendo — una frase basta.\n"
+        "Poi scegli lo strumento, o lascia che lo scelga COSMOBOT.\n\n"
+        "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n"
+        "🎲 Sorprendimi — pesco io il metodo.\n\n"
+        "È una lettura simbolica, non una previsione certa."
+    )
+
+
+def oracoli_text() -> str:
+    return (
+        "🔮 <b>ORACOLI</b>\n\n"
+        "Scegli il tuo strumento.\n\n"
+        "<b>Tradizionali</b>\n"
+        "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n\n"
+        "<b>COSMOBOT</b>\n"
+        "🧿 Archetipi · 🐺 Animali · 🗝️ Simboli\n"
+        "🌿 Elementi · 🪐 Pianeti · 🌙 Luna\n\n"
+        "🪞 Sì/No · 🕯️ Domanda · 📖 Lettura\n"
+        "🎲 Sorprendimi — pesco io quale oracolo usare."
     )
 
 
@@ -60,11 +78,7 @@ def world_self_text() -> str:
 
 
 def world_div_text() -> str:
-    return (
-        "☯️ <b>DIVINAZIONE</b>\n\n"
-        "Tarocchi, I Ching, rune. Una domanda, tre rituali.\n"
-        "Le carte e gli esagrammi arrivano da fonti live; le rune dal dataset interno."
-    )
+    return oracoli_text()
 
 
 def world_sky_text() -> str:

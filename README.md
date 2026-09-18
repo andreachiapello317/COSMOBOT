@@ -13,8 +13,15 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | `/start` | Presenta il bot e i comandi | — |
 | `/tema` | Tema natale guidato: data, ora, luogo → Big Three, pianeti, case, aspetti | [CosmyDay `/natal`](https://cosmyday.com/api-docs) |
 | `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Bilancia** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
-| `/tarocchi` | Lettura guidata: 1 carta, 3 carte, amore, lavoro, domanda + storico | [freehoroscopeapi.com/tarot](https://freehoroscopeapi.com/tarot) |
+| `/oracoli` | Hub del reparto: tradizionali + mazzi COSMOBOT | — |
+| `/lettura` | Scrivi la situazione, poi scegli tarocchi / I Ching / rune / Lenormand / sorprendimi | riusa i rituali |
+| `/tarocchi` | 1/3 carte, amore, lavoro, domanda, carta del giorno, Croce Celtica | [freehoroscopeapi.com/tarot](https://freehoroscopeapi.com/tarot) |
 | `/iching` | Consultazione I Ching: domanda, sei lanci, esagramma, linee mutevoli, trasformato | [Wilhelm 1924 JSON](https://github.com/jesshewitt/i-ching) (libro pubblico live) |
+| `/sibille` | Petit Lenormand 1/3/5/9 carte + combinazioni | dataset `services/lenormand.py` |
+| `/sino` | Sì/No simbolico (tarocco, runa o I Ching) | stesse fonti, non un verdetto |
+| `/archetipi` `/animali` `/simboli` `/elementi` `/oracoloplanetario` | Mazzi originali COSMOBOT | `services/oracles.py` |
+| `/oracololunare` | Messaggio coerente con la fase | sunrisesunset.io + testo simbolico |
+| `/oracolodande` | Una domanda introspettiva, poi rifletti | dataset interno |
 | `/asteroidi` | Menu: NEO vicini alla Terra **oppure** Ceres/Vesta/Pallade/Giunone nel tema | [NASA NeoWs](https://api.nasa.gov) + [Horizons](https://ssd.jpl.nasa.gov/horizons) |
 | `/meteore` | Prossimo sciame e calendario dei picchi | [Skytime meteor-showers](https://skytime.live/api/docs) |
 | `/spazio` | Briefing del giorno: Luna, pianeti, eventi, sciami, cielo osservabile | CosmyDay events + Skytime + skymap.sh + sunrisesunset.io |

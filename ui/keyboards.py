@@ -38,7 +38,7 @@ def _pairs(items: list[InlineKeyboardButton]) -> list[list[InlineKeyboardButton]
 def home_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔮 Te stesso", "world:self"), kb_btn("☯️ Divinazione", "world:div")],
+            [kb_btn("🔮 Te stesso", "world:self"), kb_btn("🔮 Oracoli", "world:div")],
             [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🪐 Mondi", "world:mondi")],
             [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
             [kb_btn("✨ COSMICO", "home:cosmico"), kb_btn("🎲 Random", "home:random")],
@@ -50,7 +50,7 @@ def home_keyboard() -> InlineKeyboardMarkup:
 def esplora_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔮 Te stesso", "world:self"), kb_btn("☯️ Divinazione", "world:div")],
+            [kb_btn("🔮 Te stesso", "world:self"), kb_btn("🔮 Oracoli", "world:div")],
             [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🪐 Mondi", "world:mondi")],
             [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
             [kb_btn("✨ COSMICO", "home:cosmico")],
@@ -71,11 +71,19 @@ def world_self_keyboard() -> InlineKeyboardMarkup:
 
 
 def world_div_keyboard() -> InlineKeyboardMarkup:
+    return oracoli_keyboard()
+
+
+def oracoli_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🃏 Tarocchi", "tarot:menu"), kb_btn("☯️ I Ching", "iching:open")],
-            [kb_btn("🪶 Rune", "home:rune"), kb_btn("🔮 Ho una domanda", "home:domanda")],
-            [kb_btn("🎲 Random", "home:random")],
+            [kb_btn("🪶 Rune", "home:rune"), kb_btn("🌿 Lenormand", "home:sibille")],
+            [kb_btn("🧿 Archetipi", "ora:arch"), kb_btn("🐺 Animali", "ora:anim")],
+            [kb_btn("🗝️ Simboli", "ora:symb"), kb_btn("🌿 Elementi", "ora:elem")],
+            [kb_btn("🌙 Luna", "ora:lunar"), kb_btn("🪐 Pianeti", "ora:plan")],
+            [kb_btn("🪞 Sì / No", "ora:yes"), kb_btn("🕯️ Domande", "ora:askq")],
+            [kb_btn("📖 Lettura", "home:lettura"), kb_btn("🎲 Sorprendimi", "ora:surprise")],
             [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Home", "home:menu")],
         ]
     )
@@ -142,11 +150,64 @@ def nav_universo_keyboard() -> InlineKeyboardMarkup:
 
 
 def domanda_keyboard() -> InlineKeyboardMarkup:
+    return lettura_method_keyboard()
+
+
+def lettura_method_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🃏 Tarocchi", "tarot:pick:ask"), kb_btn("☯️ I Ching", "iching:open")],
-            [kb_btn("🪶 Rune", "home:rune")],
-            [kb_btn("🏠 Home", "home:menu")],
+            [kb_btn("🃏 Tarocchi", "lett:tarot"), kb_btn("☯️ I Ching", "lett:iching")],
+            [kb_btn("🪶 Rune", "lett:rune"), kb_btn("🌿 Lenormand", "lett:leno")],
+            [kb_btn("🎲 Sorprendimi", "lett:surprise")],
+            [kb_btn("🔮 Oracoli", "home:oracoli"), kb_btn("🏠 Home", "home:menu")],
+        ]
+    )
+
+
+def lenormand_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("1 carta", "leno:n:1"), kb_btn("3 carte", "leno:n:3")],
+            [kb_btn("5 carte", "leno:n:5"), kb_btn("9 carte", "leno:n:9")],
+            [kb_btn("🔮 Oracoli", "home:oracoli"), kb_btn("🏠 Home", "home:menu")],
+        ]
+    )
+
+
+def yesno_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🎲 ESTRAI", "yn:go")],
+            [kb_btn("🃏 Tarocco", "yn:tarot"), kb_btn("🪶 Runa", "yn:rune")],
+            [kb_btn("☯️ I Ching", "yn:iching")],
+            [kb_btn("🔮 Oracoli", "home:oracoli")],
+        ]
+    )
+
+
+def oracle_question_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("💭 Rifletto", "oq:wait")],
+            [kb_btn("🕯️ Un'altra", "ora:askq"), kb_btn("🏠 Home", "home:menu")],
+        ]
+    )
+
+
+def deck_after_keyboard(kind: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🎲 Ancora", f"ora:{kind}")],
+            [kb_btn("🔮 Oracoli", "home:oracoli"), kb_btn("🏠 Home", "home:menu")],
+        ]
+    )
+
+
+def lenormand_after_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌿 Nuova pesca", "home:sibille")],
+            [kb_btn("🔮 Oracoli", "home:oracoli"), kb_btn("🏠 Home", "home:menu")],
         ]
     )
 
