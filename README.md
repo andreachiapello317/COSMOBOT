@@ -11,7 +11,7 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | Comando | Effetto | Fonte live |
 | --- | --- | --- |
 | `/start` | Presenta il bot e i comandi | — |
-| `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Leone** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
+| `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Bilancia** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
 | `/luna` | Fase, illuminazione, moonrise/moonset + spiegazione del giorno | [sunrisesunset.io](https://sunrisesunset.io/api/) + [CosmyDay](https://api.cosmyday.com/content/moon) |
 | `/pianeti` | Posizioni attuali dei pianeti principali sopra Roma | [CosmyDay `/natal`](https://cosmyday.com/api-docs) (Swiss Ephemeris) |
 | `/apod` | Astronomy Picture of the Day (foto o video) | [NASA APOD](https://api.nasa.gov) |
@@ -153,7 +153,7 @@ Se in locale hai testato il webhook e vuoi tornare al polling, togli `WEBHOOK_UR
 In cima a `bot.py`:
 
 ```python
-DEFAULT_SIGN = "leo"          # segno di /oroscopo senza argomenti
+DEFAULT_SIGN = "libra"        # segno di /oroscopo senza argomenti
 DEFAULT_LAT = 41.9028         # Roma, per Luna e pianeti
 DEFAULT_LON = 12.4964
 ```

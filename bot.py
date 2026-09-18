@@ -46,7 +46,7 @@ from telegram.ext import (
 # Segno usato da /oroscopo quando l'utente non ne passa uno.
 # Valori ammessi: aries, taurus, gemini, cancer, leo, virgo, libra,
 # scorpio, sagittarius, capricorn, aquarius, pisces.
-DEFAULT_SIGN = "leo"
+DEFAULT_SIGN = "libra"
 
 # Coordinate di default per Luna e pianeti (Roma). L'Italia merita il suo cielo.
 DEFAULT_LAT = 41.9028
@@ -824,7 +824,7 @@ def help_text() -> str:
         "/apod — immagine (o video) astronomica del giorno, NASA\n"
         "/stelle — una scheda NASA a caso, tradotta al volo\n"
         "/aiuto — questo messaggio\n\n"
-        "Scrivere solo «leone» o «Vergine» vale come /oroscopo.\n\n"
+        "Scrivere solo «bilancia» o «Vergine» vale come /oroscopo.\n\n"
         "Se un'API fa i capricci sentirai: "
         f"<i>{e(STARS_OFFLINE)}</i>"
     )
@@ -1232,7 +1232,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         update,
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale né un comando.\n"
-        "Scrivi ad esempio <i>vergine</i>, oppure /oroscopo leone, oppure /aiuto.",
+        "Scrivi ad esempio <i>vergine</i>, oppure /oroscopo bilancia, oppure /aiuto.",
     )
 
 
