@@ -27,7 +27,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from dotenv import load_dotenv
-from telegram import BotCommand, Update
+from telegram import BotCommand, InputMediaPhoto, Update
 from telegram.constants import ChatAction, ParseMode
 from telegram.error import TelegramError
 from telegram.ext import (
@@ -62,8 +62,12 @@ HTTP_TIMEOUT = 18.0
 # Cache breve: le API chiedono di non martellarle, i dati cambiano piano.
 CACHE_TTL_SECONDS = 8 * 60
 
-# Limite Telegram per un singolo messaggio di testo.
+# Limite Telegram per un singolo messaggio di testo / caption foto.
 TELEGRAM_MAX_LEN = 3900
+TELEGRAM_CAPTION_MAX = 1024
+
+# In chat_data: ultimo messaggio del bot, da sostituire al comando successivo.
+LAST_BOT_MSG_KEY = "last_bot_msg"
 
 USER_AGENT = "StelleBot/1.0 (Telegram; https://github.com; educational astrology bot)"
 
@@ -537,8 +541,14 @@ async def api_apod(client: httpx.AsyncClient, *, random: bool = False) -> dict[s
 
 
 # ---------------------------------------------------------------------------
-# Telegram helpers
+# Telegram helpers — un solo messaggio per chat, sempre sostituito
 # ---------------------------------------------------------------------------
+
+
+def clip_text(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
 
 
 async def send_typing(update: Update) -> None:
@@ -549,21 +559,128 @@ async def send_typing(update: Update) -> None:
             pass
 
 
-async def reply_html(update: Update, text: str, *, preview: bool = False) -> None:
-    message = update.effective_message
-    if message is None:
+def _last_bot_msg(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any] | None:
+    last = context.chat_data.get(LAST_BOT_MSG_KEY)
+    return last if isinstance(last, dict) and "id" in last else None
+
+
+def _remember_bot_msg(context: ContextTypes.DEFAULT_TYPE, message_id: int, kind: str) -> None:
+    context.chat_data[LAST_BOT_MSG_KEY] = {"id": message_id, "kind": kind}
+
+
+async def _delete_last_bot_msg(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
+    last = _last_bot_msg(context)
+    if not last:
         return
-    chunks = [text[i : i + TELEGRAM_MAX_LEN] for i in range(0, len(text), TELEGRAM_MAX_LEN)] or [text]
-    for chunk in chunks:
-        await message.reply_text(
-            chunk,
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=int(last["id"]))
+    except TelegramError:
+        pass
+    context.chat_data.pop(LAST_BOT_MSG_KEY, None)
+
+
+def _is_not_modified(exc: TelegramError) -> bool:
+    return "not modified" in str(exc).lower()
+
+
+async def deliver_text(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text: str,
+    *,
+    preview: bool = False,
+) -> None:
+    """Invia un testo, oppure modifica l'ultimo messaggio del bot in questa chat."""
+    chat = update.effective_chat
+    if chat is None:
+        return
+    text = clip_text(text, TELEGRAM_MAX_LEN)
+    last = _last_bot_msg(context)
+
+    if last and last.get("kind") == "text":
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat.id,
+                message_id=int(last["id"]),
+                text=text,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=not preview,
+            )
+            return
+        except TelegramError as exc:
+            if _is_not_modified(exc):
+                return
+            logger.info("Modifica testo non riuscita, sostituisco il messaggio: %s", exc)
+
+    await _delete_last_bot_msg(context, chat.id)
+    sent = await context.bot.send_message(
+        chat_id=chat.id,
+        text=text,
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=not preview,
+    )
+    _remember_bot_msg(context, sent.message_id, "text")
+
+
+async def deliver_photo(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    photo_url: str,
+    caption: str,
+) -> bool:
+    """Sostituisce l'ultimo messaggio con una foto. False se Telegram rifiuta la foto."""
+    chat = update.effective_chat
+    if chat is None:
+        return False
+    caption = clip_text(caption, TELEGRAM_CAPTION_MAX)
+    last = _last_bot_msg(context)
+    media = InputMediaPhoto(media=photo_url, caption=caption, parse_mode=ParseMode.HTML)
+
+    if last and last.get("kind") == "photo":
+        try:
+            await context.bot.edit_message_media(
+                chat_id=chat.id,
+                message_id=int(last["id"]),
+                media=media,
+            )
+            return True
+        except TelegramError as exc:
+            if _is_not_modified(exc):
+                return True
+            logger.info("Modifica foto non riuscita, sostituisco il messaggio: %s", exc)
+
+    await _delete_last_bot_msg(context, chat.id)
+    try:
+        sent = await context.bot.send_photo(
+            chat_id=chat.id,
+            photo=photo_url,
+            caption=caption,
             parse_mode=ParseMode.HTML,
-            disable_web_page_preview=not preview,
         )
+    except TelegramError:
+        logger.warning("Impossibile inviare la foto APOD, resto sul testo")
+        return False
+    _remember_bot_msg(context, sent.message_id, "photo")
+    return True
 
 
-async def reply_offline(update: Update) -> None:
-    await reply_html(update, STARS_OFFLINE)
+async def reply_html(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text: str,
+    *,
+    preview: bool = False,
+) -> None:
+    await deliver_text(update, context, text, preview=preview)
+
+
+async def reply_offline(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(update, context, STARS_OFFLINE)
+
+
+async def show_loading(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Riusa lo stesso messaggio mentre arrivano i dati live."""
+    await deliver_text(update, context, "⏳ Un attimo, sto interrogando il cielo…")
 
 
 def start_text() -> str:
@@ -612,11 +729,11 @@ def help_text() -> str:
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await reply_html(update, start_text())
+    await reply_html(update, context, start_text())
 
 
 async def cmd_aiuto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await reply_html(update, help_text())
+    await reply_html(update, context, help_text())
 
 
 async def cmd_oroscopo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -630,11 +747,13 @@ async def send_oroscopo(
     raw_sign: str,
 ) -> None:
     await send_typing(update)
+    await show_loading(update, context)
     requested = raw_sign.strip()
     sign = normalize_sign(requested) if requested else DEFAULT_SIGN
     if requested and sign is None:
         await reply_html(
             update,
+            context,
             "Hmm, quel segno non è sulla ruota dello zodiaco che conosco.\n"
             f"Prova uno di questi: {e(list_signs_help())}",
         )
@@ -652,7 +771,7 @@ async def send_oroscopo(
         date_it = format_date_it(str(payload.get("date") or ""))
     except StelleOfflineError:
         logger.exception("Oroscopo non disponibile per %s", sign)
-        await reply_offline(update)
+        await reply_offline(update, context)
         return
 
     header = f"{emoji} <b>Oroscopo di oggi — {e(it_name)}</b>\n📅 {e(date_it)}"
@@ -665,11 +784,12 @@ async def send_oroscopo(
         f"{header}\n\n{e(text_it)}\n\n"
         "<i>Dati live da freehoroscopeapi.com · traduzione automatica.</i>"
     )
-    await reply_html(update, body)
+    await reply_html(update, context, body)
 
 
 async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_typing(update)
+    await show_loading(update, context)
     client = _http_client(context)
 
     obs_res, story_res = await asyncio.gather(
@@ -682,7 +802,7 @@ async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     story = story_res if isinstance(story_res, dict) else None
     if obs is None and story is None:
         logger.error("Luna: entrambe le API sono fallite: %s / %s", obs_res, story_res)
-        await reply_offline(update)
+        await reply_offline(update, context)
         return
 
     lines: list[str] = ["🌙 <b>La Luna, stasera (dati live)</b>"]
@@ -740,11 +860,12 @@ async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "<i>Fonti live: sunrisesunset.io (osservazione) e CosmyDay "
         "(fase + testo del giorno).</i>"
     )
-    await reply_html(update, "\n".join(lines))
+    await reply_html(update, context, "\n".join(lines))
 
 
 async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_typing(update)
+    await show_loading(update, context)
     client = _http_client(context)
     now = datetime.now(DEFAULT_TZ)
 
@@ -752,7 +873,7 @@ async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         natal = await api_planets_now(client)
     except StelleOfflineError:
         logger.exception("Pianeti: efemeridi non disponibili")
-        await reply_offline(update)
+        await reply_offline(update, context)
         return
 
     planets = natal.get("planets") or {}
@@ -815,7 +936,7 @@ async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         "<i>Efemeridi live: CosmyDay API (Swiss Ephemeris / NASA JPL DE431). "
         "Posizioni tropicali.</i>"
     )
-    await reply_html(update, "\n".join(lines))
+    await reply_html(update, context, "\n".join(lines))
 
 
 async def _deliver_apod(
@@ -858,31 +979,38 @@ async def _deliver_apod(
         text_body += f"\n\n🔗 {e(url)}"
     text_body += "\n\n<i>Fonte live: api.nasa.gov/planetary/apod</i>"
 
-    message = update.effective_message
-    if (
-        message is not None
-        and not is_video
+    can_send_photo = (
+        not is_video
         and media_type == "image"
         and url
         and url.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".webp"))
-    ):
-        caption = f"🖼️ {title_it}\n📅 {date_it}"
-        try:
-            await message.reply_photo(
-                photo=url,
-                caption=caption[:1024],
-                parse_mode=ParseMode.HTML,
-            )
-        except TelegramError:
-            logger.warning("Impossibile inviare la foto APOD, resto sul testo")
-        await reply_html(update, text_body, preview=True)
-        return
+    )
+    if can_send_photo:
+        caption_bits = [
+            intro,
+            f"🖼️ <b>{e(title_it)}</b>",
+            f"📅 {e(date_it)} · NASA APOD",
+        ]
+        if copyright_:
+            caption_bits.append(f"© {e(copyright_.replace(chr(10), ', '))}")
+        caption = "\n".join(caption_bits)
+        extra = ""
+        if expl_it:
+            extra += f"\n\n{e(expl_it)}"
+        if url:
+            extra += f"\n\n🔗 {e(url)}"
+        room = TELEGRAM_CAPTION_MAX - len(caption)
+        if room > 40 and extra:
+            caption += clip_text(extra, room)
+        if await deliver_photo(update, context, url, caption):
+            return
 
-    await reply_html(update, text_body, preview=True)
+    await reply_html(update, context, text_body, preview=True)
 
 
 async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_typing(update)
+    await show_loading(update, context)
     client = _http_client(context)
     try:
         item = await api_apod(client, random=False)
@@ -894,11 +1022,12 @@ async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except StelleOfflineError:
         logger.exception("APOD odierno non disponibile")
-        await reply_offline(update)
+        await reply_offline(update, context)
 
 
 async def cmd_stelle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_typing(update)
+    await show_loading(update, context)
     client = _http_client(context)
     try:
         item = await api_apod(client, random=True)
@@ -913,7 +1042,7 @@ async def cmd_stelle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         )
     except StelleOfflineError:
         logger.exception("Curiosità APOD random non disponibile")
-        await reply_offline(update)
+        await reply_offline(update, context)
 
 
 async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -931,6 +1060,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     await reply_html(
         update,
+        context,
         "Ho letto il messaggio, ma non è un segno zodiacale né un comando.\n"
         "Scrivi ad esempio <i>vergine</i>, oppure /oroscopo leone, oppure /aiuto.",
     )
@@ -939,6 +1069,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await reply_html(
         update,
+        context,
         "Quel comando non è nella mappa celeste. Prova /aiuto prima che Mercurio "
         "faccia di nuovo il furbo.",
     )
@@ -946,9 +1077,9 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.exception("Errore non gestito: %s", context.error)
-    if isinstance(update, Update) and update.effective_message:
+    if isinstance(update, Update):
         try:
-            await update.effective_message.reply_text(STARS_OFFLINE)
+            await reply_offline(update, context)
         except TelegramError:
             pass
 
