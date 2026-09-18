@@ -18,6 +18,7 @@ import asyncio
 import html
 import logging
 import os
+import random
 import re
 import sys
 import time
@@ -502,6 +503,34 @@ def format_horoscope_when(period: str, date_value: str) -> str:
     return pretty
 
 
+TAROT_SPREADS: dict[str, dict[str, Any]] = {
+    "one": {
+        "count": 1,
+        "include_minor": False,
+        "button": "🃏 Una carta",
+        "title": "Una carta",
+        "positions": ("La carta",),
+    },
+    "three": {
+        "count": 3,
+        "include_minor": True,
+        "button": "🔮 Tre carte",
+        "title": "Passato · Presente · Futuro",
+        "positions": ("Passato", "Presente", "Futuro"),
+    },
+}
+
+
+def tarot_keyboard(selected: str | None = None) -> InlineKeyboardMarkup:
+    row: list[InlineKeyboardButton] = []
+    for key, meta in TAROT_SPREADS.items():
+        label = str(meta["button"])
+        if selected == key:
+            label = f"✓ {label}"
+        row.append(InlineKeyboardButton(label, callback_data=f"tarot:{key}"))
+    return InlineKeyboardMarkup([row])
+
+
 # ---------------------------------------------------------------------------
 # API live
 # ---------------------------------------------------------------------------
@@ -534,6 +563,27 @@ async def api_horoscope(
     if not isinstance(payload, dict) or not payload.get("horoscope"):
         raise StelleOfflineError("oroscopo vuoto")
     return cache_set(cache_key, payload)
+
+
+async def api_tarot_draw(
+    client: httpx.AsyncClient,
+    *,
+    count: int = 1,
+    include_minor: bool = False,
+) -> list[dict[str, Any]]:
+    """Pesca live da freehoroscopeapi. Nessuna cache: ogni pesca è nuova."""
+    params: dict[str, Any] = {"n": count}
+    if include_minor:
+        params["minor"] = "true"
+    data = await fetch_json(
+        client,
+        "https://freehoroscopeapi.com/api/v1/tarot/cards/random",
+        params=params,
+    )
+    cards = data.get("cards") if isinstance(data, dict) else None
+    if not isinstance(cards, list) or not cards:
+        raise StelleOfflineError("mazzo vuoto")
+    return cards
 
 
 async def api_moon_observatory(client: httpx.AsyncClient) -> dict[str, Any]:
@@ -818,6 +868,7 @@ def start_text() -> str:
         f"(costante <code>DEFAULT_SIGN</code>).\n\n"
         "<b>Comandi</b>\n"
         "• /oroscopo [segno] — poi scegli giorno, settimana o mese\n"
+        "• /tarocchi — pesca una carta o tre (passato, presente, futuro)\n"
         "• /luna — fase lunare di oggi\n"
         "• /pianeti — dove sono i pianeti adesso\n"
         "• /apod — Astronomy Picture of the Day (NASA)\n"
@@ -837,6 +888,7 @@ def help_text() -> str:
         f"{default_emoji} {default_it}. Poi i bottoni: giorno, settimana, mese. "
         f"Segni: {e(list_signs_help())}\n"
         "/luna — fase, illuminazione, alba/tramonto della Luna su Roma\n"
+        "/tarocchi — pesca live: una carta (arcani maggiori) o tre carte (mazzo completo)\n"
         "/pianeti — posizioni attuali (efemeridi CosmyDay / Swiss Ephemeris)\n"
         "/apod — immagine (o video) astronomica del giorno, NASA\n"
         "/stelle — una scheda NASA a caso, tradotta al volo\n"
@@ -975,6 +1027,126 @@ async def on_oroscopo_period(update: Update, context: ContextTypes.DEFAULT_TYPE)
         kind = "text" if query.message.text else "photo"
         _remember_bot_msg(context, query.message.message_id, kind)
     await send_oroscopo_period(update, context, sign, period)
+
+
+async def cmd_tarocchi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    raw = " ".join(context.args).strip().lower() if context.args else ""
+    if raw in {"1", "una", "carta", "one"}:
+        await send_tarot_draw(update, context, "one")
+        return
+    if raw in {"3", "tre", "spread", "three"}:
+        await send_tarot_draw(update, context, "three")
+        return
+    await show_tarot_picker(update, context)
+
+
+async def show_tarot_picker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = (
+        "🃏 <b>Tarocchi</b>\n\n"
+        "Il mazzo è quello Rider–Waite (78 carte) servito live da freehoroscopeapi. "
+        "Io non invento i significati: li pesco dall'API, traduco, e lancio una "
+        "moneta per dritta o capovolta (come si fa quando si gira la carta).\n\n"
+        "<b>Una carta</b> — un arcano maggiore, la sintesi del momento.\n"
+        "<b>Tre carte</b> — mazzo completo, letto come passato · presente · futuro.\n\n"
+        "Tocca un bottone. Non è un oracolo infallibile: è un mazzo di carta con un'API."
+    )
+    await reply_html(update, context, text, reply_markup=tarot_keyboard())
+    await delete_user_command(update)
+
+
+async def _format_tarot_card(
+    client: httpx.AsyncClient,
+    card: dict[str, Any],
+    *,
+    position: str,
+    include_desc: bool,
+) -> str:
+    name_en = str(card.get("name") or "Carta senza nome")
+    name_it = await translate_to_italian(client, name_en)
+    kind = "Arcano maggiore" if str(card.get("type") or "") == "major" else "Arcano minore"
+    reversed_card = random.choice((False, True))
+    meaning_en = str(card.get("meaning_rev" if reversed_card else "meaning_up") or "")
+    meaning_it = await translate_to_italian(client, meaning_en) if meaning_en else "—"
+    orientation = "↩️ Capovolta" if reversed_card else "➡️ Dritta"
+    lines = [
+        f"<b>{e(position)}</b> — {e(name_it)}",
+        f"<i>{e(kind)} · {orientation}</i>",
+        e(meaning_it),
+    ]
+    if include_desc and card.get("desc"):
+        desc_it = await translate_to_italian(client, str(card["desc"]))
+        lines.append("")
+        lines.append("📖 " + e(clip_text(desc_it, 900)))
+    return "\n".join(lines)
+
+
+async def send_tarot_draw(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    spread: str,
+) -> None:
+    if spread not in TAROT_SPREADS:
+        spread = "one"
+    meta = TAROT_SPREADS[spread]
+    await send_typing(update)
+    await deliver_text(update, context, "🃏 Sto mescolando il mazzo…")
+    client = _http_client(context)
+
+    try:
+        cards = await api_tarot_draw(
+            client,
+            count=int(meta["count"]),
+            include_minor=bool(meta["include_minor"]),
+        )
+    except StelleOfflineError:
+        logger.exception("Tarocchi non disponibili")
+        await reply_offline(update, context)
+        return
+
+    positions: tuple[str, ...] = tuple(meta["positions"])
+    include_desc = spread == "one"
+    blocks: list[str] = [
+        f"🃏 <b>Tarocchi — {e(meta['title'])}</b>",
+        "",
+    ]
+    for idx, card in enumerate(cards[: len(positions)]):
+        if idx:
+            blocks.append("")
+        blocks.append(
+            await _format_tarot_card(
+                client,
+                card,
+                position=positions[idx],
+                include_desc=include_desc,
+            )
+        )
+    blocks.append("")
+    blocks.append(
+        "<i>Fonte live: freehoroscopeapi.com/tarot · traduzione automatica. "
+        "Pesca di nuovo con i bottoni sotto.</i>"
+    )
+    await reply_html(
+        update,
+        context,
+        "\n".join(blocks),
+        reply_markup=tarot_keyboard(selected=spread),
+    )
+    await delete_user_command(update)
+
+
+async def on_tarot_spread(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    parts = query.data.split(":")
+    if len(parts) != 2 or parts[0] != "tarot" or parts[1] not in TAROT_SPREADS:
+        await query.answer("Bottone stanco. Riprova con /tarocchi.")
+        return
+    await query.answer("Mazzo in movimento…")
+    if query.message is not None:
+        kind = "text" if query.message.text else "photo"
+        _remember_bot_msg(context, query.message.message_id, kind)
+    await send_tarot_draw(update, context, parts[1])
 
 
 async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1295,6 +1467,7 @@ async def post_init(application: Application) -> None:
             [
                 BotCommand("start", "Presentazione del bot"),
                 BotCommand("oroscopo", "Oroscopo: giorno, settimana o mese"),
+                BotCommand("tarocchi", "Pesca una o tre carte dei tarocchi"),
                 BotCommand("luna", "Fase lunare di oggi"),
                 BotCommand("pianeti", "Posizioni attuali dei pianeti"),
                 BotCommand("apod", "Foto NASA del giorno"),
@@ -1325,12 +1498,14 @@ def build_application(token: str) -> Application:
 
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("oroscopo", cmd_oroscopo))
+    application.add_handler(CommandHandler(["tarocchi", "tarot", "tarocco"], cmd_tarocchi))
     application.add_handler(CommandHandler("luna", cmd_luna))
     application.add_handler(CommandHandler("pianeti", cmd_pianeti))
     application.add_handler(CommandHandler("apod", cmd_apod))
     application.add_handler(CommandHandler("stelle", cmd_stelle))
     application.add_handler(CommandHandler(["aiuto", "help"], cmd_aiuto))
     application.add_handler(CallbackQueryHandler(on_oroscopo_period, pattern=r"^horo:"))
+    application.add_handler(CallbackQueryHandler(on_tarot_spread, pattern=r"^tarot:"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))
     application.add_error_handler(on_error)
