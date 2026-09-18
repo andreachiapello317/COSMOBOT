@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
 import logging
 import os
 import random
@@ -23,6 +24,7 @@ import re
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -507,28 +509,160 @@ TAROT_SPREADS: dict[str, dict[str, Any]] = {
     "one": {
         "count": 1,
         "include_minor": False,
-        "button": "🃏 Una carta",
-        "title": "Una carta",
-        "positions": ("La carta",),
+        "button": "🔹 1 carta",
+        "title": "Energia del momento",
+        "positions": ("Energia del momento",),
+        "ritual": "Una sola carta, un'indicazione. Pensa a ciò che senti adesso.",
     },
     "three": {
         "count": 3,
         "include_minor": True,
-        "button": "🔮 Tre carte",
-        "title": "Passato · Presente · Futuro",
-        "positions": ("Passato", "Presente", "Futuro"),
+        "button": "🔹 3 carte",
+        "title": "Situazione · Ostacolo · Direzione",
+        "positions": ("Situazione", "Ostacolo", "Direzione"),
+        "ritual": "Tre carte: dove sei, cosa ostacola, dove puoi andare. Non serve scrivere la situazione.",
+    },
+    "love": {
+        "count": 3,
+        "include_minor": True,
+        "button": "❤️ Amore",
+        "title": "Tu · L'altra persona · La dinamica",
+        "positions": ("Tu", "L'altra persona", "La dinamica"),
+        "ritual": "Tre carte sul legame: tu, l'altra persona, la dinamica in mezzo.",
+    },
+    "work": {
+        "count": 3,
+        "include_minor": True,
+        "button": "💼 Lavoro",
+        "title": "Situazione · Sfida · Sviluppo",
+        "positions": ("Situazione", "Sfida", "Possibile sviluppo"),
+        "ritual": "Tre carte sul lavoro: il quadro, la sfida, un possibile sviluppo.",
+    },
+    "ask": {
+        "count": 3,
+        "include_minor": True,
+        "button": "❓ Domanda",
+        "title": "Lettura sulla tua domanda",
+        "positions": ("Nocciolo", "Ostacolo", "Indicazione"),
+        "ritual": "Ho la tua domanda. Concentrati su ciò che vuoi comprendere, poi pesca.",
     },
 }
 
+TAROT_STATE_KEY = "tarot_flow"
+TAROT_HISTORY_MAX = 12
+TAROT_HISTORY_PATH = Path("data/tarot_history.json")
+_tarot_history_lock = asyncio.Lock()
 
-def tarot_keyboard(selected: str | None = None) -> InlineKeyboardMarkup:
-    row: list[InlineKeyboardButton] = []
-    for key, meta in TAROT_SPREADS.items():
-        label = str(meta["button"])
-        if selected == key:
-            label = f"✓ {label}"
-        row.append(InlineKeyboardButton(label, callback_data=f"tarot:{key}"))
-    return InlineKeyboardMarkup([row])
+MAJOR_CARD_EMOJI = {
+    "the fool": "🃏",
+    "the magician": "🪄",
+    "the high priestess": "🔮",
+    "the empress": "👑",
+    "the emperor": "🏛️",
+    "the hierophant": "📿",
+    "the lovers": "💕",
+    "the chariot": "🏇",
+    "strength": "🦁",
+    "the hermit": "🏮",
+    "wheel of fortune": "☸️",
+    "justice": "⚖️",
+    "the hanged man": "🪢",
+    "death": "🦋",
+    "temperance": "🍷",
+    "the devil": "😈",
+    "the tower": "🗼",
+    "the star": "⭐",
+    "the moon": "🌙",
+    "the sun": "☀️",
+    "judgement": "📯",
+    "judgment": "📯",
+    "the world": "🌍",
+}
+
+
+def tarot_card_emoji(name: str) -> str:
+    key = re.sub(r"\s+", " ", name.lower().strip())
+    if key in MAJOR_CARD_EMOJI:
+        return MAJOR_CARD_EMOJI[key]
+    if "wand" in key:
+        return "🔥"
+    if "cup" in key:
+        return "💧"
+    if "sword" in key:
+        return "⚔️"
+    if "pentacle" in key or "coin" in key:
+        return "🪙"
+    return "🃏"
+
+
+def _tarot_btn(label: str, data: str) -> InlineKeyboardButton:
+    return InlineKeyboardButton(label, callback_data=data)
+
+
+def tarot_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [_tarot_btn("🔹 1 carta", "tarot:pick:one"), _tarot_btn("🔹 3 carte", "tarot:pick:three")],
+            [_tarot_btn("❤️ Amore", "tarot:pick:love"), _tarot_btn("💼 Lavoro", "tarot:pick:work")],
+            [_tarot_btn("❓ Domanda", "tarot:pick:ask")],
+            [_tarot_btn("📖 Storico", "tarot:hist")],
+        ]
+    )
+
+
+def tarot_draw_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[_tarot_btn("🔮 PESCA LE CARTE", "tarot:draw")]])
+
+
+def tarot_after_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[_tarot_btn("🃏 Nuova lettura", "tarot:menu"), _tarot_btn("📖 Storico", "tarot:hist")]]
+    )
+
+
+def _tarot_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(TAROT_STATE_KEY, None)
+
+
+def _tarot_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(TAROT_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[TAROT_STATE_KEY] = state
+    return state
+
+
+def _history_load() -> dict[str, Any]:
+    if not TAROT_HISTORY_PATH.exists():
+        return {}
+    try:
+        data = json.loads(TAROT_HISTORY_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _history_save(data: dict[str, Any]) -> None:
+    TAROT_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    TAROT_HISTORY_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+async def tarot_history_add(user_id: int, entry: dict[str, Any]) -> None:
+    async with _tarot_history_lock:
+        data = _history_load()
+        key = str(user_id)
+        rows = data.get(key)
+        if not isinstance(rows, list):
+            rows = []
+        rows.insert(0, entry)
+        data[key] = rows[:TAROT_HISTORY_MAX]
+        _history_save(data)
+
+
+async def tarot_history_list(user_id: int) -> list[dict[str, Any]]:
+    async with _tarot_history_lock:
+        rows = _history_load().get(str(user_id), [])
+    return rows if isinstance(rows, list) else []
 
 
 # ---------------------------------------------------------------------------
@@ -868,7 +1002,7 @@ def start_text() -> str:
         f"(costante <code>DEFAULT_SIGN</code>).\n\n"
         "<b>Comandi</b>\n"
         "• /oroscopo [segno] — poi scegli giorno, settimana o mese\n"
-        "• /tarocchi — pesca una carta o tre (passato, presente, futuro)\n"
+        "• /tarocchi — lettura guidata: 1 carta, 3 carte, amore, lavoro, domanda\n"
         "• /luna — fase lunare di oggi\n"
         "• /pianeti — dove sono i pianeti adesso\n"
         "• /apod — Astronomy Picture of the Day (NASA)\n"
@@ -888,7 +1022,7 @@ def help_text() -> str:
         f"{default_emoji} {default_it}. Poi i bottoni: giorno, settimana, mese. "
         f"Segni: {e(list_signs_help())}\n"
         "/luna — fase, illuminazione, alba/tramonto della Luna su Roma\n"
-        "/tarocchi — pesca live: una carta (arcani maggiori) o tre carte (mazzo completo)\n"
+        "/tarocchi — lettura guidata (1 carta, 3 carte, amore, lavoro, domanda)\n"
         "/pianeti — posizioni attuali (efemeridi CosmyDay / Swiss Ephemeris)\n"
         "/apod — immagine (o video) astronomica del giorno, NASA\n"
         "/stelle — una scheda NASA a caso, tradotta al volo\n"
@@ -905,11 +1039,13 @@ def help_text() -> str:
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _tarot_reset(context)
     await reply_html(update, context, start_text())
     await delete_user_command(update)
 
 
 async def cmd_aiuto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _tarot_reset(context)
     await reply_html(update, context, help_text())
     await delete_user_command(update)
 
@@ -924,6 +1060,7 @@ async def begin_oroscopo(
     context: ContextTypes.DEFAULT_TYPE,
     raw: str,
 ) -> None:
+    _tarot_reset(context)
     sign, period, used_default = parse_oroscopo_query(raw)
     if sign is None:
         await reply_html(
@@ -1031,63 +1168,153 @@ async def on_oroscopo_period(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def cmd_tarocchi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     raw = " ".join(context.args).strip().lower() if context.args else ""
-    if raw in {"1", "una", "carta", "one"}:
-        await send_tarot_draw(update, context, "one")
-        return
-    if raw in {"3", "tre", "spread", "three"}:
-        await send_tarot_draw(update, context, "three")
-        return
-    await show_tarot_picker(update, context)
-
-
-async def show_tarot_picker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text = (
-        "🃏 <b>Tarocchi</b>\n\n"
-        "Il mazzo è quello Rider–Waite (78 carte) servito live da freehoroscopeapi. "
-        "Io non invento i significati: li pesco dall'API, traduco, e lancio una "
-        "moneta per dritta o capovolta (come si fa quando si gira la carta).\n\n"
-        "<b>Una carta</b> — un arcano maggiore, la sintesi del momento.\n"
-        "<b>Tre carte</b> — mazzo completo, letto come passato · presente · futuro.\n\n"
-        "Tocca un bottone. Non è un oracolo infallibile: è un mazzo di carta con un'API."
-    )
-    await reply_html(update, context, text, reply_markup=tarot_keyboard())
+    shortcut = {
+        "1": "one",
+        "una": "one",
+        "carta": "one",
+        "3": "three",
+        "tre": "three",
+        "amore": "love",
+        "love": "love",
+        "lavoro": "work",
+        "work": "work",
+        "domanda": "ask",
+        "ask": "ask",
+    }.get(raw)
+    if shortcut == "ask":
+        await show_tarot_ask_prompt(update, context)
+    elif shortcut:
+        await show_tarot_ritual(update, context, shortcut)
+    else:
+        await show_tarot_menu(update, context)
     await delete_user_command(update)
 
 
-async def _format_tarot_card(
-    client: httpx.AsyncClient,
-    card: dict[str, Any],
-    *,
-    position: str,
-    include_desc: bool,
-) -> str:
-    name_en = str(card.get("name") or "Carta senza nome")
-    name_it = await translate_to_italian(client, name_en)
-    kind = "Arcano maggiore" if str(card.get("type") or "") == "major" else "Arcano minore"
-    reversed_card = random.choice((False, True))
-    meaning_en = str(card.get("meaning_rev" if reversed_card else "meaning_up") or "")
-    meaning_it = await translate_to_italian(client, meaning_en) if meaning_en else "—"
-    orientation = "↩️ Capovolta" if reversed_card else "➡️ Dritta"
-    lines = [
-        f"<b>{e(position)}</b> — {e(name_it)}",
-        f"<i>{e(kind)} · {orientation}</i>",
-        e(meaning_it),
-    ]
-    if include_desc and card.get("desc"):
-        desc_it = await translate_to_italian(client, str(card["desc"]))
-        lines.append("")
-        lines.append("📖 " + e(clip_text(desc_it, 900)))
-    return "\n".join(lines)
+async def show_tarot_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _tarot_reset(context)
+    text = (
+        "🔮 <b>Lettura dei Tarocchi</b>\n\n"
+        "Concentrati sulla domanda che vuoi portare alle carte.\n"
+        "Il mazzo è live (78 carte, Rider–Waite). I significati arrivano dall'API; "
+        "dritta o capovolta la decide il mazzo quando peschi.\n\n"
+        "✨ <b>Scegli il tipo di lettura</b>\n"
+        "🔹 <b>1 carta</b> — energia / indicazione del momento\n"
+        "🔹 <b>3 carte</b> — situazione / ostacolo / direzione\n"
+        "❤️ <b>Amore</b> — tu / l'altra persona / dinamica\n"
+        "💼 <b>Lavoro</b> — situazione / sfida / possibile sviluppo\n"
+        "❓ <b>Domanda</b> — tre carte sulla tua domanda"
+    )
+    await reply_html(update, context, text, reply_markup=tarot_menu_keyboard())
 
 
-async def send_tarot_draw(
+async def show_tarot_ask_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _tarot_state(context)
+    state.clear()
+    state["spread"] = "ask"
+    state["awaiting_question"] = True
+    text = (
+        "🔮 <b>Qual è la tua domanda?</b>\n\n"
+        "Scrivila in un messaggio. Resta tra te e le carte: serve solo a "
+        "incorniciare i significati ufficiali, non la mando in giro."
+    )
+    await reply_html(update, context, text)
+
+
+async def show_tarot_ritual(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     spread: str,
+    *,
+    question: str | None = None,
 ) -> None:
     if spread not in TAROT_SPREADS:
-        spread = "one"
+        spread = "three"
     meta = TAROT_SPREADS[spread]
+    state = _tarot_state(context)
+    state["spread"] = spread
+    state["awaiting_question"] = False
+    if question:
+        state["question"] = question
+    elif spread != "ask":
+        state.pop("question", None)
+    text = (
+        f"🃏 <b>{e(meta['title'])}</b>\n\n"
+        f"{e(meta['ritual'])}\n\n"
+    )
+    if state.get("question"):
+        text += f"<b>Domanda:</b> <i>{e(state['question'])}</i>\n\n"
+    text += "Quando sei pronto, premi il bottone."
+    await reply_html(update, context, text, reply_markup=tarot_draw_keyboard())
+
+
+async def receive_tarot_question(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    question: str,
+) -> None:
+    question = clip_text(question.strip(), 400)
+    if not question:
+        await reply_html(
+            update,
+            context,
+            "Ho bisogno di una domanda scritta, anche breve. Riprova.",
+        )
+        return
+    await show_tarot_ritual(update, context, "ask", question=question)
+    await delete_user_command(update)
+
+
+async def _orient_and_translate_card(
+    client: httpx.AsyncClient,
+    card: dict[str, Any],
+    position: str,
+) -> dict[str, str]:
+    name_en = str(card.get("name") or "Unnamed card")
+    reversed_card = bool(random.choice((False, True)))
+    meaning_en = str(card.get("meaning_rev" if reversed_card else "meaning_up") or "")
+    name_it = await translate_to_italian(client, name_en)
+    framed = (
+        f"For the position '{position}', the card {name_en} "
+        f"({'reversed' if reversed_card else 'upright'}) traditionally means: {meaning_en}"
+    )
+    meaning_it = await translate_to_italian(client, framed) if meaning_en else "—"
+    return {
+        "name_en": name_en,
+        "name_it": name_it,
+        "position": position,
+        "kind": "Arcano maggiore" if str(card.get("type") or "") == "major" else "Arcano minore",
+        "reversed": "1" if reversed_card else "0",
+        "emoji": tarot_card_emoji(name_en),
+        "meaning_it": meaning_it,
+        "meaning_en": meaning_en,
+    }
+
+
+async def _tarot_synthesis(client: httpx.AsyncClient, drawn: list[dict[str, str]], question: str | None) -> str:
+    if not drawn:
+        return ""
+    if len(drawn) == 1:
+        return drawn[0]["meaning_it"]
+    pieces = []
+    if question:
+        pieces.append(f"The querent asked: {question}.")
+    for item in drawn:
+        orient = "reversed" if item["reversed"] == "1" else "upright"
+        pieces.append(
+            f"{item['position']} is {item['name_en']} ({orient}): {item['meaning_en']}"
+        )
+    pieces.append("Summarize these official tarot meanings as one short combined reading.")
+    return await translate_to_italian(client, " ".join(pieces))
+
+
+async def send_tarot_draw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _tarot_state(context)
+    spread = str(state.get("spread") or "")
+    if spread not in TAROT_SPREADS:
+        await show_tarot_menu(update, context)
+        return
+    meta = TAROT_SPREADS[spread]
+    question = str(state.get("question") or "").strip() or None
     await send_typing(update)
     await deliver_text(update, context, "🃏 Sto mescolando il mazzo…")
     client = _http_client(context)
@@ -1099,57 +1326,148 @@ async def send_tarot_draw(
             include_minor=bool(meta["include_minor"]),
         )
     except StelleOfflineError:
-        logger.exception("Tarocchi non disponibili")
-        await reply_offline(update, context)
+        logger.exception("Tarocchi: API non disponibile")
+        await reply_html(
+            update,
+            context,
+            "Le stelle sono temporaneamente offline ✨ riprova tra poco\n\n"
+            "Il mazzo live non ha risposto. Puoi ritentare la pesca.",
+            reply_markup=tarot_draw_keyboard(),
+        )
         return
 
     positions: tuple[str, ...] = tuple(meta["positions"])
-    include_desc = spread == "one"
-    blocks: list[str] = [
-        f"🃏 <b>Tarocchi — {e(meta['title'])}</b>",
-        "",
-    ]
+    drawn: list[dict[str, str]] = []
     for idx, card in enumerate(cards[: len(positions)]):
-        if idx:
-            blocks.append("")
-        blocks.append(
-            await _format_tarot_card(
-                client,
-                card,
-                position=positions[idx],
-                include_desc=include_desc,
-            )
+        drawn.append(await _orient_and_translate_card(client, card, positions[idx]))
+
+    try:
+        synthesis = await _tarot_synthesis(client, drawn, question)
+    except StelleOfflineError:
+        synthesis = " ".join(item["meaning_it"] for item in drawn)
+
+    circles = ("①", "②", "③")
+    lines = ["🃏 <b>LE TUE CARTE</b>", f"<i>{e(meta['title'])}</i>", ""]
+    if question:
+        lines.append(f"❓ <b>Domanda:</b> <i>{e(question)}</i>")
+        lines.append("")
+    for idx, item in enumerate(drawn):
+        mark = circles[idx] if idx < len(circles) else f"{idx + 1}."
+        rev = " — rovesciata" if item["reversed"] == "1" else ""
+        lines.append(
+            f"{mark} <b>{e(item['position'].upper())}</b>\n"
+            f"{item['emoji']} <b>{e(item['name_it'])}</b>{e(rev)}\n"
+            f"<i>{e(item['kind'])}</i>\n\n"
+            f"{e(item['meaning_it'])}"
         )
-    blocks.append("")
-    blocks.append(
-        "<i>Fonte live: freehoroscopeapi.com/tarot · traduzione automatica. "
-        "Pesca di nuovo con i bottoni sotto.</i>"
+        lines.append("")
+    if len(drawn) > 1 and synthesis:
+        lines.append("🔮 <b>Sintesi</b>")
+        lines.append(e(synthesis))
+        lines.append("")
+    lines.append(
+        "<i>Carte live da freehoroscopeapi.com · significati ufficiali tradotti. "
+        "Non è un oracolo infallibile, è un mazzo con un'API.</i>"
     )
-    await reply_html(
-        update,
-        context,
-        "\n".join(blocks),
-        reply_markup=tarot_keyboard(selected=spread),
-    )
-    await delete_user_command(update)
+
+    user = update.effective_user
+    if user is not None:
+        await tarot_history_add(
+            user.id,
+            {
+                "at": datetime.now(DEFAULT_TZ).isoformat(timespec="minutes"),
+                "spread": spread,
+                "title": meta["title"],
+                "question": question,
+                "cards": [
+                    {
+                        "name": item["name_it"],
+                        "position": item["position"],
+                        "reversed": item["reversed"] == "1",
+                    }
+                    for item in drawn
+                ],
+            },
+        )
+
+    await reply_html(update, context, "\n".join(lines), reply_markup=tarot_after_keyboard())
 
 
-async def on_tarot_spread(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def show_tarot_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if user is None:
+        return
+    rows = await tarot_history_list(user.id)
+    if not rows:
+        text = (
+            "📖 <b>Le tue letture</b>\n\n"
+            "Ancora nessuna. Quando peschi, resta qui una traccia "
+            "(sul piano free di Render può azzerarsi al riavvio)."
+        )
+        await reply_html(update, context, text, reply_markup=tarot_after_keyboard())
+        return
+    lines = ["📖 <b>Le tue letture</b>", ""]
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        when = str(row.get("at") or "")
+        try:
+            dt = datetime.fromisoformat(when)
+            when_it = f"{dt.day:02d}/{dt.month:02d} {dt.hour:02d}:{dt.minute:02d}"
+        except ValueError:
+            when_it = when[:16]
+        title = str(row.get("title") or row.get("spread") or "Lettura")
+        cards = row.get("cards") if isinstance(row.get("cards"), list) else []
+        names = []
+        for card in cards:
+            if isinstance(card, dict) and card.get("name"):
+                extra = " (R)" if card.get("reversed") else ""
+                names.append(f"{card['name']}{extra}")
+        line = f"• {e(when_it)} — {e(title)}"
+        if names:
+            line += f"\n  {e(', '.join(names))}"
+        if row.get("question"):
+            line += f"\n  <i>{e(clip_text(str(row['question']), 80))}</i>"
+        lines.append(line)
+    await reply_html(update, context, "\n".join(lines), reply_markup=tarot_after_keyboard())
+
+
+async def on_tarot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None or not query.data:
         return
-    parts = query.data.split(":")
-    if len(parts) != 2 or parts[0] != "tarot" or parts[1] not in TAROT_SPREADS:
-        await query.answer("Bottone stanco. Riprova con /tarocchi.")
-        return
-    await query.answer("Mazzo in movimento…")
     if query.message is not None:
         kind = "text" if query.message.text else "photo"
         _remember_bot_msg(context, query.message.message_id, kind)
-    await send_tarot_draw(update, context, parts[1])
+    parts = query.data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    extra = parts[2] if len(parts) > 2 else ""
+
+    if action == "menu":
+        await query.answer()
+        await show_tarot_menu(update, context)
+        return
+    if action == "hist":
+        await query.answer()
+        await show_tarot_history(update, context)
+        return
+    if action == "pick" and extra == "ask":
+        await query.answer()
+        await show_tarot_ask_prompt(update, context)
+        return
+    if action == "pick" and extra in TAROT_SPREADS:
+        await query.answer()
+        await show_tarot_ritual(update, context, extra)
+        return
+    if action == "draw":
+        await query.answer("Mazzo in movimento…")
+        await send_tarot_draw(update, context)
+        return
+    await query.answer("Bottone stanco. Riprova con /tarocchi.")
 
 
 async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _tarot_reset(context)
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -1227,6 +1545,7 @@ async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _tarot_reset(context)
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -1373,6 +1692,7 @@ async def _deliver_apod(
 
 
 async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _tarot_reset(context)
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -1391,6 +1711,7 @@ async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_stelle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _tarot_reset(context)
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -1412,11 +1733,15 @@ async def cmd_stelle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Se l'utente scrive solo un segno ('vergine', 'Leo'…), vale come /oroscopo."""
+    """Domanda tarocchi in corso, oppure un segno trattato come /oroscopo."""
     message = update.effective_message
     if message is None or not message.text:
         return
     text = message.text.strip()
+    state = context.user_data.get(TAROT_STATE_KEY)
+    if isinstance(state, dict) and state.get("awaiting_question"):
+        await receive_tarot_question(update, context, text)
+        return
     sign, period, _used_default = parse_oroscopo_query(text)
     if sign is not None and (normalize_sign(text) or period):
         await begin_oroscopo(update, context, text)
@@ -1429,7 +1754,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         update,
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale né un comando.\n"
-        "Scrivi ad esempio <i>vergine</i>, oppure /oroscopo bilancia, oppure /aiuto.",
+        "Scrivi ad esempio <i>vergine</i>, oppure /oroscopo bilancia, oppure /tarocchi.",
     )
 
 
@@ -1467,7 +1792,7 @@ async def post_init(application: Application) -> None:
             [
                 BotCommand("start", "Presentazione del bot"),
                 BotCommand("oroscopo", "Oroscopo: giorno, settimana o mese"),
-                BotCommand("tarocchi", "Pesca una o tre carte dei tarocchi"),
+                BotCommand("tarocchi", "Lettura guidata dei tarocchi"),
                 BotCommand("luna", "Fase lunare di oggi"),
                 BotCommand("pianeti", "Posizioni attuali dei pianeti"),
                 BotCommand("apod", "Foto NASA del giorno"),
@@ -1505,7 +1830,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler("stelle", cmd_stelle))
     application.add_handler(CommandHandler(["aiuto", "help"], cmd_aiuto))
     application.add_handler(CallbackQueryHandler(on_oroscopo_period, pattern=r"^horo:"))
-    application.add_handler(CallbackQueryHandler(on_tarot_spread, pattern=r"^tarot:"))
+    application.add_handler(CallbackQueryHandler(on_tarot_action, pattern=r"^tarot:"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))
     application.add_error_handler(on_error)

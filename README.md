@@ -12,7 +12,7 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | --- | --- | --- |
 | `/start` | Presenta il bot e i comandi | — |
 | `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Bilancia** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
-| `/tarocchi` | Pesca live: una carta (arcani maggiori) o tre (passato/presente/futuro) | [freehoroscopeapi.com/tarot](https://freehoroscopeapi.com/tarot) |
+| `/tarocchi` | Lettura guidata: 1 carta, 3 carte, amore, lavoro, domanda + storico | [freehoroscopeapi.com/tarot](https://freehoroscopeapi.com/tarot) |
 | `/luna` | Fase, illuminazione, moonrise/moonset + spiegazione del giorno | [sunrisesunset.io](https://sunrisesunset.io/api/) + [CosmyDay](https://api.cosmyday.com/content/moon) |
 | `/pianeti` | Posizioni attuali dei pianeti principali sopra Roma | [CosmyDay `/natal`](https://cosmyday.com/api-docs) (Swiss Ephemeris) |
 | `/apod` | Astronomy Picture of the Day (foto o video) | [NASA APOD](https://api.nasa.gov) |

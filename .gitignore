@@ -11,3 +11,4 @@ __pycache__/
 *.pem
 *.key
 agent-tools/
+data/*.json
