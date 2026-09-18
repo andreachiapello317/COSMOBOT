@@ -34,7 +34,6 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | `/profondo` | Messier, NGC, nebulose, quasar, SN 1987A | Wikipedia + Wikidata |
 | `/pianeta` | Scheda di un pianeta (massa, diametro, gravità, missioni) | Wikipedia + Wikidata + NASA Images |
 | `/lune` | Europa, Titano, Encelado e le altre | Wikipedia + Wikidata |
-| `/sistema` | Sistema Solare interattivo | stesse schede pianeta |
 | `/buchineri` | Cos'è un buco nero + Sgr A*, M87*, Cygnus X-1 | Wikipedia + NASA Images |
 | `/galassia` | Via Lattea, Andromeda, confronto distanze | Wikidata P2583 |
 | `/eclissi` | Prossima solare, prossima lunare, countdown, picco | [Skytime eclipses](https://skytime.live/api/docs) |
@@ -45,6 +44,10 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | `/sonde` | Voyager, New Horizons, Cassini, Juno… | Wikipedia |
 | `/impara` | Mini-lezioni: Sistema Solare, stelle, buchi neri, galassie, missioni, esopianeti | Wikipedia |
 | `/quiz` | Facile / medio / difficile / esperto + classifica personale | Wikipedia, Wikidata, NASA TAP |
+| `/mondi` | Esploratore: filtri TAP, mondo del giorno, casuale, salvataggi, vita, missioni→mondi | NASA TAP + Wikipedia |
+| `/sistemi` | Alberi di sistemi (TRAPPIST-1, binari, multipli, HZ) | NASA TAP `hostname` |
+| `/cosmo` | Mappa stelle / sistemi / mondi / galassie / nebulose / buchi neri | cataloghi già usati |
+| `/sistema` | Scelta: Sistema Solare (Wikidata) o sistemi extrasolari (TAP) | Wikipedia + TAP |
 | `/esopianeta` | Menu: casuale, simile alla Terra, infernale, estremo, oceanico (modello), recente | [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu) tabella `ps` |
 | `/abitabile` | Candidati in zona abitabile (modello Teq/raggio, non vita) | stesso archivio TAP |
 | `/vita` | Come cerchiamo la vita: oceani, SETI, biosignature | Wikipedia |
@@ -76,6 +79,8 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 `/asteroidi` apre un menu: **vicini alla Terra** (NASA NeoWs), **asteroidi noti** (Wikipedia: Vesta, Bennu…), oppure **nel tema natale** (Ceres, Vesta, Pallade, Giunone da Horizons). Per il tema serve una carta salvata o appena calcolata.
 
 `/meteore` mostra il prossimo sciame (picco e ZHR) e quelli in arrivo. `/spazio` è il briefing del giorno. `/osserva` chiede la città e elenca cosa c’è sopra l’orizzonte. `/cielo` è la mappa testuale di **adesso** (↑ sopra, ↓ sotto, 👁 mag ≤ 6), con città memorizzata; `/cielo Milano` geocodifica al volo. `/stelle` e `/costellazioni` mescolano schede Wikipedia e visibilità live. `/nani`, `/comete` e `/profondo` sono cataloghi curati: JPL Horizons ha milioni di oggetti, qui non li scarico in blocco.
+
+`/mondi` è l'esploratore: filtri TAP (terrestri, oceanici come modello, ghiacciati, infernali, multi-stella, orbite eccentriche…), mondo del giorno, casuale, sistemi, «e se ci fosse vita?» (Wikipedia vs speculazione), missioni→corpi, e una lista di mondi salvati sul server. `/sistemi` apre gli alberi (TRAPPIST-1 incluso). `/cosmo` sta sopra: stelle, sistemi, mondi, galassie, nebulose, buchi neri. I mondi **generati** sono etichettati come finti.
 
 `/esopianeta` apre i filtri NASA (casuale, simile alla Terra, infernale, estremo, oceanico come **modello**, recente). `/abitabile` è il filtro zona abitabile: Teq e raggio, **non** una dichiarazione di vita. `/specchio` e `/rituale` sono pratiche simboliche, presentate come tali: stanno in 🔮 ORACOLI / TE STESSO, non in 🔭 CIELO.
 
@@ -232,6 +237,8 @@ bot.py                 # handler Telegram, polling + webhook
 services/catalog.py    # pianeti, nani, stelle, costellazioni, Messier (solo id)
 services/wiki.py       # Wikipedia, Wikidata, NASA Images
 services/exoplanets.py # NASA Exoplanet Archive (TAP + filtri)
+services/systems.py    # alberi di sistemi stellari da TAP
+services/imagine.py    # mondi generati, etichettati come finti
 services/skyview.py    # mappa testuale e visibilità da skymap.sh
 services/spaceweather.py # Kp, flare X-ray, perigeo/apogeo
 services/neo.py        # NASA NeoWs

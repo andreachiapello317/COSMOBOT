@@ -8,7 +8,7 @@ def home_text() -> str:
         "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, specchio, rituale\n"
         "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, mazzi COSMOBOT\n"
         "🔭 <b>CIELO</b> — cosa vedi adesso, stelle, eventi, cielo profondo\n"
-        "🪐 <b>MONDI</b> — pianeti, lune, asteroidi, buchi neri, galassie\n"
+        "🪐 <b>MONDI</b> — esploratore: esopianeti, sistemi, salvataggi\n"
         "👽 <b>VITA</b> — esopianeti, zona abitabile, SETI\n"
         "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n\n"
         "✨ <b>COSMICO</b> prende un pezzo da ogni mondo.\n"
@@ -23,7 +23,7 @@ def esplora_text() -> str:
         "🔮 Te stesso — carta e rituali interiori\n"
         "🔮 Oracoli — tradizionali e mazzi COSMOBOT\n"
         "🔭 Cielo — astronomia reale, adesso e sopra di te\n"
-        "🪐 Mondi — Sistema Solare e oltre\n"
+        "🪐 Mondi — Sistema Solare, esopianeti, sistemi stellari\n"
         "👽 Vita — come la cerchiamo, senza dichiararla\n"
         "🚀 Missioni — voli, lezioni, sfide del giorno"
     )
@@ -98,9 +98,58 @@ def world_sky_text() -> str:
 def world_mondi_text() -> str:
     return (
         "🪐 <b>MONDI</b>\n\n"
-        "Sistema Solare interattivo, pianeti nani, lune, comete,\n"
-        "asteroidi vicini o nel tema, buchi neri, galassie.\n"
-        "Masse, diametri e gravità arrivano da Wikidata."
+        "Un esploratore, non un oracolo.\n\n"
+        "🌍 <b>Esplora mondi</b> — filtri NASA: terrestri, oceanici (modello),\n"
+        "ghiacciati, infernali, multi-stella, strani\n"
+        "⭐ <b>Sistemi</b> — albero TAP di un host, TRAPPIST-1 incluso\n"
+        "☀️ <b>Sistema Solare</b> — schede Wikidata, lune, nani, comete\n"
+        "🚀 <b>Chi è andato lì</b> — missione → corpi del catalogo\n"
+        "🎲 <b>Casuale</b> o <b>generato</b> (il generato è etichettato finto)\n"
+        "📌 I mondi che salvi restano sul server (file locale)\n\n"
+        "Atmosfera e acqua, se non sono nell'API, restano «sconosciute»."
+    )
+
+
+def mondi_hub_text() -> str:
+    return (
+        "🌌 <b>ESPLORA I MONDI</b>\n\n"
+        "Ogni filtro è una query TAP sull'archivio NASA, oppure una scheda Wikipedia.\n"
+        "🌊 Oceanici e 🌱 abitabili = fasce di raggio/Teq, non oceani e non vita.\n"
+        "🌋 Vulcanici, 💍 anelli, 🌙 molte lune: corpi del Sistema Solare con voce.\n"
+        "🌑 Senza stella: se TAP non ha righe, apro la voce sui pianeti erranti.\n"
+        "🎲 Genera = mondo immaginario, scritto grande che è finto."
+    )
+
+
+def cosmo_text() -> str:
+    return (
+        "🌌 <b>COSMO</b>\n\n"
+        "Sopra i mondi: una mappa dell'universo osservabile, da cataloghi live.\n\n"
+        "⭐ Stelle · 🪐 Sistemi · 🌍 Mondi\n"
+        "🌌 Galassie · 🌀 Nebulose · 🕳️ Buchi neri\n"
+        "💥 Supernovae · 🔭 Cielo profondo\n\n"
+        "Non mescola gli oracoli. Solo astronomia e schede Wikipedia/NASA."
+    )
+
+
+def sistemi_text() -> str:
+    return (
+        "⭐ <b>SISTEMI STELLARI</b>\n\n"
+        "Un host, i suoi pianeti nell'archivio, un albero. "
+        "Niente lune extrasolari: TAP quasi non le ha.\n"
+        "Il Sistema Solare resta la scheda Wikidata, non un dump Horizons."
+    )
+
+
+def life_plus_text() -> str:
+    return (
+        "🧬 <b>E SE CI FOSSE VITA?</b>\n\n"
+        "Due piani, tenuti distinti.\n\n"
+        "<b>Osservato / documentato</b> — voci Wikipedia: SETI, biosignature, "
+        "estremofili, zona abitabile, oceani sotto il ghiaccio.\n\n"
+        "<b>Speculazione</b> — il paradosso di Fermi è un argomento, "
+        "non una rivelazione. I candidati HZ sono un filtro numerico.\n\n"
+        "COSMOBOT non dichiara vita su nessun mondo."
     )
 
 

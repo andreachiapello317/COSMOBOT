@@ -36,22 +36,47 @@ from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Inp
 from services.astronomy import stellarium_url, visibility_stars
 from services.catalog import (
     CONSTELLATIONS,
+    DEEP_SKY,
     GALAXIES,
     GIANT_STARS,
     MIRROR_QUESTIONS,
+    MISSIONS,
     NEAR_STARS,
     PLANETS,
     STARS,
     by_id,
+    worlds_for_mission,
 )
 from services.wiki import wikidata_facts
 from services.skyview import collect_marks, milky_way_hint, text_sky_map, visibility_line
 from services.spaceweather import kp_index, latest_flare, moon_distance_events, next_distance_event
-from services.exoplanets import exoplanets_by_filter, habitable_candidates, random_exoplanet
+from services.exoplanets import (
+    FILTERS,
+    exoplanet_by_name,
+    exoplanets_by_filter,
+    habitable_candidates,
+    planet_of_the_day,
+    random_exoplanet,
+)
+from services.systems import (
+    FAMOUS_HOSTS,
+    format_system_tree,
+    random_system,
+    system_card,
+    systems_by_kind,
+)
+from services.imagine import format_imaginary, generate_world
 from services.eclipses import fetch_eclipses, kind_it, next_of, parse_peak
 from services.iss import fetch_iss_position, reverse_iss_place
 from services.neo import near_earth_asteroids
-from services.progress import mission_done, mission_is_done, quiz_board, quiz_record
+from services.progress import (
+    mission_done,
+    mission_is_done,
+    quiz_board,
+    quiz_record,
+    world_list,
+    world_save,
+)
 from services.lenormand import SPREADS as LENORMAND_SPREADS, draw_lenormand
 from services.oracles import (
     DECK_META,
@@ -94,8 +119,19 @@ from ui.keyboards import (
     famous_asteroids_keyboard,
     domanda_keyboard,
     esplora_keyboard,
+    cosmo_keyboard,
     exo_keyboard,
+    fav_list_keyboard,
     galaxies_keyboard,
+    life_plus_keyboard,
+    miss_worlds_keyboard,
+    mondi_after_keyboard,
+    mondi_hub_keyboard,
+    mondi_list_keyboard,
+    sistema_chooser_keyboard,
+    sistemi_keyboard,
+    sistemi_list_keyboard,
+    ss_bodies_keyboard,
     home_keyboard as section_home_keyboard,
     iss_keyboard,
     learn_keyboard,
@@ -143,6 +179,10 @@ from ui.texts import (
     rune_intro_text,
     world_div_text,
     world_miss_text,
+    cosmo_text,
+    life_plus_text,
+    mondi_hub_text,
+    sistemi_text,
     world_mondi_text,
     world_self_text,
     world_sky_text,
@@ -190,6 +230,10 @@ TELEGRAM_CAPTION_MAX = 1024
 # In chat_data: ultimo messaggio del bot, da sostituire al comando successivo.
 LAST_BOT_MSG_KEY = "last_bot_msg"
 CIELO_LAST_KEY = "cielo_last"
+MONDI_LIST_KEY = "mondi_list"
+MONDI_SYS_KEY = "mondi_sys"
+MONDI_LAST_KEY = "mondi_last"
+MONDI_FAV_KEY = "mondi_fav"
 
 USER_AGENT = "StelleBot/1.0 (Telegram; https://github.com; educational astrology bot)"
 
@@ -1801,9 +1845,12 @@ def help_text() -> str:
         "/nani — Plutone, Cerere, Eris, Haumea, Makemake\n"
         "/comete — selezione con voce Wikipedia (non il dump JPL da 4000+)\n"
         "/profondo — Messier, NGC, nebulose, quasar, supernovae\n"
+        "/mondi — esploratore: filtri NASA, sistemi, salvataggi, mondo del giorno\n"
+        "/sistemi — alberi TAP (TRAPPIST-1, binari, zona abitabile…)\n"
+        "/cosmo — mappa stelle / sistemi / mondi / galassie / profondo\n"
         "/pianeta — scheda live di un pianeta (Wikipedia + Wikidata)\n"
         "/lune — Europa, Titano, Encelado e le altre\n"
-        "/sistema — Sistema Solare interattivo\n"
+        "/sistema — Sistema Solare oppure sistemi extrasolari\n"
         "/buchineri — Sagittarius A*, M87*, Cygnus X-1\n"
         "/galassia — Via Lattea, Andromeda e confronto distanze\n"
         "/eclissi — prossima solare, prossima lunare, countdown\n"
@@ -3547,6 +3594,14 @@ async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if action == "pianeta":
         await query.answer()
         await show_pianeta_menu(update, context)
+        return
+    if action == "mondi":
+        await query.answer()
+        await show_mondi_hub(update, context)
+        return
+    if action == "cosmo":
+        await query.answer()
+        await show_cosmo(update, context)
         return
     if action == "lune":
         await query.answer()
@@ -5954,6 +6009,466 @@ async def on_xp_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await query.answer()
 
 
+def _mondi_remember(context: ContextTypes.DEFAULT_TYPE, row: dict[str, Any], *, kind: str = "exo") -> None:
+    context.user_data[MONDI_LAST_KEY] = {
+        "name": str(row.get("pl_name") or row.get("name") or ""),
+        "host": str(row.get("hostname") or row.get("host") or ""),
+        "kind": kind,
+        "row": row,
+    }
+
+
+async def show_mondi_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(update, context, mondi_hub_text(), reply_markup=mondi_hub_keyboard())
+
+
+async def show_cosmo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(update, context, cosmo_text(), reply_markup=cosmo_keyboard())
+
+
+async def show_sistemi_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(update, context, sistemi_text(), reply_markup=sistemi_keyboard())
+
+
+async def show_sistema_chooser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(
+        update,
+        context,
+        "☀️ <b>SISTEMA</b>\n\n"
+        "Il Sistema Solare resta le schede Wikidata.\n"
+        "I sistemi extrasolari sono alberi TAP: solo i pianeti che l'archivio elenca.",
+        reply_markup=sistema_chooser_keyboard(),
+    )
+
+
+async def send_mondi_world(update: Update, context: ContextTypes.DEFAULT_TYPE, row: dict[str, Any]) -> None:
+    _mondi_remember(context, row, kind="exo")
+    await reply_html(
+        update,
+        context,
+        format_exoplanet(row),
+        reply_markup=mondi_after_keyboard(has_system=bool(row.get("hostname"))),
+    )
+
+
+async def send_mondi_filter(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    await send_typing(update)
+    await deliver_text(update, context, "🪐 Interrogo l'archivio NASA…")
+    client = _http_client(context)
+    rows = await exoplanets_by_filter(client, kind, limit=8)
+    if not rows:
+        await reply_offline(update, context)
+        return
+    context.user_data[MONDI_LIST_KEY] = rows
+    spec = FILTERS.get(kind)
+    label = spec[2] if spec else kind
+    numbered = []
+    for idx, row in enumerate(rows, start=1):
+        clone = dict(row)
+        clone["pl_name"] = f"{idx}. {row.get('pl_name') or '—'}"
+        numbered.append(clone)
+    text = format_exo_list(
+        numbered,
+        title=f"🌍 {label}",
+        blurb="Tocca un numero per la scheda. I filtri sono query TAP, non geologia.",
+    )
+    await reply_html(update, context, text, reply_markup=mondi_list_keyboard(len(rows)))
+
+
+async def send_mondi_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_typing(update)
+    await deliver_text(update, context, "🎲 Pesco un mondo reale dall'archivio…")
+    client = _http_client(context)
+    row = await random_exoplanet(client)
+    if row is None:
+        await reply_offline(update, context)
+        return
+    header = "🌌 <b>HAI SCOPERTO UN NUOVO MONDO</b>\n<i>Nuovo per questa chat, non una scoperta NASA tua.</i>\n\n"
+    _mondi_remember(context, row, kind="exo")
+    await reply_html(
+        update,
+        context,
+        header + format_exoplanet(row),
+        reply_markup=mondi_after_keyboard(has_system=bool(row.get("hostname"))),
+    )
+
+
+async def send_mondi_day(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_typing(update)
+    client = _http_client(context)
+    row = await planet_of_the_day(client, datetime.now(DEFAULT_TZ).timetuple().tm_yday)
+    if row is None:
+        await reply_offline(update, context)
+        return
+    await send_mondi_world(update, context, row)
+
+
+async def send_system_card(update: Update, context: ContextTypes.DEFAULT_TYPE, host: str) -> None:
+    await send_typing(update)
+    await deliver_text(update, context, f"⭐ Apro il sistema {host}…")
+    client = _http_client(context)
+    card = await system_card(client, host)
+    if card is None:
+        await reply_offline(update, context)
+        return
+    planets = card.get("planets") if isinstance(card.get("planets"), list) else []
+    if planets:
+        context.user_data[MONDI_LIST_KEY] = planets
+        _mondi_remember(context, planets[0], kind="exo")
+    await reply_html(
+        update,
+        context,
+        format_system_tree(card),
+        reply_markup=mondi_list_keyboard(min(len(planets), 8), back="md:sys") if planets else sistemi_keyboard(),
+    )
+
+
+async def send_systems_kind(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    await send_typing(update)
+    await deliver_text(update, context, "⭐ Cerco sistemi nell'archivio…")
+    client = _http_client(context)
+    rows = await systems_by_kind(client, kind, limit=8)
+    if not rows:
+        await reply_offline(update, context)
+        return
+    context.user_data[MONDI_SYS_KEY] = rows
+    titles = {
+        "bin": "⭐⭐ Sistemi binari (sy_snum=2)",
+        "multi": "⭐⭐⭐ Sistemi multipli (sy_snum≥3)",
+        "packed": "🪐 Sistemi con molti pianeti (sy_pnum≥6)",
+        "hzsys": "🌱 Host con almeno un candidato HZ (modello)",
+        "near": "⭐ Sistemi vicini",
+    }
+    lines = [f"<b>{titles.get(kind, 'Sistemi')}</b>", "", "Tocca un numero per l'albero TAP.", ""]
+    for idx, row in enumerate(rows, start=1):
+        host = row.get("hostname") or "—"
+        dist = row.get("sy_dist")
+        try:
+            dist_txt = f"{float(dist):.1f} pc" if dist is not None else "—"
+        except (TypeError, ValueError):
+            dist_txt = "—"
+        lines.append(
+            f"{idx}. <b>{e(host)}</b> · {e(dist_txt)} · "
+            f"stelle {e(row.get('sy_snum') if row.get('sy_snum') is not None else '—')} · "
+            f"pianeti {e(row.get('sy_pnum') if row.get('sy_pnum') is not None else '—')}"
+        )
+    await reply_html(update, context, "\n".join(lines), reply_markup=sistemi_list_keyboard(len(rows)))
+
+
+async def send_mission_worlds(update: Update, context: ContextTypes.DEFAULT_TYPE, mission_id: str) -> None:
+    item = by_id(MISSIONS, mission_id)
+    if item is None:
+        await reply_html(update, context, "Missione non in catalogo.", reply_markup=miss_worlds_keyboard())
+        return
+    targets = worlds_for_mission(mission_id)
+    lines = [
+        f"{item.get('emoji', '🚀')} <b>{e(item['it'])} → MONDI</b>",
+        "",
+        "Collegamenti di catalogo: corpi per cui abbiamo una scheda Wikipedia.",
+        "Le scoperte stanno nella voce della missione, non le riassumo a mano.",
+        "",
+    ]
+    buttons: list[InlineKeyboardButton] = []
+    if not targets:
+        lines.append("Nessun corpo di catalogo agganciato. Apro comunque la scheda missione.")
+    for kind, item_id in targets:
+        target = catalog_item(kind, item_id)
+        if not target:
+            continue
+        lines.append(f"{target.get('emoji', '•')} {target['it']}")
+        buttons.append(_tarot_btn(f"{target.get('emoji', '•')} {target['it']}", f"w:{kind}:{item_id}"))
+    rows = []
+    pair: list[InlineKeyboardButton] = []
+    for btn in buttons:
+        pair.append(btn)
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([_tarot_btn("📖 Scheda missione", f"w:n:{mission_id}")])
+    rows.append([_tarot_btn("🚀 Altre missioni", "md:miss"), _tarot_btn("🏠 Home", "home:menu")])
+    await reply_html(update, context, "\n".join(lines), reply_markup=InlineKeyboardMarkup(rows))
+
+
+async def send_nebulae(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    neb_ids = {"m42", "m57", "m1", "pillars"}
+    items = [item for item in DEEP_SKY if item["id"] in neb_ids]
+    buttons = [_tarot_btn(f"{item['emoji']} {item['it']}", f"w:o:{item['id']}") for item in items]
+    rows = []
+    pair: list[InlineKeyboardButton] = []
+    for btn in buttons:
+        pair.append(btn)
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([_tarot_btn("🌌 COSMO", "md:cosmo"), _tarot_btn("🏠 Home", "home:menu")])
+    await reply_html(
+        update,
+        context,
+        "🌀 <b>NEBULOSE</b>\n\nSchede Wikipedia del catalogo profondo. Niente foto inventate.",
+        reply_markup=InlineKeyboardMarkup(rows),
+    )
+
+
+async def on_md_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    parts = query.data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    extra = parts[2] if len(parts) > 2 else ""
+
+    if action == "hub":
+        await query.answer()
+        await show_mondi_hub(update, context)
+        return
+    if action == "cosmo":
+        await query.answer()
+        await show_cosmo(update, context)
+        return
+    if action == "sys":
+        await query.answer()
+        await show_sistemi_menu(update, context)
+        return
+    if action == "life":
+        await query.answer()
+        await reply_html(update, context, life_plus_text(), reply_markup=life_plus_keyboard())
+        return
+    if action == "ss":
+        await query.answer()
+        await reply_html(
+            update,
+            context,
+            "🛰️ <b>MONDI DEL SISTEMA SOLARE</b>\n\n"
+            "Atmosfera, gravità, giorno e anno: solo se Wikidata li ha.\n"
+            "Curiosità = estratto Wikipedia, non un copione.",
+            reply_markup=ss_bodies_keyboard(),
+        )
+        return
+    if action == "miss":
+        await query.answer()
+        await reply_html(
+            update,
+            context,
+            "🚀 <b>CHI È ANDATO LÌ?</b>\n\n"
+            "Missione → corpi del catalogo. Poi la voce Wikipedia per scoperte e immagini.",
+            reply_markup=miss_worlds_keyboard(),
+        )
+        return
+    if action == "neb":
+        await query.answer()
+        await send_nebulae(update, context)
+        return
+    if action == "rand":
+        await query.answer("NASA…")
+        await send_mondi_random(update, context)
+        return
+    if action == "day":
+        await query.answer()
+        await send_mondi_day(update, context)
+        return
+    if action == "gen":
+        await query.answer()
+        world = generate_world()
+        _mondi_remember(context, world, kind="imag")
+        await reply_html(update, context, format_imaginary(world), reply_markup=mondi_after_keyboard())
+        return
+    if action == "rogue":
+        await query.answer("TAP…")
+        client = _http_client(context)
+        rows = await exoplanets_by_filter(client, "rogue", limit=8)
+        if rows:
+            context.user_data[MONDI_LIST_KEY] = rows
+            text = format_exo_list(
+                rows,
+                title="🌑 Senza stella (righe TAP senza host)",
+                blurb="Se l'archivio ha hostname vuoto. Altrimenti non invento pianeti erranti.",
+            )
+            await reply_html(update, context, text, reply_markup=mondi_list_keyboard(len(rows)))
+            return
+        await send_wiki_sheet(update, context, "v", "rogue")
+        return
+    if action == "volc":
+        await query.answer()
+        await send_wiki_sheet(update, context, "m", "io")
+        return
+    if action == "rings":
+        await query.answer()
+        await reply_html(
+            update,
+            context,
+            "💍 <b>MONDI CON ANELLI</b>\n\n"
+            "Nel Sistema Solare le schede sono Saturno e Urano (anelli noti, voce Wikipedia).\n"
+            "Gli anelli extrasolari non sono un campo TAP: non li segno io.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [_tarot_btn("💍 Saturno", "w:p:saturn"), _tarot_btn("🌀 Urano", "w:p:uranus")],
+                    [_tarot_btn("🌍 Esplora", "md:hub")],
+                ]
+            ),
+        )
+        return
+    if action == "moons":
+        await query.answer()
+        await reply_html(
+            update,
+            context,
+            "🌙 <b>MOLTE LUNE</b>\n\n"
+            "Giove e Saturno nel Sistema Solare. "
+            "Le lune extrasolari quasi non esistono nell'archivio: non ne fabbrico.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [_tarot_btn("🟠 Giove", "w:p:jupiter"), _tarot_btn("💍 Saturno", "w:p:saturn")],
+                    [_tarot_btn("🌑 Catalogo lune", "home:lune")],
+                    [_tarot_btn("🌍 Esplora", "md:hub")],
+                ]
+            ),
+        )
+        return
+    if action == "f" and extra in FILTERS:
+        await query.answer("NASA…")
+        await send_mondi_filter(update, context, extra)
+        return
+    if action == "o":
+        try:
+            idx = int(extra)
+        except ValueError:
+            await query.answer()
+            return
+        rows = context.user_data.get(MONDI_LIST_KEY)
+        if not isinstance(rows, list) or not (0 <= idx < len(rows)):
+            await query.answer("Lista scaduta")
+            await show_mondi_hub(update, context)
+            return
+        await query.answer()
+        await send_mondi_world(update, context, rows[idx])
+        return
+    if action == "sysf" and extra:
+        await query.answer("TAP…")
+        await send_systems_kind(update, context, extra)
+        return
+    if action == "sysr":
+        await query.answer("TAP…")
+        client = _http_client(context)
+        card = await random_system(client)
+        if card is None:
+            await reply_offline(update, context)
+            return
+        planets = card.get("planets") if isinstance(card.get("planets"), list) else []
+        context.user_data[MONDI_LIST_KEY] = planets
+        await reply_html(
+            update,
+            context,
+            format_system_tree(card),
+            reply_markup=mondi_list_keyboard(min(len(planets), 8), back="md:sys") if planets else sistemi_keyboard(),
+        )
+        return
+    if action == "syso":
+        try:
+            idx = int(extra)
+        except ValueError:
+            await query.answer()
+            return
+        rows = context.user_data.get(MONDI_SYS_KEY)
+        if not isinstance(rows, list) or not (0 <= idx < len(rows)):
+            await query.answer("Lista scaduta")
+            await show_sistemi_menu(update, context)
+            return
+        host = str(rows[idx].get("hostname") or "")
+        await query.answer(host)
+        await send_system_card(update, context, host)
+        return
+    if action == "sy" and extra in FAMOUS_HOSTS:
+        await query.answer(FAMOUS_HOSTS[extra])
+        await send_system_card(update, context, FAMOUS_HOSTS[extra])
+        return
+    if action == "host":
+        last = context.user_data.get(MONDI_LAST_KEY)
+        host = ""
+        if isinstance(last, dict):
+            host = str(last.get("host") or "")
+        if not host:
+            await query.answer("Nessun sistema")
+            await show_sistemi_menu(update, context)
+            return
+        await query.answer(host)
+        await send_system_card(update, context, host)
+        return
+    if action == "save":
+        last = context.user_data.get(MONDI_LAST_KEY)
+        user = update.effective_user
+        if not isinstance(last, dict) or not last.get("name") or user is None:
+            await query.answer("Niente da salvare")
+            return
+        await world_save(user.id, last)
+        await query.answer("Salvato")
+        await reply_html(
+            update,
+            context,
+            f"📌 Salvato <b>{e(last.get('name'))}</b> nella tua lista (max 20, file locale).",
+            reply_markup=mondi_after_keyboard(has_system=bool(last.get("host")), saved=True),
+        )
+        return
+    if action == "fav":
+        user = update.effective_user
+        if user is None:
+            await query.answer()
+            return
+        favs = await world_list(user.id)
+        context.user_data[MONDI_FAV_KEY] = favs
+        await query.answer()
+        if not favs:
+            await reply_html(
+                update,
+                context,
+                "📌 <b>I TUOI MONDI</b>\n\nAncora vuota. Apri una scheda e tocca Salva.",
+                reply_markup=mondi_hub_keyboard(),
+            )
+            return
+        lines = ["📌 <b>I TUOI MONDI</b>", "", "Solo tuoi, sul server. Tocca un numero.", ""]
+        for idx, item in enumerate(favs, start=1):
+            tag = "generato" if item.get("kind") == "imag" else "archivio"
+            lines.append(f"{idx}. {e(item.get('name') or '—')} <i>({tag})</i>")
+        await reply_html(update, context, "\n".join(lines), reply_markup=fav_list_keyboard(len(favs)))
+        return
+    if action == "fo":
+        try:
+            idx = int(extra)
+        except ValueError:
+            await query.answer()
+            return
+        favs = context.user_data.get(MONDI_FAV_KEY)
+        if not isinstance(favs, list) or not (0 <= idx < len(favs)):
+            await query.answer("Lista scaduta")
+            return
+        item = favs[idx]
+        await query.answer()
+        if item.get("kind") == "imag":
+            await reply_html(
+                update,
+                context,
+                format_imaginary(item if item.get("pl_rade") else {"name": item.get("name"), "kind": "imag", "note": "Salvato come nome. Rigenera per nuovi dadi.", "climate": "—", "stars": "—", "pl_rade": "—", "pl_eqt": "—", "pl_orbper": "—", "moons": "—"}),
+                reply_markup=mondi_after_keyboard(),
+            )
+            return
+        client = _http_client(context)
+        row = await exoplanet_by_name(client, str(item.get("name") or ""))
+        if row is None:
+            await reply_offline(update, context)
+            return
+        await send_mondi_world(update, context, row)
+        return
+    if action == "wm" and extra:
+        await query.answer()
+        await send_mission_worlds(update, context, extra)
+        return
+    await query.answer()
+
+
 async def send_eclissi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_typing(update)
     await deliver_text(update, context, "🌒 Cerco le prossime eclissi…")
@@ -6354,7 +6869,7 @@ async def cmd_lune(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_sistema(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _flows_reset(context)
-    await show_sistema(update, context)
+    await show_sistema_chooser(update, context)
     await delete_user_command(update)
 
 
@@ -6439,6 +6954,24 @@ async def cmd_comete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def cmd_profondo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _flows_reset(context)
     await show_profondo_menu(update, context)
+    await delete_user_command(update)
+
+
+async def cmd_mondi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_mondi_hub(update, context)
+    await delete_user_command(update)
+
+
+async def cmd_cosmo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_cosmo(update, context)
+    await delete_user_command(update)
+
+
+async def cmd_sistemi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _flows_reset(context)
+    await show_sistemi_menu(update, context)
     await delete_user_command(update)
 
 
@@ -6982,6 +7515,9 @@ async def post_init(application: Application) -> None:
                 BotCommand("pianeta", "Scheda di un pianeta"),
                 BotCommand("quiz", "Quiz a quattro difficoltà"),
                 BotCommand("missione", "Missione del giorno"),
+                BotCommand("mondi", "Esplora mondi e sistemi"),
+                BotCommand("sistemi", "Alberi di sistemi stellari"),
+                BotCommand("cosmo", "Mappa dell'universo"),
                 BotCommand("esopianeta", "Filtri NASA sugli esopianeti"),
                 BotCommand("random", "Sorprendimi"),
                 BotCommand("aiuto", "Elenco comandi"),
@@ -7043,6 +7579,9 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler(["pianeta", "pianetiwiki"], cmd_pianeta))
     application.add_handler(CommandHandler(["lune", "lunae"], cmd_lune))
     application.add_handler(CommandHandler("sistema", cmd_sistema))
+    application.add_handler(CommandHandler(["sistemi", "sistemistellari"], cmd_sistemi))
+    application.add_handler(CommandHandler(["mondi", "mondo"], cmd_mondi))
+    application.add_handler(CommandHandler(["cosmo", "universo"], cmd_cosmo))
     application.add_handler(CommandHandler(["buchineri", "buchi"], cmd_buchineri))
     application.add_handler(CommandHandler(["galassia", "galassie"], cmd_galassia))
     application.add_handler(CommandHandler(["eclissi", "eclisse"], cmd_eclissi))
@@ -7088,6 +7627,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_co_action, pattern=r"^co:"))
     application.add_handler(CallbackQueryHandler(on_ev_action, pattern=r"^ev:"))
     application.add_handler(CallbackQueryHandler(on_xp_action, pattern=r"^xp:"))
+    application.add_handler(CallbackQueryHandler(on_md_action, pattern=r"^md:"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))
     application.add_error_handler(on_error)

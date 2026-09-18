@@ -113,10 +113,13 @@ def world_sky_keyboard() -> InlineKeyboardMarkup:
 def world_mondi_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("☀️ Sistema", "home:sistema"), kb_btn("🪐 Pianeta", "home:pianeta")],
-            [kb_btn("🌑 Lune", "home:lune"), kb_btn("🧊 Nani", "home:nani")],
-            [kb_btn("☄️ Comete", "home:comete"), kb_btn("🪨 Asteroidi", "home:asteroidi")],
-            [kb_btn("🕳️ Buchi neri", "home:buchineri"), kb_btn("🌌 Galassia", "home:galassia")],
+            [kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🌌 COSMO", "md:cosmo")],
+            [kb_btn("☀️ Sistema Solare", "home:sistema"), kb_btn("⭐ Sistemi stellari", "md:sys")],
+            [kb_btn("🪐 Pianeta", "home:pianeta"), kb_btn("🌑 Lune", "home:lune")],
+            [kb_btn("🧊 Nani", "home:nani"), kb_btn("☄️ Comete", "home:comete")],
+            [kb_btn("🪨 Asteroidi", "home:asteroidi"), kb_btn("🚀 Chi è andato lì", "md:miss")],
+            [kb_btn("🎲 Mondo casuale", "md:rand"), kb_btn("📌 Salvati", "md:fav")],
+            [kb_btn("🕳️ Buchi neri", "home:buchineri"), kb_btn("🌌 Galassie", "home:galassia")],
             [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Home", "home:menu")],
         ]
     )
@@ -126,7 +129,8 @@ def world_vita_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("👽 Siamo soli?", "home:vita"), kb_btn("🪐 Esopianeta", "home:esopianeta")],
-            [kb_btn("🌍 Zona abitabile", "home:abitabile")],
+            [kb_btn("🌍 Zona abitabile", "home:abitabile"), kb_btn("🧬 E se ci fosse vita?", "md:life")],
+            [kb_btn("🌍 Esplora mondi", "md:hub")],
             [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Home", "home:menu")],
         ]
     )
@@ -136,6 +140,7 @@ def world_miss_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🚀 Missioni", "home:missioni"), kb_btn("📡 Sonde", "home:sonde")],
+            [kb_btn("🚀 Chi è andato lì", "md:miss")],
             [kb_btn("👨‍🚀 Astronauti", "home:astronauta"), kb_btn("🎓 Impara", "home:impara")],
             [kb_btn("🧩 Quiz", "home:quiz"), kb_btn("🏆 Missione", "home:missione")],
             [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Home", "home:menu")],
@@ -407,10 +412,135 @@ def exo_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🎲 Casuale", "xp:rand"), kb_btn("🌍 Simile alla Terra", "xp:earth")],
             [kb_btn("🔥 Infernale", "xp:hell"), kb_btn("💎 Estremo", "xp:extreme")],
             [kb_btn("🌊 Oceanico (modello)", "xp:ocean"), kb_btn("🔭 Recente", "xp:recent")],
-            [kb_btn("🌍 Zona abitabile", "home:abitabile")],
+            [kb_btn("🌍 Zona abitabile", "home:abitabile"), kb_btn("🌍 Esplora mondi", "md:hub")],
             [kb_btn("🏠 Home", "home:menu")],
         ]
     )
+
+
+def mondi_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌍 Terrestri", "md:f:earth"), kb_btn("🔥 Estremi", "md:f:extreme")],
+            [kb_btn("🌊 Oceanici", "md:f:ocean"), kb_btn("🧊 Ghiacciati", "md:f:ice")],
+            [kb_btn("🌱 Abitabili", "md:f:hz"), kb_btn("⭐ Multi-stella", "md:f:binary")],
+            [kb_btn("👽 Strani", "md:f:weird"), kb_btn("🎲 Sorprendimi", "md:rand")],
+            [kb_btn("📅 Del giorno", "md:day"), kb_btn("🔥 Infernali", "md:f:hell")],
+            [kb_btn("🌪️ Atmosfere", "md:f:hotjup"), kb_btn("🌀 Orbite pazze", "md:f:ecc")],
+            [kb_btn("⏱️ Anno breve", "md:f:short"), kb_btn("🌑 Senza stella", "md:rogue")],
+            [kb_btn("💍 Anelli (SS)", "md:rings"), kb_btn("🌙 Molte lune", "md:moons")],
+            [kb_btn("🌋 Vulcanici (SS)", "md:volc"), kb_btn("🎲 Genera (finto)", "md:gen")],
+            [kb_btn("⭐ Sistemi", "md:sys"), kb_btn("🧬 E se ci fosse vita?", "md:life")],
+            [kb_btn("☀️ Sistema Solare", "md:ss"), kb_btn("🚀 Missioni→mondi", "md:miss")],
+            [kb_btn("📌 Salvati", "md:fav"), kb_btn("🌌 COSMO", "md:cosmo")],
+            [kb_btn("🪐 Mondi", "world:mondi"), kb_btn("🏠 Home", "home:menu")],
+        ]
+    )
+
+
+def mondi_after_keyboard(*, has_system: bool = False, saved: bool = False) -> InlineKeyboardMarkup:
+    rows = [
+        [kb_btn("🎲 Altro mondo", "md:rand"), kb_btn("📅 Del giorno", "md:day")],
+    ]
+    if has_system:
+        rows.append([kb_btn("📖 Scopri il sistema", "md:host")])
+    rows.append(
+        [kb_btn("📌 Salva" if not saved else "📌 Già in lista", "md:save"), kb_btn("📌 I miei mondi", "md:fav")]
+    )
+    rows.append([kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🏠 Home", "home:menu")])
+    return InlineKeyboardMarkup(rows)
+
+
+def mondi_list_keyboard(n: int, *, back: str = "md:hub") -> InlineKeyboardMarkup:
+    buttons = [kb_btn(str(i + 1), f"md:o:{i}") for i in range(n)]
+    grid = _pairs(buttons)
+    grid.append([kb_btn("🌍 Esplora", back), kb_btn("🏠 Home", "home:menu")])
+    return InlineKeyboardMarkup(grid)
+
+
+def sistemi_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("☀️ Sistema Solare", "home:sistema"), kb_btn("🎲 Sistema casuale", "md:sysr")],
+            [kb_btn("⭐⭐ Binari", "md:sysf:bin"), kb_btn("⭐⭐⭐ Multipli", "md:sysf:multi")],
+            [kb_btn("🪐 Molti pianeti", "md:sysf:packed"), kb_btn("🌱 Con zona abitabile", "md:sysf:hzsys")],
+            [kb_btn("⭐ TRAPPIST-1", "md:sy:trappist"), kb_btn("⭐ TOI-700", "md:sy:toi700")],
+            [kb_btn("⭐ Kepler-90", "md:sy:k90"), kb_btn("⭐ Proxima", "md:sy:proxima")],
+            [kb_btn("⭐ HR 8799", "md:sy:hr8799"), kb_btn("⭐ Kepler-186", "md:sy:k186")],
+            [kb_btn("⭐ K2-18", "md:sy:k18"), kb_btn("⭐ LHS 1140", "md:sy:lhs1140")],
+            [kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🏠 Home", "home:menu")],
+        ]
+    )
+
+
+def sistemi_list_keyboard(n: int) -> InlineKeyboardMarkup:
+    buttons = [kb_btn(str(i + 1), f"md:syso:{i}") for i in range(n)]
+    grid = _pairs(buttons)
+    grid.append([kb_btn("⭐ Sistemi", "md:sys"), kb_btn("🏠 Home", "home:menu")])
+    return InlineKeyboardMarkup(grid)
+
+
+def sistema_chooser_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("☀️ Sistema Solare", "md:ss")],
+            [kb_btn("⭐ Sistemi extrasolari", "md:sys")],
+            [kb_btn("⭐ TRAPPIST-1", "md:sy:trappist")],
+            [kb_btn("🏠 Home", "home:menu")],
+        ]
+    )
+
+
+def ss_bodies_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("☀️ Sole", "w:p:sun"), kb_btn("🌍 Terra", "w:p:earth")],
+            [kb_btn("🌙 Luna", "w:m:moon"), kb_btn("🔴 Marte", "w:p:mars")],
+            [kb_btn("🟠 Giove", "w:p:jupiter"), kb_btn("💍 Saturno", "w:p:saturn")],
+            [kb_btn("🌀 Urano", "w:p:uranus"), kb_btn("🔵 Nettuno", "w:p:neptune")],
+            [kb_btn("🧊 Plutone", "w:f:pluto"), kb_btn("🪨 Mercurio", "w:p:mercury")],
+            [kb_btn("🌕 Venere", "w:p:venus"), kb_btn("🌙 Europa", "w:m:europa")],
+            [kb_btn("🌙 Encelado", "w:m:enceladus"), kb_btn("🌙 Titano", "w:m:titan")],
+            [kb_btn("🌙 Io", "w:m:io"), kb_btn("🌙 Ganimede", "w:m:ganymede")],
+            [kb_btn("🌙 Callisto", "w:m:callisto"), kb_btn("☄️ Comete", "home:comete")],
+            [kb_btn("🪨 Asteroidi", "home:asteroidi"), kb_btn("🧊 Nani", "home:nani")],
+            [kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🏠 Home", "home:menu")],
+        ]
+    )
+
+
+def miss_worlds_keyboard() -> InlineKeyboardMarkup:
+    buttons = [kb_btn(f"{item.get('emoji', '🚀')} {item['it']}", f"md:wm:{item['id']}") for item in MISSIONS]
+    grid = _pairs(buttons)
+    grid.append([kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🏠 Home", "home:menu")])
+    return InlineKeyboardMarkup(grid)
+
+
+def life_plus_keyboard() -> InlineKeyboardMarkup:
+    extra = [
+        [kb_btn("🌱 Candidati HZ (modello)", "md:f:hz"), kb_btn("📡 SETI", "w:v:seti")],
+        [kb_btn("🌍 Esplora mondi", "md:hub")],
+    ]
+    return catalog_keyboard("v", LIFE_TOPICS, extra)
+
+
+def cosmo_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("⭐ Stelle", "home:stelle"), kb_btn("🪐 Sistemi", "md:sys")],
+            [kb_btn("🌍 Mondi", "md:hub"), kb_btn("🌌 Galassie", "home:galassia")],
+            [kb_btn("🌀 Nebulose", "md:neb"), kb_btn("🕳️ Buchi neri", "home:buchineri")],
+            [kb_btn("💥 Supernovae", "w:y:sn"), kb_btn("🔭 Profondo", "home:profondo")],
+            [kb_btn("🪐 Mondi (reparto)", "world:mondi"), kb_btn("🏠 Home", "home:menu")],
+        ]
+    )
+
+
+def fav_list_keyboard(n: int) -> InlineKeyboardMarkup:
+    buttons = [kb_btn(str(i + 1), f"md:fo:{i}") for i in range(n)]
+    grid = _pairs(buttons)
+    grid.append([kb_btn("🌍 Esplora", "md:hub"), kb_btn("🏠 Home", "home:menu")])
+    return InlineKeyboardMarkup(grid)
 
 
 def cielo_keyboard() -> InlineKeyboardMarkup:

@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from services.exoplanets import classify_radius
 from services.catalog import (
     ASTRONAUTS,
     BLACK_HOLES,
@@ -179,40 +180,48 @@ def format_sheet(kind: str, item: dict[str, str], payload: dict[str, Any]) -> st
     return "\n".join(lines)
 
 
+def _fmt_num(value: Any, *, fmt: str, suffix: str) -> str:
+    try:
+        if value is None:
+            return "—"
+        return fmt.format(float(value)) + suffix
+    except (TypeError, ValueError):
+        return "—"
+
+
 def format_exoplanet(row: dict[str, Any], *, habitable: bool = False) -> str:
     name = row.get("pl_name") or "Esopianeta"
     host = row.get("hostname") or "—"
-    dist = row.get("sy_dist")
-    rad = row.get("pl_rade")
-    eqt = row.get("pl_eqt")
     method = row.get("discoverymethod") or "—"
     year = row.get("disc_year") or "—"
-    try:
-        dist_txt = f"~{float(dist):.1f} pc" if dist is not None else "—"
-    except (TypeError, ValueError):
-        dist_txt = "—"
-    try:
-        rad_txt = f"{float(rad):.2f} R⊕" if rad is not None else "—"
-    except (TypeError, ValueError):
-        rad_txt = "—"
-    try:
-        eqt_txt = f"{float(eqt):.0f} K" if eqt is not None else "—"
-    except (TypeError, ValueError):
-        eqt_txt = "—"
-    kind = "terrestre (raggio < 1.8 R⊕, modello)" if habitable else "scheda archivio"
+    kind = classify_radius(row.get("pl_rade"))
+    if habitable:
+        kind = "terrestre in fascia Teq (modello), non mondo abitato"
+    stars = row.get("sy_snum")
+    planets = row.get("sy_pnum")
     lines = [
-        f"🪐 <b>{e(name)}</b>",
+        f"🪐 <b>MONDO: {e(name)}</b>",
         "",
         f"⭐ Stella: <b>{e(host)}</b>",
-        f"📏 Distanza: {e(dist_txt)}",
-        f"🌍 Raggio: {e(rad_txt)}",
-        f"🌡️ Temperatura di equilibrio: {e(eqt_txt)}",
-        f"🔭 Scoperta: {e(year)} · {e(method)}",
-        f"🗂️ Tipo scheda: {e(kind)}",
+        f"⭐ Stelle nel sistema: {e(stars if stars is not None else '—')} · "
+        f"pianeti catalogati: {e(planets if planets is not None else '—')}",
+        f"📏 Distanza: {e(_fmt_num(row.get('sy_dist'), fmt='~{:.1f}', suffix=' pc'))}",
+        f"🌍 Raggio: {e(_fmt_num(row.get('pl_rade'), fmt='{:.2f}', suffix=' R⊕'))}",
+        f"⚖️ Massa (best mass TAP): {e(_fmt_num(row.get('pl_bmasse'), fmt='{:.2f}', suffix=' M⊕'))}",
+        f"🌡️ Temperatura di equilibrio: {e(_fmt_num(row.get('pl_eqt'), fmt='{:.0f}', suffix=' K'))}",
+        f"⏱️ Anno (periodo): {e(_fmt_num(row.get('pl_orbper'), fmt='{:.2f}', suffix=' giorni'))}",
+        f"🌀 Eccentricità: {e(_fmt_num(row.get('pl_orbeccen'), fmt='{:.3f}', suffix=''))}",
+        f"🌍 Tipo: {e(kind)}",
         "",
-        "🔭 <b>Perché è in elenco?</b>",
-        "Perché l'archivio NASA lo classifica con questi parametri misurati o stimati.",
-        "Non è una prova di oceani, atmosfere abitabili o vita.",
+        "🧬 <b>POTENZIALE</b>",
+        "Atmosfera: <b>sconosciuta</b> in questa riga TAP",
+        "Acqua: <b>da verificare</b> — non è un campo dell'archivio",
+        "Abitabilità: <b>da studiare</b> — al massimo un filtro su Teq e raggio",
+        "",
+        f"🔭 Scoperta: {e(year)} · {e(method)}",
+        "",
+        "Perché è in elenco: ha questi parametri nell'archivio NASA.",
+        "Non è una prova di oceani, atmosfere o vita.",
         "",
         "<i>Fonte live: NASA Exoplanet Archive, tabella ps, default_flag=1.</i>",
     ]

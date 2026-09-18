@@ -51,6 +51,12 @@ MISSIONS: tuple[dict[str, str], ...] = (
     {"id": "juno", "en": "Juno (spacecraft)", "it": "Juno", "wiki": "Juno_(spacecraft)", "emoji": "🟠"},
     {"id": "hubble", "en": "Hubble Space Telescope", "it": "Hubble", "wiki": "Hubble_Space_Telescope", "emoji": "👁️"},
     {"id": "perseverance", "en": "Perseverance (rover)", "it": "Perseverance", "wiki": "Perseverance_(rover)", "emoji": "🔴"},
+    {"id": "galileo", "en": "Galileo (spacecraft)", "it": "Galileo", "wiki": "Galileo_(spacecraft)", "emoji": "🟠"},
+    {"id": "osiris", "en": "OSIRIS-REx", "it": "OSIRIS-REx", "wiki": "OSIRIS-REx", "emoji": "🪨"},
+    {"id": "hayabusa", "en": "Hayabusa", "it": "Hayabusa", "wiki": "Hayabusa_(spacecraft)", "emoji": "🪨"},
+    {"id": "rosetta", "en": "Rosetta (spacecraft)", "it": "Rosetta", "wiki": "Rosetta_(spacecraft)", "emoji": "☄️"},
+    {"id": "mro", "en": "Mars Reconnaissance Orbiter", "it": "MRO", "wiki": "Mars_Reconnaissance_Orbiter", "emoji": "🔴"},
+    {"id": "curiosity", "en": "Curiosity (rover)", "it": "Curiosity", "wiki": "Curiosity_(rover)", "emoji": "🔴"},
 )
 
 ASTRONAUTS: tuple[dict[str, str], ...] = (
@@ -67,6 +73,11 @@ LIFE_TOPICS: tuple[dict[str, str], ...] = (
     {"id": "exo", "it": "Esopianeti", "wiki": "Exoplanet", "emoji": "🪐"},
     {"id": "seti", "it": "SETI", "wiki": "SETI", "emoji": "📡"},
     {"id": "bio", "it": "Biosignature", "wiki": "Biosignature", "emoji": "🧫"},
+    {"id": "micro", "it": "Estremofili", "wiki": "Extremophile", "emoji": "🦠"},
+    {"id": "hz", "it": "Zona abitabile", "wiki": "Circumstellar_habitable_zone", "emoji": "🌍"},
+    {"id": "org", "it": "Molecole organiche", "wiki": "Organic_compound", "emoji": "🧪"},
+    {"id": "fermi", "it": "Paradosso di Fermi", "wiki": "Fermi_paradox", "emoji": "👽"},
+    {"id": "rogue", "it": "Pianeti erranti", "wiki": "Rogue_planet", "emoji": "🌑"},
 )
 
 LEARN_TOPICS: tuple[dict[str, str], ...] = (
@@ -169,6 +180,7 @@ FAMOUS_ASTEROIDS: tuple[dict[str, str], ...] = (
     {"id": "eros", "qid": "Q16711", "en": "433 Eros", "it": "Eros", "wiki": "433_Eros", "emoji": "🪨"},
     {"id": "bennu", "qid": "Q11518", "en": "101955 Bennu", "it": "Bennu", "wiki": "101955_Bennu", "emoji": "🪨"},
     {"id": "psyche", "qid": "Q59164", "en": "16 Psyche", "it": "Psyche", "wiki": "16_Psyche", "emoji": "🪨"},
+    {"id": "itokawa", "qid": "Q147555", "en": "25143 Itokawa", "it": "Itokawa", "wiki": "25143_Itokawa", "emoji": "🪨"},
 )
 
 STARS: tuple[dict[str, str], ...] = (
@@ -237,6 +249,36 @@ DEEP_SKY: tuple[dict[str, str], ...] = (
     {"id": "pillars", "qid": "Q23652", "en": "Pillars of Creation", "it": "Pilastri della Creazione", "wiki": "Pillars_of_Creation", "emoji": "🌫️"},
     {"id": "sn1987a", "qid": "Q404892", "en": "SN 1987A", "it": "SN 1987A", "wiki": "SN_1987A", "emoji": "💥"},
 )
+
+
+# Corpi del Sistema Solare toccati da una missione (solo collegamenti di catalogo).
+MISSION_WORLDS: dict[str, tuple[tuple[str, str], ...]] = {
+    "voyager": (("p", "jupiter"), ("p", "saturn"), ("p", "uranus"), ("p", "neptune")),
+    "cassini": (("p", "saturn"), ("m", "titan"), ("m", "enceladus")),
+    "juno": (("p", "jupiter"),),
+    "galileo": (("p", "jupiter"), ("m", "io"), ("m", "europa"), ("m", "ganymede"), ("m", "callisto")),
+    "nh": (("f", "pluto"),),
+    "clipper": (("m", "europa"),),
+    "juice": (("p", "jupiter"), ("m", "europa"), ("m", "ganymede"), ("m", "callisto")),
+    "perseverance": (("p", "mars"),),
+    "curiosity": (("p", "mars"),),
+    "mro": (("p", "mars"),),
+    "osiris": (("z", "bennu"),),
+    "hayabusa": (("z", "itokawa"),),
+    "rosetta": (("c", "67p"),),
+}
+
+
+def worlds_for_mission(mission_id: str) -> tuple[tuple[str, str], ...]:
+    return MISSION_WORLDS.get(mission_id, ())
+
+
+def missions_for_world(kind: str, item_id: str) -> tuple[str, ...]:
+    found: list[str] = []
+    for mid, targets in MISSION_WORLDS.items():
+        if (kind, item_id) in targets:
+            found.append(mid)
+    return tuple(found)
 
 
 def by_id(rows: tuple[dict[str, str], ...], item_id: str) -> dict[str, str] | None:

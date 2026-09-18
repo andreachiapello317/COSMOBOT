@@ -31,7 +31,7 @@ def _user(data: dict[str, Any], user_id: int) -> dict[str, Any]:
     key = str(user_id)
     row = data.get(key)
     if not isinstance(row, dict):
-        row = {"quiz": {}, "points": 0, "missions": {}}
+        row = {"quiz": {}, "points": 0, "missions": {}, "worlds": []}
         data[key] = row
     quiz = row.get("quiz")
     if not isinstance(quiz, dict):
@@ -39,6 +39,9 @@ def _user(data: dict[str, Any], user_id: int) -> dict[str, Any]:
     missions = row.get("missions")
     if not isinstance(missions, dict):
         row["missions"] = {}
+    worlds = row.get("worlds")
+    if not isinstance(worlds, list):
+        row["worlds"] = []
     row.setdefault("points", 0)
     return row
 
@@ -80,3 +83,34 @@ async def mission_is_done(user_id: int, day: str | None = None) -> str | None:
         done = row.get("missions") or {}
         value = done.get(stamp)
         return str(value) if value else None
+
+
+async def world_save(user_id: int, item: dict[str, Any]) -> list[dict[str, Any]]:
+    name = str(item.get("name") or "").strip()
+    if not name:
+        return await world_list(user_id)
+    async with _lock:
+        data = _load()
+        row = _user(data, user_id)
+        worlds = [w for w in row["worlds"] if isinstance(w, dict)]
+        worlds = [w for w in worlds if str(w.get("name") or "") != name]
+        payload = {
+            "name": name,
+            "host": str(item.get("host") or ""),
+            "kind": str(item.get("kind") or "exo"),
+        }
+        if payload["kind"] == "imag":
+            src = item.get("row") if isinstance(item.get("row"), dict) else item
+            for key in ("pl_rade", "pl_eqt", "pl_orbper", "moons", "stars", "climate", "note"):
+                if src.get(key) is not None:
+                    payload[key] = src.get(key)
+        worlds.insert(0, payload)
+        row["worlds"] = worlds[:20]
+        _save(data)
+        return list(row["worlds"])
+
+
+async def world_list(user_id: int) -> list[dict[str, Any]]:
+    async with _lock:
+        row = _user(_load(), user_id)
+        return [w for w in (row.get("worlds") or []) if isinstance(w, dict)]
