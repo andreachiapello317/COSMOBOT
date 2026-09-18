@@ -15,17 +15,38 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Bilancia** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
 | `/tarocchi` | Lettura guidata: 1 carta, 3 carte, amore, lavoro, domanda + storico | [freehoroscopeapi.com/tarot](https://freehoroscopeapi.com/tarot) |
 | `/iching` | Consultazione I Ching: domanda, sei lanci, esagramma, linee mutevoli, trasformato | [Wilhelm 1924 JSON](https://github.com/jesshewitt/i-ching) (libro pubblico live) |
-| `/asteroidi` | Ceres, Vesta, Pallade, Giunone nel tema natale | [NASA JPL Horizons](https://ssd.jpl.nasa.gov/horizons) + case CosmyDay |
+| `/asteroidi` | Menu: NEO vicini alla Terra **oppure** Ceres/Vesta/Pallade/Giunone nel tema | [NASA NeoWs](https://api.nasa.gov) + [Horizons](https://ssd.jpl.nasa.gov/horizons) |
 | `/meteore` | Prossimo sciame e calendario dei picchi | [Skytime meteor-showers](https://skytime.live/api/docs) |
 | `/spazio` | Briefing del giorno: Luna, pianeti, eventi, sciami, cielo osservabile | CosmyDay events + Skytime + skymap.sh + sunrisesunset.io |
 | `/osserva` | Cosa si vede stasera da una città (Luna, pianeti, costellazioni, mappa) | [skymap.sh](https://skymap.sh) + geocoding CosmyDay |
+| `/cielo` | Dashboard sopra Roma: Luna, pianeti, sciami, finestra migliore | skymap.sh + sunrisesunset.io + Skytime |
+| `/pianeta` | Scheda di un pianeta (massa, diametro, gravità, missioni) | Wikipedia + Wikidata + NASA Images |
+| `/lune` | Europa, Titano, Encelado e le altre | Wikipedia + Wikidata |
+| `/sistema` | Sistema Solare interattivo | stesse schede pianeta |
+| `/buchineri` | Cos'è un buco nero + Sgr A*, M87*, Cygnus X-1 | Wikipedia + NASA Images |
+| `/galassia` | Via Lattea, Andromeda, confronto distanze | Wikidata P2583 |
+| `/eclissi` | Prossima solare, prossima lunare, countdown, picco | [Skytime eclipses](https://skytime.live/api/docs) |
+| `/alba` | Alba, tramonto, durata, crepuscolo civile/astronomico | sunrisesunset.io (`/sole` è lo stesso) |
+| `/missioni` | Artemis, Webb, Clipper, JUICE, Voyager… | Wikipedia |
+| `/astronauta` | Schede di astronauti storici | Wikipedia |
+| `/satelliti` | Hubble, Webb, Chandra, ISS | Wikipedia + WTIA per la ISS |
+| `/sonde` | Voyager, New Horizons, Cassini, Juno… | Wikipedia |
+| `/impara` | Mini-lezioni: Sistema Solare, stelle, buchi neri, galassie, missioni, esopianeti | Wikipedia |
+| `/quiz` | Facile / medio / difficile / esperto + classifica personale | Wikipedia, Wikidata, NASA TAP |
+| `/esopianeta` | Un pianeta extrasolare a caso | [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu) tabella `ps` |
+| `/abitabile` | Candidati in zona abitabile (modello Teq/raggio, non vita) | stesso archivio TAP |
+| `/vita` | Come cerchiamo la vita: oceani, SETI, biosignature | Wikipedia |
+| `/specchio` | Domanda introspettiva + riflessione | pratica simbolica |
+| `/rituale` | Intenzione / rilascio / chiusura secondo la fase lunare | fase live sunrisesunset.io |
+| `/random` | Pesca casuale: tarocco, I Ching, runa, pianeta, missione, oggetto | le API già usate |
+| `/missione` | Missione del giorno (Orione, Luna, APOD, quiz…) | calendario locale |
 | `/rune` | Rituale Elder Futhark: domanda, 1 o 3 rune, upright/reversed | dataset interno (`services/runes.py`) |
 | `/iss` | Posizione live della ISS + mappa | [Where the ISS at?](https://wheretheiss.at/w/developer) |
-| `/cosmico` | Scheda del momento: Luna, cielo, carta, I Ching, APOD | stesse API già usate, in parallelo |
-| `/esplora` | Mappa a sezioni: me / risposte / cielo / universo | — |
+| `/cosmico` | Un pezzo da ogni mondo: te stesso, cielo, carta, esopianeta, missione | API in parallelo |
+| `/esplora` | I sei mondi | — |
 | `/domanda` | Una domanda, poi scegli tarocchi, I Ching o rune | riusa i workflow esistenti |
 | `/eventi` | Prossimi eventi del cielo | CosmyDay + Skytime |
-| `/sole` | Alba, mezzogiorno, tramonto, durata del giorno | sunrisesunset.io |
+| `/sole` | Come `/alba` | sunrisesunset.io |
 | `/transiti` | Cielo di oggi sul tema salvato | CosmyDay |
 | `/luna` | Fase, illuminazione, moonrise/moonset + spiegazione del giorno | [sunrisesunset.io](https://sunrisesunset.io/api/) + [CosmyDay](https://api.cosmyday.com/content/moon) |
 | `/pianeti` | Posizioni attuali dei pianeti principali sopra Roma | [CosmyDay `/natal`](https://cosmyday.com/api-docs) (Swiss Ephemeris) |
@@ -41,11 +62,13 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 `/iching` (o `/yijing`) è un rituale diverso: prima la domanda, poi **SONO PRONTO**, conferma, **LANCIA LE MONETE**. Le sei linee si costruiscono dal basso verso l’alto (metodo delle tre monete: 6/7/8/9). Il bot mostra esagramma, linee mutevoli e — se ci sono — l’esagramma trasformato. I testi (giudizio, immagine, linee) arrivano dal libro Wilhelm 1924 in JSON pubblico e vengono tradotti; le monete si lanciano in locale.
 
-`/asteroidi` legge Ceres, Vesta, Pallade e Giunone sulla carta natale (NASA Horizons + case CosmyDay). Serve un tema salvato o appena calcolato.
+`/asteroidi` apre un menu: **vicini alla Terra** (NASA NeoWs) oppure **nel tema natale** (Ceres, Vesta, Pallade, Giunone da Horizons). Per il tema serve una carta salvata o appena calcolata.
 
-`/meteore` mostra il prossimo sciame (picco e ZHR) e quelli in arrivo. `/spazio` è il briefing del giorno. `/osserva` chiede la città e dice cosa c’è sopra l’orizzonte stasera, con stelle di visibilità ricavate da altezza/magnitudine e un link alla mappa del cielo.
+`/meteore` mostra il prossimo sciame (picco e ZHR) e quelli in arrivo. `/spazio` è il briefing del giorno. `/osserva` chiede la città e dice cosa c’è sopra l’orizzonte stasera. `/cielo` è la dashboard fissa sopra Roma (Luna, pianeti, sciami, finestra dopo il tramonto).
 
-`/start` apre una home a tre aree (astrologia, divinazione, spazio) più **COSMICO**. `/esplora` è la stessa mappa suddivisa in sezioni. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` aggrega i servizi già presenti e se uno cade gli altri restano.
+`/esopianeta` e `/abitabile` leggono l’archivio NASA: i candidati “abitabili” sono un filtro su temperatura di equilibrio e raggio, **non** una dichiarazione di vita. `/specchio` e `/rituale` sono pratiche simboliche, presentate come tali.
+
+`/start` apre una home a **sei mondi** (te stesso, divinazione, cielo, mondi, vita, missioni) più **COSMICO** e **RANDOM**. `/esplora` è la stessa mappa. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` prende un pezzo da ogni mondo: se una API cade, le altre restano.
 
 In chat il bot tiene **un solo messaggio**: ogni comando modifica (o sostituisce) la risposta precedente, senza accodarne di nuove. Il comando che hai scritto (`/luna`, `/oroscopo`…) viene cancellato appena la risposta è pronta.
 
@@ -193,11 +216,18 @@ Cambia `DEFAULT_SIGN` in `virgo`, `scorpio`, ecc. (nome inglese minuscolo).
 
 ```text
 bot.py                 # handler Telegram, polling + webhook
+services/catalog.py    # pianeti, lune, missioni, quiz (solo identificatori)
+services/wiki.py       # Wikipedia, Wikidata, NASA Images
+services/exoplanets.py # NASA Exoplanet Archive (TAP)
+services/neo.py        # NASA NeoWs
+services/eclipses.py   # Skytime eclissi
+services/sheets.py     # schede e quiz da fonti live
+services/progress.py   # punti quiz e missione del giorno (file locale)
 services/runes.py      # dataset Elder Futhark
 services/iss.py        # posizione ISS
 services/astronomy.py  # visibilità da numeri live
-ui/keyboards.py        # home a sezioni
-ui/texts.py            # testi home / esplora / rune
+ui/keyboards.py        # home a sei mondi
+ui/texts.py            # testi home / esplora / mondi
 requirements.txt
 .env.example
 README.md
