@@ -15,6 +15,10 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Bilancia** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
 | `/tarocchi` | Lettura guidata: 1 carta, 3 carte, amore, lavoro, domanda + storico | [freehoroscopeapi.com/tarot](https://freehoroscopeapi.com/tarot) |
 | `/iching` | Consultazione I Ching: domanda, sei lanci, esagramma, linee mutevoli, trasformato | [Wilhelm 1924 JSON](https://github.com/jesshewitt/i-ching) (libro pubblico live) |
+| `/asteroidi` | Ceres, Vesta, Pallade, Giunone nel tema natale | [NASA JPL Horizons](https://ssd.jpl.nasa.gov/horizons) + case CosmyDay |
+| `/meteore` | Prossimo sciame e calendario dei picchi | [Skytime meteor-showers](https://skytime.live/api/docs) |
+| `/spazio` | Briefing del giorno: Luna, pianeti, eventi, sciami, cielo osservabile | CosmyDay events + Skytime + skymap.sh + sunrisesunset.io |
+| `/osserva` | Cosa si vede stasera da una città (Luna, pianeti, costellazioni) | [skymap.sh](https://skymap.sh) + geocoding CosmyDay |
 | `/luna` | Fase, illuminazione, moonrise/moonset + spiegazione del giorno | [sunrisesunset.io](https://sunrisesunset.io/api/) + [CosmyDay](https://api.cosmyday.com/content/moon) |
 | `/pianeti` | Posizioni attuali dei pianeti principali sopra Roma | [CosmyDay `/natal`](https://cosmyday.com/api-docs) (Swiss Ephemeris) |
 | `/apod` | Astronomy Picture of the Day (foto o video) | [NASA APOD](https://api.nasa.gov) |
@@ -28,6 +32,10 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 `/tarocchi` (o `/tarot`) è una lettura guidata: scegli lo spread, (se serve) scrivi la domanda, poi **PESCA LE CARTE**. L’API decide quali carte escono; dritta/rovesciata è casuale; i testi sono i significati ufficiali, tradotti e letti insieme. Lo storico resta sul server (su Render free può azzerarsi al riavvio).
 
 `/iching` (o `/yijing`) è un rituale diverso: prima la domanda, poi **SONO PRONTO**, conferma, **LANCIA LE MONETE**. Le sei linee si costruiscono dal basso verso l’alto (metodo delle tre monete: 6/7/8/9). Il bot mostra esagramma, linee mutevoli e — se ci sono — l’esagramma trasformato. I testi (giudizio, immagine, linee) arrivano dal libro Wilhelm 1924 in JSON pubblico e vengono tradotti; le monete si lanciano in locale.
+
+`/asteroidi` legge Ceres, Vesta, Pallade e Giunone sulla carta natale (NASA Horizons + case CosmyDay). Serve un tema salvato o appena calcolato.
+
+`/meteore` mostra il prossimo sciame (picco e ZHR) e quelli in arrivo. `/spazio` è il briefing del giorno. `/osserva` chiede la città e dice cosa c’è sopra l’orizzonte stasera.
 
 In chat il bot tiene **un solo messaggio**: ogni comando modifica (o sostituisce) la risposta precedente, senza accodarne di nuove. Il comando che hai scritto (`/luna`, `/oroscopo`…) viene cancellato appena la risposta è pronta.
 
