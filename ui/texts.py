@@ -1,16 +1,17 @@
-"""Testi di interfaccia della home a sei mondi. Non sono contenuti astronomici."""
+"""Testi di interfaccia della home a sette mondi. Non sono contenuti astronomici."""
 
 
 def home_text() -> str:
     return (
         "🌌 <b>COSMOBOT</b>\n\n"
-        "Esplorare sé stessi, il cielo e l'universo. Sei mondi, un filo.\n\n"
+        "Esplorare sé stessi, il cielo e l'universo. Sette mondi, un filo.\n\n"
         "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, specchio, rituale\n"
-        "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, mazzi COSMOBOT\n"
+        "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, pietre\n"
         "🔭 <b>CIELO</b> — cosa vedi adesso, stelle, eventi, cielo profondo\n"
         "🪐 <b>MONDI</b> — esploratore: esopianeti, sistemi, salvataggi\n"
         "👽 <b>VITA</b> — esopianeti, zona abitabile, SETI\n"
-        "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n\n"
+        "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n"
+        "💎 <b>PIETRE</b> — minerali, gemme, laboratorio, collezione\n\n"
         "✨ <b>COSMICO</b> prende un pezzo da ogni mondo.\n"
         "🎲 <b>CASUALE</b> pesca nel sacco: carta, cielo o sonda."
     )
@@ -19,13 +20,14 @@ def home_text() -> str:
 def esplora_text() -> str:
     return (
         "🧭 <b>ESPLORA</b>\n\n"
-        "Sei mondi. Tocca quello che vuoi aprire.\n\n"
+        "Sette mondi. Tocca quello che vuoi aprire.\n\n"
         "🔮 Te stesso — carta e rituali interiori\n"
-        "🔮 Oracoli — tradizionali e mazzi COSMOBOT\n"
+        "🔮 Oracoli — tradizionali, mazzi COSMOBOT e pietre\n"
         "🔭 Cielo — astronomia reale, adesso e sopra di te\n"
         "🪐 Mondi — Sistema Solare, esopianeti, sistemi stellari\n"
         "👽 Vita — come la cerchiamo, senza dichiararla\n"
-        "🚀 Missioni — voli, lezioni, sfide del giorno"
+        "🚀 Missioni — voli, lezioni, sfide del giorno\n"
+        "💎 Pietre — scienza, geologia, storia; il simbolismo sta a parte"
     )
 
 
@@ -54,6 +56,7 @@ def oracoli_text() -> str:
         "🧿 Archetipi · 🐺 Animali · 🗝️ Simboli\n"
         "🌿 Elementi · 🪐 Pianeti · 🌙 Luna\n\n"
         "🪞 Sì/No · 🕯️ Domanda · 📖 Lettura\n"
+        "💎 Pietre — estrazione simbolica, non mineralogia\n"
         "🎲 Sorprendimi — pesco io quale oracolo usare."
     )
 
@@ -158,6 +161,32 @@ def world_vita_text() -> str:
         "👽 <b>VITA</b>\n\n"
         "Come cerchiamo la vita: oceani sotto il ghiaccio, esopianeti, SETI, biosignature.\n"
         "I candidati in zona abitabile sono un filtro di modelli, non mondi abitati."
+    )
+
+
+def world_pietre_text() -> str:
+    return (
+        "💎 <b>MONDO DELLE PIETRE</b>\n\n"
+        "Un universo a parte: minerali, cristalli, rocce e pietre dallo spazio.\n\n"
+        "🔬 <b>Scienza</b> — formula, Mohs, sistema, lucentezza, striscio\n"
+        "🌋 <b>Geologia</b> — come nascono, ambienti, località note\n"
+        "🏺 <b>Storia</b> — civiltà e usi documentati\n"
+        "✨ <b>Simbolismo</b> — folklore, tenuto lontano dalle misure\n\n"
+        "Poi: laboratorio, confronto, giochi, museo, collezione.\n"
+        "Niente listini inventati. Una foto non sostituisce un'analisi."
+    )
+
+
+def pietre_hub_text() -> str:
+    return (
+        "💎 <b>PIETRE</b>\n\n"
+        "Enciclopedia, esplorazione, laboratorio e un oracolo dichiarato come gioco.\n"
+        "Le schede mescolano mineralogia pubblica e, a parte, la tradizione.\n\n"
+        "🔮 Del giorno · 🎲 Casuale · 🔍 Cerca\n"
+        "🧭 Esplora per tipo, colore, ambiente\n"
+        "🔬 Laboratorio guidato · ⚖️ Confronta\n"
+        "🎒 Collezione · 🏛️ Museo · 🧠 Giochi\n"
+        "☄️ Pietre dallo spazio — stesso catalogo, origine extraterrestre o da impatto."
     )
 
 

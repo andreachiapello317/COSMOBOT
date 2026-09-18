@@ -42,6 +42,9 @@ def _user(data: dict[str, Any], user_id: int) -> dict[str, Any]:
     worlds = row.get("worlds")
     if not isinstance(worlds, list):
         row["worlds"] = []
+    stones = row.get("stones")
+    if not isinstance(stones, list):
+        row["stones"] = []
     row.setdefault("points", 0)
     return row
 
@@ -114,3 +117,24 @@ async def world_list(user_id: int) -> list[dict[str, Any]]:
     async with _lock:
         row = _user(_load(), user_id)
         return [w for w in (row.get("worlds") or []) if isinstance(w, dict)]
+
+
+async def stone_discover(user_id: int, stone_id: str) -> list[str]:
+    sid = str(stone_id or "").strip()
+    if not sid:
+        return await stone_ids(user_id)
+    async with _lock:
+        data = _load()
+        row = _user(data, user_id)
+        known = [str(x) for x in row["stones"] if x]
+        if sid not in known:
+            known.append(sid)
+            row["stones"] = known
+            _save(data)
+        return list(known)
+
+
+async def stone_ids(user_id: int) -> list[str]:
+    async with _lock:
+        row = _user(_load(), user_id)
+        return [str(x) for x in (row.get("stones") or []) if x]

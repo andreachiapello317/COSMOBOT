@@ -47,7 +47,7 @@ from services.catalog import (
     by_id,
     worlds_for_mission,
 )
-from services.wiki import wikidata_facts
+from services.wiki import wikidata_facts, wikipedia_summary
 from services.skyview import collect_marks, milky_way_hint, text_sky_map, visibility_line
 from services.spaceweather import kp_index, latest_flare, moon_distance_events, next_distance_event
 from services.exoplanets import (
@@ -75,8 +75,36 @@ from services.progress import (
     mission_is_done,
     quiz_board,
     quiz_record,
+    stone_discover,
+    stone_ids,
     world_list,
     world_save,
+)
+from services.stones import (
+    CATS,
+    COLORS,
+    ENVS,
+    MUSEUM,
+    RARITY,
+    STONES,
+    by_cat,
+    by_color,
+    by_env,
+    by_id as stone_by_id,
+    by_rarity,
+    build_field_quiz,
+    build_guess,
+    build_tf,
+    filter_lab,
+    format_card,
+    format_compare,
+    format_list,
+    format_section,
+    museum_room,
+    oracle_spread,
+    random_stone,
+    search_stones,
+    stone_of_day,
 )
 from services.lenormand import SPREADS as LENORMAND_SPREADS, draw_lenormand
 from services.oracles import (
@@ -171,6 +199,20 @@ from ui.keyboards import (
     world_self_keyboard,
     world_sky_keyboard,
     world_vita_keyboard,
+    world_pietre_keyboard,
+    pietre_after_keyboard,
+    pietre_bag_keyboard,
+    pietre_colors_keyboard,
+    pietre_envs_keyboard,
+    pietre_explore_keyboard,
+    pietre_games_keyboard,
+    pietre_hub_keyboard,
+    pietre_lab_keyboard,
+    pietre_list_keyboard,
+    pietre_museum_keyboard,
+    pietre_oracle_keyboard,
+    pietre_quiz_keyboard,
+    pietre_rarity_keyboard,
     yesno_keyboard,
 )
 from ui.texts import (
@@ -190,6 +232,8 @@ from ui.texts import (
     world_self_text,
     world_sky_text,
     world_vita_text,
+    world_pietre_text,
+    pietre_hub_text,
 )
 from telegram.constants import ChatAction, ParseMode
 from telegram.error import TelegramError
@@ -266,6 +310,8 @@ NAV_SKIP_PREFIXES = (
     "horo:",
     "yn:",
     "natal:loc:",
+    "pt:ga:",
+    "pt:la:",
 )
 NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
 
@@ -931,6 +977,7 @@ MIRROR_STATE_KEY = "mirror_flow"
 LENO_STATE_KEY = "leno_flow"
 LETTURA_STATE_KEY = "lettura_flow"
 OQ_STATE_KEY = "oq_flow"
+STONE_STATE_KEY = "stone_flow"
 ICHING_HEX_URLS = (
     "https://raw.githubusercontent.com/jesshewitt/i-ching/main/site/data/hexagrams.json",
     "https://cdn.jsdelivr.net/gh/jesshewitt/i-ching@main/site/data/hexagrams.json",
@@ -1054,6 +1101,18 @@ def _oq_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.pop(OQ_STATE_KEY, None)
 
 
+def _stone_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(STONE_STATE_KEY, None)
+
+
+def _stone_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(STONE_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[STONE_STATE_KEY] = state
+    return state
+
+
 def _leno_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
     state = context.user_data.get(LENO_STATE_KEY)
     if not isinstance(state, dict):
@@ -1150,6 +1209,7 @@ def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     _leno_reset(context)
     _lettura_reset(context)
     _oq_reset(context)
+    _stone_reset(context)
     context.user_data["cielo_ask"] = False
 
 
@@ -1934,6 +1994,8 @@ def help_text() -> str:
         "/nani — Plutone, Cerere, Eris, Haumea, Makemake\n"
         "/comete — selezione con voce Wikipedia (non lo scarico JPL da 4000+)\n"
         "/profondo — Messier, NGC, nebulose, quasar, supernovae\n"
+        "/pietre — mondo delle pietre: enciclopedia, laboratorio, collezione, museo\n"
+        "/pietra — oracolo simbolico delle pietre (non è mineralogia)\n"
         "/mondi — esploratore: filtri NASA, sistemi, salvataggi, mondo del giorno\n"
         "/sistemi — alberi di sistemi (TRAPPIST-1, binari, zona abitabile…)\n"
         "/cosmo — mappa stelle / sistemi / mondi / galassie / profondo\n"
@@ -1960,7 +2022,7 @@ def help_text() -> str:
         "/rune — Elder Futhark: una o tre rune\n"
         "/iss — posizione live della Stazione Spaziale\n"
         "/cosmico — un pezzo da ogni mondo, oggi\n"
-        "/esplora — i sei mondi\n"
+        "/esplora — i sette mondi\n"
         "/domanda — una domanda, poi scegli tarocchi / I Ching / rune\n"
         "/eventi — prossimi appuntamenti del cielo\n"
         "/sole — come /alba\n"
@@ -4988,6 +5050,7 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         "mondi": (world_mondi_text, world_mondi_keyboard),
         "vita": (world_vita_text, world_vita_keyboard),
         "miss": (world_miss_text, world_miss_keyboard),
+        "pietre": (world_pietre_text, world_pietre_keyboard),
     }
     if prefix == "world" and action in worlds:
         text_fn, kb_fn = worlds[action]
@@ -5378,6 +5441,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         if action == "wm" and extra:
             await send_mission_worlds(update, context, extra)
             return
+    if prefix == "pt":
+        await dispatch_pietre(update, context, token)
+        return
     if prefix == "home":
         await _resume_home(update, context, action)
         return
@@ -5522,6 +5588,9 @@ async def _resume_home(update: Update, context: ContextTypes.DEFAULT_TYPE, actio
         return
     if action == "stelle":
         await show_stelle_menu(update, context)
+        return
+    if action == "pietre":
+        await show_pietre_hub(update, context)
         return
     if action == "aiuto":
         await reply_html(update, context, help_text(), reply_markup=back_home_keyboard())
@@ -5724,6 +5793,10 @@ async def send_cosmico(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     lines.extend(["", "🚀 <b>Missione del giorno</b>", e(str(mission.get("title") or ""))])
     insight_bits.append(f"Missione: {mission.get('title')}")
 
+    pietra = stone_of_day(now)
+    lines.extend(["", "💎 <b>Pietra del giorno</b>", f"{pietra['emoji']} {e(pietra['it'])} · {e(pietra['formula'])} · {e(pietra['mohs'])} Mohs"])
+    insight_bits.append(f"Pietra: {pietra['it']}")
+
     lines.extend(["", "✨ <b>SINTESI</b>"])
     if insight_bits:
         lines.append(e(clip_text(" · ".join(str(bit) for bit in insight_bits), 400)))
@@ -5883,7 +5956,7 @@ async def on_sole_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 # ---------------------------------------------------------------------------
-# Sei mondi: schede, cielo Roma, quiz, vita, random, missione
+# Sette mondi: schede, cielo Roma, quiz, vita, random, missione, pietre
 # ---------------------------------------------------------------------------
 
 
@@ -5917,6 +5990,7 @@ async def on_world_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "mondi": (world_mondi_text, world_mondi_keyboard),
         "vita": (world_vita_text, world_vita_keyboard),
         "miss": (world_miss_text, world_miss_keyboard),
+        "pietre": (world_pietre_text, world_pietre_keyboard),
     }
     page = pages.get(action)
     if page is None:
@@ -7462,7 +7536,7 @@ async def send_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await send_typing(update)
     await deliver_text(update, context, "🎲 Pesco nel sacco…")
     client = _http_client(context)
-    kind = random.choice(("tarot", "iching", "rune", "object", "planet", "mission", "moon", "exo"))
+    kind = random.choice(("tarot", "iching", "rune", "object", "planet", "mission", "moon", "exo", "stone"))
     discover = None
     if kind == "tarot":
         try:
@@ -7508,6 +7582,10 @@ async def send_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             discover = "home:esopianeta"
         else:
             body = "🪐 Esopianeta\n\nArchivio non disponibile."
+    elif kind == "stone":
+        stone = random_stone()
+        body = f"💎 Pietra\n\n{stone['emoji']} <b>{e(stone['it'])}</b>\n{e(stone['formula'])} · {e(stone['mohs'])} Mohs"
+        discover = f"pt:s:{stone['id']}"
     else:
         from services.catalog import RANDOM_OBJECTS
 
@@ -7996,6 +8074,7 @@ async def on_ora_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             "plan": lambda: send_deck_card(update, context, "plan"),
             "lunar": lambda: send_lunar_oracle(update, context),
             "yes": lambda: send_yesno(update, context),
+            "pietre": lambda: send_stone_oracle(update, context),
         }
         fn = dispatch.get(pick)
         if fn:
@@ -8108,12 +8187,530 @@ async def cmd_oracolodande(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await delete_user_command(update)
 
 
+async def show_pietre_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(update, context, pietre_hub_text(), reply_markup=pietre_hub_keyboard())
+
+
+async def send_stone_sheet(update: Update, context: ContextTypes.DEFAULT_TYPE, sid: str) -> None:
+    stone = stone_by_id(sid)
+    if stone is None:
+        await reply_html(update, context, "Questa pietra non è in catalogo.", reply_markup=pietre_hub_keyboard())
+        return
+    _stone_state(context)["last"] = sid
+    user = update.effective_user
+    if user:
+        await stone_discover(user.id, sid)
+    extract = None
+    client = _http_client(context)
+    try:
+        wiki = await wikipedia_summary(client, str(stone.get("wiki_it") or stone.get("wiki") or ""))
+        if wiki and wiki.get("extract"):
+            extract = clip_text(str(wiki["extract"]), 700)
+    except Exception:
+        extract = None
+    await reply_html(update, context, format_card(stone, wiki_extract=extract), reply_markup=pietre_after_keyboard(sid), preview=True)
+
+
+async def send_stone_list(update: Update, context: ContextTypes.DEFAULT_TYPE, rows: list, title: str, blurb: str) -> None:
+    await reply_html(update, context, format_list(rows, title, blurb), reply_markup=pietre_list_keyboard(rows[:40]))
+
+
+async def send_stone_oracle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    known = await stone_ids(user.id) if user else []
+    stone = random_stone(prefer_undiscovered=known)
+    _stone_state(context)["last"] = stone["id"]
+    if user:
+        await stone_discover(user.id, stone["id"])
+    text = (
+        "✨ <b>ORACOLO DELLE PIETRE</b>\n\n"
+        "La pietra che emerge per te è…\n\n"
+        f"{stone['emoji']} <b>{e(stone['it'])}</b>\n"
+        f"Simbolo tradizionale: <i>{e(stone['oracle_sym'])}</i>\n\n"
+        f"🪞 Domanda:\n{e(stone['oracle_q'])}\n\n"
+        "<i>Gioco e strumento simbolico. Non è una previsione e non è un'analisi mineralogica.</i>"
+    )
+    await reply_html(update, context, text, reply_markup=pietre_oracle_keyboard())
+
+
+async def send_stone_spread(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    rows = oracle_spread(kind)
+    title = "Corpo · Mente · Spirito" if kind == "body" else "Passato · Presente · Direzione"
+    lines = ["✨ <b>TRE PIETRE</b>", title, "", "<i>Lettura simbolica, non un verdetto.</i>", ""]
+    for row in rows:
+        stone = row["stone"]
+        lines.append(
+            f"🪨 <b>{e(row['label'])}</b> — {stone['emoji']} {e(stone['it'])}\n"
+            f"<i>{e(stone['oracle_sym'])}</i> · {e(stone['oracle_q'])}"
+        )
+        lines.append("")
+    _stone_state(context)["last"] = rows[1]["stone"]["id"]
+    user = update.effective_user
+    if user:
+        for row in rows:
+            await stone_discover(user.id, row["stone"]["id"])
+    await reply_html(update, context, "\n".join(lines), reply_markup=pietre_oracle_keyboard())
+
+
+async def send_stone_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    if kind == "guess":
+        quiz = build_guess()
+    elif kind == "tf":
+        quiz = build_tf()
+    elif kind == "quiz":
+        quiz = build_guess()
+        _stone_state(context)["qleft"] = 9
+        _stone_state(context)["qok"] = 0
+    else:
+        quiz = build_field_quiz(kind)
+    if not quiz:
+        await reply_html(update, context, "Non ho costruito la domanda.", reply_markup=pietre_games_keyboard())
+        return
+    _stone_state(context)["quiz"] = quiz
+    if kind == "guess":
+        prompt = "🧠 <b>INDOVINA LA PIETRA</b>\n\n" + "\n".join(f"• {e(c)}" for c in quiz["clues"])
+    elif kind == "tf":
+        prompt = "🪨 <b>VERO O FALSO</b>\n\n" + e(quiz.get("prompt") or "")
+    else:
+        prompt = "🧩 <b>QUIZ</b>\n\n" + str(quiz.get("prompt") or "🧠 <b>INDOVINA LA PIETRA</b>\n\n" + "\n".join(f"• {e(c)}" for c in quiz.get("clues") or []))
+    labels = ("A", "B", "C", "D")
+    opts = quiz["options"]
+    lines = [prompt, ""]
+    for i, opt in enumerate(opts):
+        lines.append(f"{labels[i]}) {e(str(opt))}")
+    await reply_html(update, context, "\n".join(lines), reply_markup=pietre_quiz_keyboard(len(opts)))
+
+
+async def show_pietre_lab(update: Update, context: ContextTypes.DEFAULT_TYPE, step: str | None = None) -> None:
+    state = _stone_state(context)
+    if step is None:
+        state["lab"] = {}
+        step = "color"
+    state["lab_step"] = step
+    prompts = {
+        "color": "🔬 <b>IDENTIFICA LA PIETRA</b>\n\nChe colore è, soprattutto?",
+        "hard": "🔬 <b>DUREZZA</b>\n\nQuanto è dura? (unghia ~2, vetro ~5,5, acciaio ~6–7, corindone 9)",
+        "trans": "🔬 <b>TRASPARENZA</b>\n\nLascia passare la luce?",
+        "metal": "🔬 <b>LUCENTEZZA</b>\n\nHa lucentezza metallica?",
+        "mag": "🔬 <b>MAGNETISMO</b>\n\nAttira una calamita?",
+        "fizz": "🔬 <b>ACIDO</b>\n\nFa effervescenza con acido (come un calcare)?\n<i>Non provare acidi su gemme preziose.</i>",
+    }
+    await reply_html(
+        update,
+        context,
+        prompts.get(step, prompts["color"])
+        + "\n\n<i>Restringo il catalogo. Non sostituisce un'analisi di laboratorio.</i>",
+        reply_markup=pietre_lab_keyboard(step),
+    )
+
+
+async def finish_pietre_lab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    answers = _stone_state(context).get("lab") if isinstance(_stone_state(context).get("lab"), dict) else {}
+    rows = filter_lab(answers)
+    blurb = (
+        "Possibili corrispondenze nel catalogo COSMOBOT. "
+        "Una foto o un quiz non sostituiscono durezza, striscio e densità misurati."
+    )
+    await send_stone_list(update, context, rows, "🔬 <b>POSSIBILI MINERALI</b>", blurb)
+
+
+async def show_pietre_bag(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    known = await stone_ids(user.id) if user else []
+    total = len(STONES)
+    lines = [f"🎒 <b>LA MIA COLLEZIONE</b>", "", f"💎 {len(known)} / {total} scoperte", ""]
+    shown = []
+    for stone in STONES:
+        if stone["id"] in known:
+            rem, _ = RARITY[stone["rarity"]]
+            lines.append(f"{stone['emoji']} {stone['it']}  {rem} ✓")
+            shown.append(stone)
+        else:
+            lines.append("❔ Sconosciuta")
+    # keep message short-ish
+    if len(lines) > 80:
+        lines = lines[:6] + [f"{s['emoji']} {s['it']} ✓" for s in shown] + ["", f"… e {total - len(known)} ancora da scoprire (🎲 casuale)."]
+    await reply_html(update, context, "\n".join(lines), reply_markup=pietre_list_keyboard(shown[:40]) if shown else pietre_hub_keyboard())
+
+
+async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    parts = token.split(":")
+    action = parts[1] if len(parts) > 1 else "hub"
+    extra = parts[2] if len(parts) > 2 else ""
+    extra2 = parts[3] if len(parts) > 3 else ""
+    if action != "find":
+        _stone_state(context)["search"] = False
+    if action != "photo":
+        _stone_state(context)["photo"] = False
+
+    if action in {"hub", ""}:
+        await show_pietre_hub(update, context)
+        return
+    if action == "day":
+        stone = stone_of_day(datetime.now(DEFAULT_TZ))
+        await send_stone_sheet(update, context, stone["id"])
+        return
+    if action == "rand":
+        user = update.effective_user
+        known = await stone_ids(user.id) if user else []
+        stone = random_stone(prefer_undiscovered=known)
+        await send_stone_sheet(update, context, stone["id"])
+        return
+    if action == "find":
+        _stone_state(context)["search"] = True
+        await reply_html(
+            update,
+            context,
+            "🔍 <b>CERCA UNA PIETRA</b>\n\n"
+            "Scrivi il nome, la formula o un colore.\n"
+            "Esempio: <code>ametista</code>, <code>SiO2</code>, <code>malachite</code>.",
+            reply_markup=InlineKeyboardMarkup([nav_row()]),
+        )
+        return
+    if action == "exp":
+        await reply_html(update, context, "🧭 <b>ESPLORA</b>\n\nTipo, colore, ambiente, rarità di catalogo.", reply_markup=pietre_explore_keyboard())
+        return
+    if action == "k" and extra in CATS:
+        em, name = CATS[extra]
+        await send_stone_list(update, context, by_cat(extra), f"{em} <b>{name.upper()}</b>", "Schede del catalogo, non un dump Mindat.")
+        return
+    if action == "cols":
+        await reply_html(update, context, "🌈 <b>CERCA PER COLORE</b>\n\nIl colore in natura varia: è una porta, non una diagnosi.", reply_markup=pietre_colors_keyboard())
+        return
+    if action == "col" and extra in COLORS:
+        em, name = COLORS[extra]
+        await send_stone_list(update, context, by_color(extra), f"{em} <b>{name.upper()}</b>", "Pietre del catalogo con questo colore tipico.")
+        return
+    if action == "envs":
+        await reply_html(update, context, "🧭 <b>AMBIENTI</b>\n\nOgni ambiente → pietre tipiche del catalogo.", reply_markup=pietre_envs_keyboard())
+        return
+    if action == "en" and extra in ENVS:
+        em, name = ENVS[extra]
+        await send_stone_list(update, context, by_env(extra), f"{em} <b>{name.upper()}</b>", "Non è una mappa di cave da scavo: sono ambienti geologici noti.")
+        return
+    if action == "rars":
+        await reply_html(update, context, "🏆 <b>RARITÀ DI CATALOGO</b>\n\nNon è un prezzo. È quanto compare nel nostro universo Pietre.", reply_markup=pietre_rarity_keyboard())
+        return
+    if action == "rr" and extra in RARITY:
+        em, name = RARITY[extra]
+        await send_stone_list(update, context, by_rarity(extra), f"{em} <b>{name.upper()}</b>", "Rarità narrativa di catalogo, non quotazione.")
+        return
+    if action == "maps":
+        await reply_html(
+            update,
+            context,
+            "🌍 <b>DOVE SI TROVANO</b>\n\n"
+            "Apri una scheda e tocca 🌍 Dove, oppure cerca un nome.\n"
+            "Le località sono giacimenti noti, non un invito a scavare.",
+            reply_markup=pietre_explore_keyboard(),
+        )
+        return
+    if action == "forms":
+        await reply_html(
+            update,
+            context,
+            "⛏️ <b>COME SI FORMANO</b>\n\n"
+            "🌋 Magmatico — dal fuso (basalto, olivina, granito)\n"
+            "💧 Idrotermale — fluidi caldi (quarzo, ametista, fluorite)\n"
+            "🔥 Metamorfico — pressione e temperatura (marmo, granato, cianite)\n"
+            "🌊 Sedimentario / evaporitico — depositi (calcare, sale, gesso)\n"
+            "☄️ Impatto / spazio — meteoriti e tettiti\n\n"
+            "Apri una pietra e tocca ⛏️ Formazione per la timeline.",
+            reply_markup=pietre_explore_keyboard(),
+        )
+        return
+    if action == "enc":
+        lines = ["📖 <b>ENCICLOPEDIA</b>", f"{len(STONES)} schede nel catalogo.", ""]
+        for key, (em, name) in CATS.items():
+            names = ", ".join(s["it"] for s in by_cat(key))
+            lines.append(f"{em} <b>{name}</b>\n{e(names)}")
+        await reply_html(update, context, "\n\n".join(lines), reply_markup=pietre_explore_keyboard())
+        return
+    if action == "val":
+        await reply_html(
+            update,
+            context,
+            "💰 <b>GEMME E VALORE</b>\n\n"
+            "Per una gemma reale contano colore, purezza, taglio, caratura, trattamenti, provenienza.\n"
+            "COSMOBOT non inventa un prezzo. Apri una gemma e tocca 💰 Valore.",
+            reply_markup=pietre_list_keyboard(by_cat("gem")),
+        )
+        return
+    if action == "myth":
+        rows = [s for s in STONES if s.get("ancient")]
+        await send_stone_list(
+            update,
+            context,
+            rows,
+            "🏺 <b>STORIA E MITO</b>",
+            "Civiltà e folklore. Il simbolismo, nella scheda, sta sotto una riga a parte.",
+        )
+        return
+    if action == "lab":
+        await show_pietre_lab(update, context)
+        return
+    if action == "photo":
+        _stone_state(context)["photo"] = True
+        await reply_html(
+            update,
+            context,
+            "📸 <b>FOTO</b>\n\n"
+            "Mandami una foto della pietra.\n"
+            "Ti dirò onestamente che da un'immagine <b>non</b> si fa un'identificazione mineralogica.\n"
+            "Poi ti riporto al laboratorio guidato (colore, durezza, lucentezza).",
+            reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔬 Laboratorio", "pt:lab")], nav_row()]),
+        )
+        return
+    if action == "ora":
+        await send_stone_oracle(update, context)
+        return
+    if action == "orx":
+        sid = str(_stone_state(context).get("last") or "")
+        stone = stone_by_id(sid)
+        if not stone:
+            await send_stone_oracle(update, context)
+            return
+        await reply_html(
+            update,
+            context,
+            f"🔮 <b>APPROFONDIMENTO SIMBOLICO</b>\n\n{stone['emoji']} <b>{e(stone['it'])}</b>\n\n"
+            f"{e(stone['symbol'])}\n\n🪞 {e(stone['oracle_q'])}\n\n"
+            "<i>Resta folklore. La scienza è nell'altra faccia della scheda.</i>",
+            reply_markup=pietre_oracle_keyboard(),
+        )
+        return
+    if action == "orcard":
+        sid = str(_stone_state(context).get("last") or "")
+        if sid:
+            await send_stone_sheet(update, context, sid)
+        else:
+            await send_stone_oracle(update, context)
+        return
+    if action == "o3t":
+        await send_stone_spread(update, context, "time")
+        return
+    if action == "o3b":
+        await send_stone_spread(update, context, "body")
+        return
+    if action == "bag":
+        await show_pietre_bag(update, context)
+        return
+    if action == "mus":
+        await reply_html(update, context, "🏛️ <b>MUSEO COSMOBOT</b>\n\nSale permanenti. Ogni sala è un filtro del catalogo.", reply_markup=pietre_museum_keyboard())
+        return
+    if action == "mr" and extra in MUSEUM:
+        em, name = MUSEUM[extra]
+        await send_stone_list(update, context, museum_room(extra), f"🏛️ <b>{name.upper()}</b>", "Sala del museo: stesse schede, altra porta.")
+        return
+    if action == "cosmo":
+        await send_stone_list(
+            update,
+            context,
+            by_cat("spc"),
+            "☄️ <b>PIETRE DALLO SPAZIO</b>",
+            "Meteoriti, vetri da impatto, frammenti lunari e marziani identificati. "
+            "Si collega al cielo: origine extraterrestre o da impatto, non un oracolo.",
+        )
+        return
+    if action == "game":
+        await reply_html(update, context, "🧠 <b>GIOCHI</b>\n\nDomande costruite sul catalogo. Se sbagli, la scheda è lì.", reply_markup=pietre_games_keyboard())
+        return
+    if action == "g" and extra:
+        await send_stone_quiz(update, context, extra)
+        return
+    if action == "cmp":
+        await reply_html(update, context, "⚖️ <b>CONFRONTA</b>\n\nScegli la prima pietra.", reply_markup=pietre_list_keyboard(list(STONES)[:40], prefix="pt:c1:"))
+        return
+    if action == "c1" and extra:
+        await reply_html(
+            update,
+            context,
+            f"⚖️ Prima pietra: <b>{e((stone_by_id(extra) or {}).get('it') or extra)}</b>\nScegli la seconda.",
+            reply_markup=pietre_list_keyboard([s for s in STONES if s["id"] != extra][:40], prefix=f"pt:c2:{extra}:"),
+        )
+        return
+    if action == "c2" and extra and extra2:
+        a, b = stone_by_id(extra), stone_by_id(extra2)
+        if a and b:
+            await reply_html(update, context, format_compare(a, b), reply_markup=InlineKeyboardMarkup([[_tarot_btn("⚖️ Altro confronto", "pt:cmp")], nav_row()]))
+            return
+    if action == "s" and extra:
+        await send_stone_sheet(update, context, extra)
+        return
+    if action in {"sc", "sg", "sh", "ss", "sf", "sw", "sv"} and extra:
+        stone = stone_by_id(extra)
+        if stone:
+            await reply_html(update, context, format_section(stone, action), reply_markup=pietre_after_keyboard(extra))
+            return
+    await show_pietre_hub(update, context)
+
+
+async def on_pt_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    parts = query.data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    extra = parts[2] if len(parts) > 2 else ""
+    extra2 = parts[3] if len(parts) > 3 else ""
+
+    if action == "la":
+        await query.answer()
+        if query.message is not None:
+            _remember_bot_msg(context, query.message.message_id, "text" if query.message.text else "photo")
+        lab = _stone_state(context).setdefault("lab", {})
+        if not isinstance(lab, dict):
+            lab = {}
+            _stone_state(context)["lab"] = lab
+        kind, value = extra, extra2
+        if kind == "c" and value:
+            lab["color"] = value
+            await show_pietre_lab(update, context, "hard")
+            return
+        if kind == "h" and value:
+            lab["hard"] = value
+            await show_pietre_lab(update, context, "trans")
+            return
+        if kind == "t":
+            if value in {"yes", "no"}:
+                lab["trans"] = value
+            await show_pietre_lab(update, context, "metal")
+            return
+        if kind == "m":
+            if value == "yes":
+                lab["metal"] = True
+            elif value == "no":
+                lab["metal"] = False
+            await show_pietre_lab(update, context, "mag")
+            return
+        if kind == "g":
+            if value == "yes":
+                lab["mag"] = True
+            elif value == "no":
+                lab["mag"] = False
+            await show_pietre_lab(update, context, "fizz")
+            return
+        if kind == "f":
+            if value == "yes":
+                lab["fizz"] = True
+            elif value == "no":
+                lab["fizz"] = False
+            await finish_pietre_lab(update, context)
+            return
+        await show_pietre_lab(update, context)
+        return
+
+    if action == "ga" and extra.isdigit():
+        await query.answer()
+        if query.message is not None:
+            _remember_bot_msg(context, query.message.message_id, "text" if query.message.text else "photo")
+        quiz = _stone_state(context).get("quiz")
+        if not isinstance(quiz, dict):
+            await send_stone_quiz(update, context, "guess")
+            return
+        idx = int(extra)
+        ok = idx == int(quiz.get("answer") or 0)
+        stone = stone_by_id(str(quiz.get("id") or ""))
+        mark = "Esatto." if ok else "No."
+        more = ""
+        left = _stone_state(context).get("qleft")
+        if isinstance(left, int) and left >= 0:
+            if ok:
+                _stone_state(context)["qok"] = int(_stone_state(context).get("qok") or 0) + 1
+            if left > 0:
+                _stone_state(context)["qleft"] = left - 1
+                more = f"\nQuiz rapido: ancora {left} domande."
+                await reply_html(
+                    update,
+                    context,
+                    f"{'✅' if ok else '❌'} {mark}{more}",
+                    reply_markup=InlineKeyboardMarkup([[_tarot_btn("➡️ Prossima", "pt:g:quiz")], nav_row()]),
+                )
+                return
+            score = int(_stone_state(context).get("qok") or 0)
+            _stone_state(context).pop("qleft", None)
+            await reply_html(
+                update,
+                context,
+                f"{'✅' if ok else '❌'} {mark}\n\n⚡ Quiz finito: <b>{score}/10</b>",
+                reply_markup=pietre_games_keyboard(),
+            )
+            return
+        text = f"{'✅' if ok else '❌'} <b>{mark}</b>"
+        if stone:
+            text += f"\n\n{stone['emoji']} {e(stone['it'])} · {e(stone['formula'])}"
+        await reply_html(update, context, text, reply_markup=pietre_after_keyboard(stone["id"]) if stone else pietre_games_keyboard())
+        return
+
+    _remember_from_callback(update, context)
+    await query.answer()
+    await dispatch_pietre(update, context, query.data)
+
+
+async def receive_pietre_search(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    _stone_state(context)["search"] = False
+    hits = search_stones(text)
+    await delete_user_command(update)
+    if not hits:
+        await reply_html(
+            update,
+            context,
+            f"Nessuna pietra per «{e(text)}». Prova ametista, pirite, ossidiana, condrite…",
+            reply_markup=pietre_hub_keyboard(),
+        )
+        return
+    if len(hits) == 1:
+        await send_stone_sheet(update, context, hits[0]["id"])
+        return
+    await send_stone_list(update, context, hits, "🔍 <b>RISULTATI</b>", f"Ricerca: {e(text)}")
+
+
+async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = context.user_data.get(STONE_STATE_KEY)
+    if not isinstance(state, dict) or not state.get("photo"):
+        return
+    state["photo"] = False
+    await delete_user_command(update)
+    await reply_html(
+        update,
+        context,
+        "📸 Ho visto la foto.\n\n"
+        "Da un'immagine <b>non</b> si identifica un minerale: mancano durezza, striscio, densità, "
+        "eventuale magnetismo e, se serve, analisi.\n"
+        "Usiamola come spunto e andiamo per caratteristiche.",
+        reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔬 Laboratorio", "pt:lab")], nav_row()]),
+    )
+
+
+async def cmd_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _cmd_begin(context, "pt:hub")
+    await show_pietre_hub(update, context)
+    await delete_user_command(update)
+
+
+async def cmd_pietra(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    raw = " ".join(context.args).strip() if context.args else ""
+    _cmd_begin(context, "pt:ora")
+    if raw:
+        hits = search_stones(raw)
+        if hits:
+            await send_stone_sheet(update, context, hits[0]["id"])
+            await delete_user_command(update)
+            return
+    await send_stone_oracle(update, context)
+    await delete_user_command(update)
+
+
 async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Domanda tarocchi in corso, oppure un segno trattato come /oroscopo."""
     message = update.effective_message
     if message is None or not message.text:
         return
     text = message.text.strip()
+    stone = context.user_data.get(STONE_STATE_KEY)
+    if isinstance(stone, dict) and stone.get("search"):
+        await receive_pietre_search(update, context, text)
+        return
     if await receive_natal_text(update, context, text):
         return
     oq = context.user_data.get(OQ_STATE_KEY)
@@ -8211,7 +8808,9 @@ async def post_init(application: Application) -> None:
                 BotCommand("iching", "Consultazione I Ching"),
                 BotCommand("rune", "Lettura delle rune"),
                 BotCommand("sibille", "Petit Lenormand"),
-                BotCommand("esplora", "I sei mondi"),
+                BotCommand("esplora", "I sette mondi"),
+                BotCommand("pietre", "Mondo delle pietre"),
+                BotCommand("pietra", "Oracolo delle pietre"),
                 BotCommand("cosmico", "Scheda da ogni mondo"),
                 BotCommand("cielo", "Cosa vedi ADESSO"),
                 BotCommand("osserva", "Cielo da una città, dettaglio"),
@@ -8256,6 +8855,8 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler(["iching", "yijing"], cmd_iching))
     application.add_handler(CommandHandler(["rune", "runee"], cmd_rune))
     application.add_handler(CommandHandler(["esplora", "explore"], cmd_esplora))
+    application.add_handler(CommandHandler("pietre", cmd_pietre))
+    application.add_handler(CommandHandler("pietra", cmd_pietra))
     application.add_handler(CommandHandler(["oracoli", "oracolo"], cmd_oracoli))
     application.add_handler(CommandHandler(["lettura", "domanda"], cmd_lettura))
     application.add_handler(CommandHandler(["sibille", "lenormand"], cmd_sibille))
@@ -8333,6 +8934,8 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_ev_action, pattern=r"^ev:"))
     application.add_handler(CallbackQueryHandler(on_xp_action, pattern=r"^xp:"))
     application.add_handler(CallbackQueryHandler(on_md_action, pattern=r"^md:"))
+    application.add_handler(CallbackQueryHandler(on_pt_action, pattern=r"^pt:"))
+    application.add_handler(MessageHandler(filters.PHOTO, on_pietre_photo))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))
     application.add_error_handler(on_error)

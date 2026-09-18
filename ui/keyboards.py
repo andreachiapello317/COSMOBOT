@@ -1,9 +1,10 @@
-"""Tastiere Inline: home a sei mondi e workflow nuovi."""
+"""Tastiere Inline: home a sette mondi e workflow nuovi."""
 
 from __future__ import annotations
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+from services.stones import CATS, COLORS, ENVS, MUSEUM, RARITY, STONES
 from services.catalog import (
     ASTRONAUTS,
     BLACK_HOLES,
@@ -52,8 +53,8 @@ def home_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔮 Te stesso", "world:self"), kb_btn("🔮 Oracoli", "world:div")],
             [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🪐 Mondi", "world:mondi")],
             [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
-            [kb_btn("✨ COSMICO", "home:cosmico"), kb_btn("🎲 Casuale", "home:random")],
-            [kb_btn("🧭 Esplora", "home:esplora")],
+            [kb_btn("💎 Pietre", "world:pietre"), kb_btn("✨ COSMICO", "home:cosmico")],
+            [kb_btn("🎲 Casuale", "home:random"), kb_btn("🧭 Esplora", "home:esplora")],
         ]
     )
 
@@ -64,7 +65,7 @@ def esplora_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔮 Te stesso", "world:self"), kb_btn("🔮 Oracoli", "world:div")],
             [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🪐 Mondi", "world:mondi")],
             [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
-            [kb_btn("✨ COSMICO", "home:cosmico")],
+            [kb_btn("💎 Pietre", "world:pietre"), kb_btn("✨ COSMICO", "home:cosmico")],
             nav_row(),
         ]
     )
@@ -94,7 +95,8 @@ def oracoli_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🗝️ Simboli", "ora:symb"), kb_btn("🌿 Elementi", "ora:elem")],
             [kb_btn("🌙 Luna", "ora:lunar"), kb_btn("🪐 Pianeti", "ora:plan")],
             [kb_btn("🪞 Sì / No", "ora:yes"), kb_btn("🕯️ Domande", "ora:askq")],
-            [kb_btn("📖 Lettura", "home:lettura"), kb_btn("🎲 Sorprendimi", "ora:surprise")],
+            [kb_btn("📖 Lettura", "home:lettura"), kb_btn("💎 Pietre", "pt:ora")],
+            [kb_btn("🎲 Sorprendimi", "ora:surprise")],
             nav_row(),
         ]
     )
@@ -109,6 +111,7 @@ def world_sky_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌠 Eventi", "home:eventi"), kb_btn("🛰️ Oggetti", "home:profondo")],
             [kb_btn("🧊 Nani", "home:nani"), kb_btn("☄️ Comete", "home:comete")],
             [kb_btn("🌅 Alba", "home:sole"), kb_btn("🛰️ ISS", "home:iss")],
+            [kb_btn("☄️ Pietre dallo spazio", "pt:cosmo")],
             nav_row(),
         ]
     )
@@ -626,3 +629,139 @@ def eventi_extra_keyboard() -> InlineKeyboardMarkup:
             nav_row(),
         ]
     )
+
+
+def world_pietre_keyboard() -> InlineKeyboardMarkup:
+    return pietre_hub_keyboard()
+
+
+def pietre_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔮 Pietra del giorno", "pt:day"), kb_btn("🎲 Pietra casuale", "pt:rand")],
+            [kb_btn("🔍 Cerca", "pt:find"), kb_btn("🧭 Esplora", "pt:exp")],
+            [kb_btn("💎 Gemme", "pt:k:gem"), kb_btn("🔮 Cristalli", "pt:k:cry")],
+            [kb_btn("🪨 Minerali", "pt:k:min"), kb_btn("🌋 Rocce", "pt:k:rok")],
+            [kb_btn("🌈 Colori", "pt:cols"), kb_btn("🌍 Dove si trovano", "pt:maps")],
+            [kb_btn("⛏️ Come si formano", "pt:forms"), kb_btn("🔬 Laboratorio", "pt:lab")],
+            [kb_btn("📖 Enciclopedia", "pt:enc"), kb_btn("💰 Gemme e valore", "pt:val")],
+            [kb_btn("🏺 Storia e mito", "pt:myth"), kb_btn("✨ Oracolo", "pt:ora")],
+            [kb_btn("🎒 Collezione", "pt:bag"), kb_btn("🏛️ Museo", "pt:mus")],
+            [kb_btn("⚖️ Confronta", "pt:cmp"), kb_btn("🧠 Giochi", "pt:game")],
+            [kb_btn("☄️ Dallo spazio", "pt:cosmo"), kb_btn("🧭 Ambienti", "pt:envs")],
+            nav_row(),
+        ]
+    )
+
+
+def pietre_list_keyboard(rows: list, prefix: str = "pt:s:") -> InlineKeyboardMarkup:
+    buttons = [kb_btn(f"{item['emoji']} {item['it']}", f"{prefix}{item['id']}") for item in rows]
+    grid = _pairs(buttons)
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def pietre_after_keyboard(sid: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔬 Scienza", f"pt:sc:{sid}"), kb_btn("🌋 Geologia", f"pt:sg:{sid}")],
+            [kb_btn("🏺 Storia", f"pt:sh:{sid}"), kb_btn("✨ Simbolismo", f"pt:ss:{sid}")],
+            [kb_btn("⛏️ Formazione", f"pt:sf:{sid}"), kb_btn("🌍 Dove", f"pt:sw:{sid}")],
+            [kb_btn("💰 Valore", f"pt:sv:{sid}"), kb_btn("⚖️ Confronta", f"pt:c1:{sid}")],
+            [kb_btn("🎲 Un'altra", "pt:rand"), kb_btn("🎒 Collezione", "pt:bag")],
+            nav_row(),
+        ]
+    )
+
+
+def pietre_colors_keyboard() -> InlineKeyboardMarkup:
+    buttons = [kb_btn(f"{em} {name}", f"pt:col:{key}") for key, (em, name) in COLORS.items()]
+    grid = _pairs(buttons)
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def pietre_envs_keyboard() -> InlineKeyboardMarkup:
+    buttons = [kb_btn(f"{em} {name}", f"pt:en:{key}") for key, (em, name) in ENVS.items()]
+    grid = _pairs(buttons)
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def pietre_museum_keyboard() -> InlineKeyboardMarkup:
+    buttons = [kb_btn(f"{em} {name}", f"pt:mr:{key}") for key, (em, name) in MUSEUM.items()]
+    grid = _pairs(buttons)
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def pietre_rarity_keyboard() -> InlineKeyboardMarkup:
+    buttons = [kb_btn(f"{em} {name}", f"pt:rr:{key}") for key, (em, name) in RARITY.items()]
+    grid = _pairs(buttons)
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def pietre_explore_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("💎 Gemme", "pt:k:gem"), kb_btn("🔮 Cristalli", "pt:k:cry")],
+            [kb_btn("🪨 Minerali", "pt:k:min"), kb_btn("🌋 Rocce", "pt:k:rok")],
+            [kb_btn("☄️ Spazio", "pt:k:spc"), kb_btn("🌈 Colore", "pt:cols")],
+            [kb_btn("🧭 Ambienti", "pt:envs"), kb_btn("🏆 Rarità", "pt:rars")],
+            [kb_btn("📖 Tutte", "pt:enc")],
+            nav_row(),
+        ]
+    )
+
+
+def pietre_lab_keyboard(step: str) -> InlineKeyboardMarkup:
+    options = {
+        "color": [(f"{em} {name}", f"pt:la:c:{key}") for key, (em, name) in COLORS.items() if key != "change"],
+        "hard": [("Morbida (<4)", "pt:la:h:soft"), ("Media (4–7)", "pt:la:h:mid"), ("Dura (>7)", "pt:la:h:hard")],
+        "trans": [("Trasparente", "pt:la:t:yes"), ("Opaca", "pt:la:t:no"), ("Non so", "pt:la:t:skip")],
+        "metal": [("Metallica", "pt:la:m:yes"), ("Non metallica", "pt:la:m:no"), ("Non so", "pt:la:m:skip")],
+        "mag": [("Magnetica", "pt:la:g:yes"), ("Non magnetica", "pt:la:g:no"), ("Non so", "pt:la:g:skip")],
+        "fizz": [("Effervescente", "pt:la:f:yes"), ("Non reagisce", "pt:la:f:no"), ("Non so", "pt:la:f:skip")],
+    }.get(step, [])
+    grid = _pairs([kb_btn(label, data) for label, data in options])
+    grid.append([kb_btn("📸 Ho una foto", "pt:photo")])
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def pietre_oracle_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔄 Un'altra", "pt:ora"), kb_btn("🔮 Approfondisci", "pt:orx")],
+            [kb_btn("🪨 3 pietre · tempo", "pt:o3t"), kb_btn("🪨 Corpo·mente·spirito", "pt:o3b")],
+            [kb_btn("📖 Scheda", "pt:orcard")],
+            nav_row(),
+        ]
+    )
+
+
+def pietre_games_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🧠 Indovina la pietra", "pt:g:guess"), kb_btn("🪨 Vero o falso", "pt:g:tf")],
+            [kb_btn("⚡ Quiz rapido", "pt:g:quiz")],
+            [kb_btn("🌈 Dal colore", "pt:g:color"), kb_btn("🧪 Dalla formula", "pt:g:formula")],
+            [kb_btn("🌋 Dall'origine", "pt:g:origin"), kb_btn("🏺 Dalla storia", "pt:g:history")],
+            [kb_btn("🔬 Dalla durezza", "pt:g:mohs")],
+            nav_row(),
+        ]
+    )
+
+
+def pietre_quiz_keyboard(n: int) -> InlineKeyboardMarkup:
+    labels = ("A", "B", "C", "D")
+    buttons = [kb_btn(labels[i], f"pt:ga:{i}") for i in range(min(n, 4))]
+    return InlineKeyboardMarkup([buttons, nav_row()])
+
+
+def pietre_bag_keyboard(n: int) -> InlineKeyboardMarkup:
+    buttons = [kb_btn(str(i + 1), f"pt:bo:{i}") for i in range(n)]
+    grid = _pairs(buttons)
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)

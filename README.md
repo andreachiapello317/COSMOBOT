@@ -58,7 +58,9 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | `/rune` | Rituale Elder Futhark: domanda, 1 o 3 rune, upright/reversed | dataset interno (`services/runes.py`) |
 | `/iss` | Posizione live della ISS + mappa | [Where the ISS at?](https://wheretheiss.at/w/developer) |
 | `/cosmico` | Un pezzo da ogni mondo: te stesso, cielo, carta, esopianeta, missione | API in parallelo |
-| `/esplora` | I sei mondi | — |
+| `/esplora` | I sette mondi | — |
+| `/pietre` | Mondo delle pietre: enciclopedia, laboratorio, collezione, museo | catalogo locale + Wikipedia |
+| `/pietra` | Oracolo simbolico delle pietre (non è mineralogia) | catalogo locale |
 | `/domanda` | Una domanda, poi scegli tarocchi, I Ching o rune | riusa i workflow esistenti |
 | `/eventi` | Prossimi eventi del cielo | CosmyDay + Skytime |
 | `/sole` | Come `/alba` | sunrisesunset.io |
@@ -84,9 +86,11 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 `/esopianeta` apre i filtri NASA (casuale, simile alla Terra, infernale, estremo, oceanico come **modello**, recente). `/abitabile` è il filtro zona abitabile: Teq e raggio, **non** una dichiarazione di vita. `/specchio` e `/rituale` sono pratiche simboliche, presentate come tali: stanno in 🔮 ORACOLI / TE STESSO, non in 🔭 CIELO.
 
-Il mondo **🔭 CIELO** è astronomia reale. Il mondo **🔮 ORACOLI** è esperienza simbolica. Non si mescolano.
+Il mondo **🔭 CIELO** è astronomia reale. Il mondo **🔮 ORACOLI** è esperienza simbolica. Il mondo **💎 PIETRE** è autonomo: mineralogia e geologia da catalogo pubblico, folklore tenuto a parte. Non si mescolano.
 
-`/start` apre una home a **sei mondi** (te stesso, divinazione, cielo, mondi, vita, missioni) più **COSMICO** e **RANDOM**. `/esplora` è la stessa mappa. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` prende un pezzo da ogni mondo: se una API cade, le altre restano.
+`/pietre` apre l’universo: schede (scienza / geologia / storia / simbolismo), colori, ambienti, laboratorio guidato, confronto, giochi, museo, collezione, pietre dallo spazio. `/pietra` è l’oracolo dichiarato come gioco. Una foto non sostituisce un’analisi; niente prezzi inventati. La rarità è di catalogo, non una quotazione.
+
+`/start` apre una home a **sette mondi** (te stesso, divinazione, cielo, mondi, vita, missioni, pietre) più **COSMICO** e **RANDOM**. `/esplora` è la stessa mappa. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` prende un pezzo da ogni mondo: se una API cade, le altre restano.
 
 Su ogni schermata (tranne la home) c’è **⬅️ Indietro**: torna al menu precedente, senza ripassare da Inizio. **🏠 Inizio** resta sempre disponibile.
 
@@ -246,11 +250,12 @@ services/spaceweather.py # Kp, flare X-ray, perigeo/apogeo
 services/neo.py        # NASA NeoWs
 services/eclipses.py   # Skytime eclissi
 services/sheets.py     # schede e quiz da fonti live
-services/progress.py   # punti quiz e missione del giorno (file locale)
+services/progress.py   # punti quiz, missione del giorno, collezione pietre (file locale)
+services/stones.py     # catalogo mineralogico, schede, laboratorio, quiz
 services/runes.py      # dataset Elder Futhark
 services/iss.py        # posizione ISS
 services/astronomy.py  # visibilità da numeri live
-ui/keyboards.py        # home a sei mondi + menu cielo
+ui/keyboards.py        # home a sette mondi + menu cielo + pietre
 ui/texts.py            # testi home / esplora / mondi
 requirements.txt
 .env.example
