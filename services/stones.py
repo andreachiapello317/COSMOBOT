@@ -56,14 +56,10 @@ ENVS = {
 }
 
 MUSEUM = {
-    "gem": ("💎", "Sala delle gemme"),
-    "cry": ("🔮", "Sala dei cristalli"),
-    "min": ("🪨", "Sala dei minerali"),
-    "rok": ("🌋", "Sala delle rocce"),
-    "spc": ("☄️", "Sala dei meteoriti"),
     "old": ("🏺", "Pietre antiche"),
     "color": ("🌈", "Pietre colorate"),
-    "sci": ("🧪", "Pietre scientificamente interessanti"),
+    "sci": ("🧪", "Interessanti per la scienza"),
+    "spc": ("☄️", "Meteoriti"),
 }
 
 
@@ -1206,10 +1202,6 @@ def by_id(sid: str) -> dict[str, Any] | None:
     return None
 
 
-def all_ids() -> list[str]:
-    return [item["id"] for item in STONES]
-
-
 def stone_of_day(when: datetime | None = None) -> dict[str, Any]:
     day = (when or datetime.utcnow()).timetuple().tm_yday
     return STONES[day % len(STONES)]
@@ -1308,66 +1300,59 @@ def filter_lab(answers: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def rarity_label(key: str) -> str:
-    emoji, name = RARITY.get(key, ("•", key))
-    return f"{emoji} {name}"
-
-
 def format_card(stone: dict[str, Any], *, wiki_extract: str | None = None) -> str:
+    del wiki_extract  # la scheda resta breve; Wikipedia sta in Scienza
     emoji, cat = CATS[stone["cat"]]
     rem, rname = RARITY[stone["rarity"]]
-    places = ", ".join(f"{flag} {name}" for name, flag in stone["places"][:6])
-    lines = [
-        f"{stone['emoji']} <b>{stone['it'].upper()}</b>",
-        "",
-        f"Categoria: {emoji} {cat}",
-        f"Gruppo: {stone['group']}",
-        f"Formula: <code>{stone['formula']}</code>",
-        f"Colore: {stone['color']}",
-        f"Durezza: {stone['mohs']} Mohs",
-        f"Sistema: {stone['system']}",
-        f"Origine: {stone['origin']}",
-        f"Rarità di catalogo: {rem} {rname}",
-        f"Località note: {places}",
-        "",
-        "🔬 <b>SCIENZA</b>",
-        stone["science"],
-        f"Lucentezza: {stone['luster']} · Striscio: {stone['streak']}",
-        f"Sfaldatura: {stone['cleavage']} · Frattura: {stone['fracture']}",
-        f"Trasparenza: {stone['transparency']} · Densità: {stone['density']}",
-        "",
-        "🌋 <b>GEOLOGIA</b>",
-        stone["geology"],
-        "",
-        "🏺 <b>STORIA</b>",
-        stone["history"],
-        "",
-        "✨ <b>SIMBOLISMO</b> <i>(tradizione, non misura)</i>",
-        stone["symbol"],
-        "",
-        "💰 <b>VALORE</b>",
-        stone["value"],
-    ]
-    if wiki_extract:
-        lines.extend(["", "📖 <b>Wikipedia</b>", wiki_extract])
-    lines.extend(["", "<i>Misure da mineralogia pubblica. Il simbolismo è folklore, tenuto a parte.</i>"])
-    return "\n".join(lines)
+    places = ", ".join(f"{flag} {name}" for name, flag in stone["places"][:4])
+    return "\n".join(
+        [
+            f"{stone['emoji']} <b>{stone['it'].upper()}</b>",
+            "",
+            f"{emoji} {cat} · {stone['group']}",
+            f"Formula: <code>{stone['formula']}</code>",
+            f"Colore: {stone['color']} · Mohs {stone['mohs']}",
+            f"{stone['system']} · {stone['origin']}",
+            f"Rarità di catalogo: {rem} {rname}",
+            f"Località: {places}",
+            "",
+            "Tocca Scienza, Geologia, Storia o Simbolismo per il dettaglio.",
+            "<i>Misure da catalogo. Il simbolismo è folklore, tenuto a parte.</i>",
+        ]
+    )
 
 
-def format_section(stone: dict[str, Any], kind: str) -> str:
+def format_section(stone: dict[str, Any], kind: str, *, wiki_extract: str | None = None) -> str:
     title = {
-        "sc": ("🔬 SCIENZA", stone["science"] + f"\n\nDurezza {stone['mohs']} · {stone['system']} · {stone['formula']}\nLucentezza {stone['luster']} · striscio {stone['streak']}\nSfaldatura {stone['cleavage']} · frattura {stone['fracture']}\n{stone['transparency']} · {stone['density']}"),
+        "sc": (
+            "🔬 SCIENZA",
+            stone["science"]
+            + f"\n\nDurezza {stone['mohs']} · {stone['system']} · {stone['formula']}\n"
+            f"Lucentezza {stone['luster']} · striscio {stone['streak']}\n"
+            f"Sfaldatura {stone['cleavage']} · frattura {stone['fracture']}\n"
+            f"{stone['transparency']} · {stone['density']}",
+        ),
         "sg": ("🌋 GEOLOGIA", stone["geology"] + "\n\n" + " → ".join(stone["form"])),
         "sh": ("🏺 STORIA", stone["history"]),
         "ss": ("✨ SIMBOLISMO", stone["symbol"] + "\n\n<i>Tradizione e folklore. Non è una proprietà misurata.</i>"),
         "sf": ("⛏️ FORMAZIONE", "\n".join(stone["form"]) + "\n\n" + stone["geology"]),
-        "sw": ("🌍 DOVE SI TROVA", "\n".join(f"{flag} {name}" for name, flag in stone["places"]) + "\n\nAmbienti: " + ", ".join(ENVS[e][1] for e in stone["env"] if e in ENVS) + "\n\n" + stone["geology"]),
-        "sv": ("💰 GEMME E VALORE", stone["value"] + "\n\n<i>Niente prezzo inventato. Per una gemma reale servono 4C, trattamenti e un perito.</i>"),
+        "sw": (
+            "🌍 DOVE SI TROVA",
+            "\n".join(f"{flag} {name}" for name, flag in stone["places"])
+            + "\n\nAmbienti: "
+            + ", ".join(ENVS[e][1] for e in stone["env"] if e in ENVS),
+        ),
+        "sv": (
+            "💰 GEMME E VALORE",
+            stone["value"]
+            + "\n\n<i>Niente prezzo inventato. Per una gemma reale servono 4C, trattamenti e un perito.</i>",
+        ),
     }.get(kind)
     if not title:
         return format_card(stone)
     head, body = title
-    return f"{stone['emoji']} <b>{stone['it']}</b>\n\n{head}\n{body}"
+    extra = f"\n\n📖 <b>Wikipedia</b>\n{wiki_extract}" if kind == "sc" and wiki_extract else ""
+    return f"{stone['emoji']} <b>{stone['it']}</b>\n\n{head}\n{body}{extra}"
 
 
 def format_compare(a: dict[str, Any], b: dict[str, Any]) -> str:
@@ -1396,7 +1381,7 @@ def format_list(rows: list[dict[str, Any]], title: str, blurb: str) -> str:
     for item in rows:
         rem, rname = RARITY[item["rarity"]]
         lines.append(f"{item['emoji']} <b>{item['it']}</b> · {item['formula']} · {rem} {rname}")
-    lines.append(f"\n<i>{len(rows)} nel catalogo COSMOBOT. Tocca un numero o il nome sotto.</i>")
+    lines.append(f"\n<i>{len(rows)} nel catalogo. Tocca il nome sotto.</i>")
     return "\n".join(lines)
 
 

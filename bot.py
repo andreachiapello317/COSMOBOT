@@ -201,7 +201,6 @@ from ui.keyboards import (
     world_vita_keyboard,
     world_pietre_keyboard,
     pietre_after_keyboard,
-    pietre_bag_keyboard,
     pietre_colors_keyboard,
     pietre_envs_keyboard,
     pietre_explore_keyboard,
@@ -312,6 +311,7 @@ NAV_SKIP_PREFIXES = (
     "natal:loc:",
     "pt:ga:",
     "pt:la:",
+    "pt:g:next",
 )
 NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
 
@@ -8200,15 +8200,7 @@ async def send_stone_sheet(update: Update, context: ContextTypes.DEFAULT_TYPE, s
     user = update.effective_user
     if user:
         await stone_discover(user.id, sid)
-    extract = None
-    client = _http_client(context)
-    try:
-        wiki = await wikipedia_summary(client, str(stone.get("wiki_it") or stone.get("wiki") or ""))
-        if wiki and wiki.get("extract"):
-            extract = clip_text(str(wiki["extract"]), 700)
-    except Exception:
-        extract = None
-    await reply_html(update, context, format_card(stone, wiki_extract=extract), reply_markup=pietre_after_keyboard(sid), preview=True)
+    await reply_html(update, context, format_card(stone), reply_markup=pietre_after_keyboard(sid))
 
 
 async def send_stone_list(update: Update, context: ContextTypes.DEFAULT_TYPE, rows: list, title: str, blurb: str) -> None:
@@ -8316,21 +8308,21 @@ async def finish_pietre_lab(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 async def show_pietre_bag(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    known = await stone_ids(user.id) if user else []
+    known = set(await stone_ids(user.id) if user else [])
     total = len(STONES)
-    lines = [f"🎒 <b>LA MIA COLLEZIONE</b>", "", f"💎 {len(known)} / {total} scoperte", ""]
-    shown = []
-    for stone in STONES:
-        if stone["id"] in known:
-            rem, _ = RARITY[stone["rarity"]]
-            lines.append(f"{stone['emoji']} {stone['it']}  {rem} ✓")
-            shown.append(stone)
-        else:
-            lines.append("❔ Sconosciuta")
-    # keep message short-ish
-    if len(lines) > 80:
-        lines = lines[:6] + [f"{s['emoji']} {s['it']} ✓" for s in shown] + ["", f"… e {total - len(known)} ancora da scoprire (🎲 casuale)."]
-    await reply_html(update, context, "\n".join(lines), reply_markup=pietre_list_keyboard(shown[:40]) if shown else pietre_hub_keyboard())
+    shown = [s for s in STONES if s["id"] in known]
+    lines = ["🎒 <b>LA MIA COLLEZIONE</b>", "", f"💎 {len(shown)} / {total} scoperte", ""]
+    if not shown:
+        lines.append("Ancora vuota. 🎲 Casuale o 🔮 del giorno scoprono una pietra.")
+        await reply_html(update, context, "\n".join(lines), reply_markup=pietre_hub_keyboard())
+        return
+    for stone in shown:
+        rem, rname = RARITY[stone["rarity"]]
+        lines.append(f"{stone['emoji']} {stone['it']}  {rem} {rname}")
+    missing = total - len(shown)
+    if missing:
+        lines.append(f"\n… e {missing} ancora da scoprire.")
+    await reply_html(update, context, "\n".join(lines), reply_markup=pietre_list_keyboard(shown[:40]))
 
 
 async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
@@ -8420,11 +8412,10 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
         )
         return
     if action == "enc":
-        lines = ["📖 <b>ENCICLOPEDIA</b>", f"{len(STONES)} schede nel catalogo.", ""]
+        lines = ["📖 <b>ENCICLOPEDIA</b>", f"{len(STONES)} schede. Tocca una categoria.", ""]
         for key, (em, name) in CATS.items():
-            names = ", ".join(s["it"] for s in by_cat(key))
-            lines.append(f"{em} <b>{name}</b>\n{e(names)}")
-        await reply_html(update, context, "\n\n".join(lines), reply_markup=pietre_explore_keyboard())
+            lines.append(f"{em} {name} — {len(by_cat(key))}")
+        await reply_html(update, context, "\n".join(lines), reply_markup=pietre_explore_keyboard())
         return
     if action == "val":
         await reply_html(
@@ -8516,7 +8507,7 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
         await reply_html(update, context, "🧠 <b>GIOCHI</b>\n\nDomande costruite sul catalogo. Se sbagli, la scheda è lì.", reply_markup=pietre_games_keyboard())
         return
     if action == "g" and extra:
-        await send_stone_quiz(update, context, extra)
+        await send_stone_quiz(update, context, "guess" if extra == "next" else extra)
         return
     if action == "cmp":
         await reply_html(update, context, "⚖️ <b>CONFRONTA</b>\n\nScegli la prima pietra.", reply_markup=pietre_list_keyboard(list(STONES)[:40], prefix="pt:c1:"))
@@ -8540,7 +8531,24 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
     if action in {"sc", "sg", "sh", "ss", "sf", "sw", "sv"} and extra:
         stone = stone_by_id(extra)
         if stone:
-            await reply_html(update, context, format_section(stone, action), reply_markup=pietre_after_keyboard(extra))
+            extract = None
+            if action == "sc":
+                try:
+                    wiki = await wikipedia_summary(
+                        _http_client(context),
+                        str(stone.get("wiki_it") or stone.get("wiki") or ""),
+                    )
+                    if wiki and wiki.get("extract"):
+                        extract = clip_text(str(wiki["extract"]), 700)
+                except Exception:
+                    extract = None
+            await reply_html(
+                update,
+                context,
+                format_section(stone, action, wiki_extract=extract),
+                reply_markup=pietre_after_keyboard(extra),
+                preview=bool(extract),
+            )
             return
     await show_pietre_hub(update, context)
 
@@ -8624,7 +8632,7 @@ async def on_pt_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     update,
                     context,
                     f"{'✅' if ok else '❌'} {mark}{more}",
-                    reply_markup=InlineKeyboardMarkup([[_tarot_btn("➡️ Prossima", "pt:g:quiz")], nav_row()]),
+                    reply_markup=InlineKeyboardMarkup([[_tarot_btn("➡️ Prossima", "pt:g:next")], nav_row()]),
                 )
                 return
             score = int(_stone_state(context).get("qok") or 0)

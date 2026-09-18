@@ -165,28 +165,16 @@ def world_vita_text() -> str:
 
 
 def world_pietre_text() -> str:
-    return (
-        "💎 <b>MONDO DELLE PIETRE</b>\n\n"
-        "Un universo a parte: minerali, cristalli, rocce e pietre dallo spazio.\n\n"
-        "🔬 <b>Scienza</b> — formula, Mohs, sistema, lucentezza, striscio\n"
-        "🌋 <b>Geologia</b> — come nascono, ambienti, località note\n"
-        "🏺 <b>Storia</b> — civiltà e usi documentati\n"
-        "✨ <b>Simbolismo</b> — folklore, tenuto lontano dalle misure\n\n"
-        "Poi: laboratorio, confronto, giochi, museo, collezione.\n"
-        "Niente listini inventati. Una foto non sostituisce un'analisi."
-    )
+    return pietre_hub_text()
 
 
 def pietre_hub_text() -> str:
     return (
         "💎 <b>PIETRE</b>\n\n"
-        "Enciclopedia, esplorazione, laboratorio e un oracolo dichiarato come gioco.\n"
-        "Le schede mescolano mineralogia pubblica e, a parte, la tradizione.\n\n"
-        "🔮 Del giorno · 🎲 Casuale · 🔍 Cerca\n"
-        "🧭 Esplora per tipo, colore, ambiente\n"
-        "🔬 Laboratorio guidato · ⚖️ Confronta\n"
-        "🎒 Collezione · 🏛️ Museo · 🧠 Giochi\n"
-        "☄️ Pietre dallo spazio — stesso catalogo, origine extraterrestre o da impatto."
+        "Mineralogia da catalogo. Il simbolismo sta a parte, come tradizione.\n"
+        "Niente prezzi inventati. Una foto non identifica un minerale.\n\n"
+        "🧭 Esplora — tipo, colore, ambiente, formazione, mito\n"
+        "🔬 Laboratorio · ✨ Oracolo · 🏛️ Museo · 🧠 Giochi"
     )
 
 
