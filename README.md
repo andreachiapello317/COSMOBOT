@@ -88,6 +88,8 @@ Il mondo **🔭 CIELO** è astronomia reale. Il mondo **🔮 ORACOLI** è esperi
 
 `/start` apre una home a **sei mondi** (te stesso, divinazione, cielo, mondi, vita, missioni) più **COSMICO** e **RANDOM**. `/esplora` è la stessa mappa. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` prende un pezzo da ogni mondo: se una API cade, le altre restano.
 
+Su ogni schermata (tranne la home) c’è **⬅️ Indietro**: torna al menu precedente, senza ripassare da Inizio. **🏠 Inizio** resta sempre disponibile.
+
 In chat il bot tiene **un solo messaggio**: ogni comando modifica (o sostituisce) la risposta precedente, senza accodarne di nuove. Il comando che hai scritto (`/luna`, `/oroscopo`…) viene cancellato appena la risposta è pronta.
 
 I feed in inglese vengono tradotti in italiano al volo. Se un’API non risponde il bot dice:

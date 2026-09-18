@@ -110,6 +110,7 @@ from services.sheets import (
 from ui.keyboards import (
     asteroid_chooser_keyboard,
     astronauts_keyboard,
+    back_home_keyboard,
     blackholes_keyboard,
     cielo_keyboard,
     comets_keyboard,
@@ -120,6 +121,7 @@ from ui.keyboards import (
     famous_asteroids_keyboard,
     domanda_keyboard,
     esplora_keyboard,
+    nav_row,
     cosmo_keyboard,
     exo_keyboard,
     fav_list_keyboard,
@@ -235,6 +237,37 @@ MONDI_LIST_KEY = "mondi_list"
 MONDI_SYS_KEY = "mondi_sys"
 MONDI_LAST_KEY = "mondi_last"
 MONDI_FAV_KEY = "mondi_fav"
+NAV_STACK_KEY = "nav_stack"
+NAV_HERE_KEY = "nav_here"
+NAV_MAX = 24
+NAV_SKIP_EXACT = frozenset(
+    {
+        "nav:back",
+        "miss:ok",
+        "tarot:draw",
+        "iching:ready",
+        "iching:throw",
+        "iching:home",
+        "rune:ready",
+        "natal:calc",
+        "natal:notime",
+        "natal:homebtn",
+        "natal:save",
+        "osserva:home",
+        "osserva:refresh",
+        "oq:wait",
+        "md:save",
+        "home:menu",
+    }
+)
+NAV_SKIP_PREFIXES = (
+    "quiz:ans:",
+    "rune:draw:",
+    "horo:",
+    "yn:",
+    "natal:loc:",
+)
+NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
 
 USER_AGENT = "StelleBot/1.0 (Telegram; https://github.com; educational astrology bot)"
 
@@ -805,7 +838,7 @@ def oroscopo_keyboard(sign: str, selected: str | None = None) -> InlineKeyboardM
         if selected == key:
             label = f"✓ {label}"
         row.append(InlineKeyboardButton(label, callback_data=f"horo:{sign}:{key}"))
-    return InlineKeyboardMarkup([row])
+    return InlineKeyboardMarkup([row, nav_row()])
 
 
 def format_horoscope_when(period: str, date_value: str) -> str:
@@ -959,17 +992,21 @@ def tarot_menu_keyboard() -> InlineKeyboardMarkup:
             [_tarot_btn("❓ Domanda", "tarot:pick:ask"), _tarot_btn("☀️ Carta del giorno", "tarot:pick:day")],
             [_tarot_btn("✝️ Croce Celtica", "tarot:pick:celtic")],
             [_tarot_btn("📖 Storico", "tarot:hist"), _tarot_btn("🔮 Oracoli", "home:oracoli")],
+            nav_row(),
         ]
     )
 
 
 def tarot_draw_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[_tarot_btn("🔮 PESCA LE CARTE", "tarot:draw")]])
+    return InlineKeyboardMarkup([[_tarot_btn("🔮 PESCA LE CARTE", "tarot:draw")], nav_row()])
 
 
 def tarot_after_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        [[_tarot_btn("🃏 Nuova lettura", "tarot:menu"), _tarot_btn("📖 Storico", "tarot:hist")]]
+        [
+            [_tarot_btn("🃏 Nuova lettura", "tarot:menu"), _tarot_btn("📖 Storico", "tarot:hist")],
+            nav_row(),
+        ]
     )
 
 
@@ -1116,6 +1153,53 @@ def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data["cielo_ask"] = False
 
 
+def _nav_should_skip(token: str) -> bool:
+    if not token or token in NAV_SKIP_EXACT:
+        return True
+    return any(token.startswith(prefix) for prefix in NAV_SKIP_PREFIXES)
+
+
+def nav_clear(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data[NAV_STACK_KEY] = []
+    context.user_data[NAV_HERE_KEY] = "home:menu"
+
+
+def nav_mark(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    if _nav_should_skip(token):
+        if token in NAV_HOME_TOKENS:
+            nav_clear(context)
+        return
+    here = context.user_data.get(NAV_HERE_KEY)
+    if here == token:
+        return
+    if here and here not in NAV_HOME_TOKENS:
+        stack = context.user_data.get(NAV_STACK_KEY)
+        if not isinstance(stack, list):
+            stack = []
+        if not stack or stack[-1] != here:
+            stack.append(here)
+        if len(stack) > NAV_MAX:
+            del stack[:-NAV_MAX]
+        context.user_data[NAV_STACK_KEY] = stack
+    context.user_data[NAV_HERE_KEY] = token
+
+
+def nav_pop(context: ContextTypes.DEFAULT_TYPE) -> str | None:
+    stack = context.user_data.get(NAV_STACK_KEY)
+    if not isinstance(stack, list) or not stack:
+        context.user_data[NAV_HERE_KEY] = "home:menu"
+        return None
+    token = stack.pop()
+    context.user_data[NAV_STACK_KEY] = stack
+    context.user_data[NAV_HERE_KEY] = token if token else "home:menu"
+    return token if isinstance(token, str) and token else None
+
+
+def _cmd_begin(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    _flows_reset(context)
+    nav_mark(context, token)
+
+
 def _natal_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
     state = context.user_data.get(NATAL_STATE_KEY)
     if not isinstance(state, dict):
@@ -1171,7 +1255,7 @@ def natal_nav_keyboard() -> InlineKeyboardMarkup:
             [_tarot_btn("⚡ Aspetti", "natal:aspects"), _tarot_btn("❤️ Amore", "natal:love")],
             [_tarot_btn("☄️ Asteroidi", "natal:asteroids"), _tarot_btn("📊 Profilo", "natal:elements")],
             [_tarot_btn("🔮 Lettura", "natal:read"), _tarot_btn("👤 Il mio tema", "natal:me")],
-            [_tarot_btn("🏠 Inizio", "natal:homebtn")],
+            nav_row(),
         ]
     )
 
@@ -1801,7 +1885,7 @@ async def reply_html(
 
 
 async def reply_offline(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await reply_html(update, context, STARS_OFFLINE)
+    await reply_html(update, context, STARS_OFFLINE, reply_markup=back_home_keyboard())
 
 
 async def show_loading(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1885,6 +1969,8 @@ def help_text() -> str:
         "/apod — foto NASA del giorno, distinta dal menu /stelle\n"
         "/aiuto — questo messaggio\n\n"
         "Scrivere solo «bilancia» o «Vergine» vale come /oroscopo.\n\n"
+        "⬅️ <b>Indietro</b> è su ogni schermata: torna al menu precedente, "
+        "senza ripassare da Inizio.\n\n"
         "Se un'API fa i capricci sentirai: "
         f"<i>{e(STARS_OFFLINE)}</i>"
     )
@@ -1897,13 +1983,14 @@ def help_text() -> str:
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _flows_reset(context)
+    nav_clear(context)
     await reply_html(update, context, start_text(), reply_markup=home_keyboard())
     await delete_user_command(update)
 
 
 async def cmd_aiuto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
-    await reply_html(update, context, help_text())
+    _cmd_begin(context, "home:aiuto")
+    await reply_html(update, context, help_text(), reply_markup=back_home_keyboard())
     await delete_user_command(update)
 
 
@@ -1917,7 +2004,7 @@ async def begin_oroscopo(
     context: ContextTypes.DEFAULT_TYPE,
     raw: str,
 ) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:oroscopo")
     sign, period, used_default = parse_oroscopo_query(raw)
     if sign is None:
         await reply_html(
@@ -2024,6 +2111,7 @@ async def on_oroscopo_period(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def cmd_tarocchi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "tarot:menu")
     raw = " ".join(context.args).strip().lower() if context.args else ""
     shortcut = {
         "1": "one",
@@ -2081,7 +2169,7 @@ async def show_tarot_ask_prompt(update: Update, context: ContextTypes.DEFAULT_TY
         "Scrivila in un messaggio. Resta tra te e le carte: serve solo a "
         "incorniciare i significati ufficiali, non la mando in giro."
     )
-    await reply_html(update, context, text)
+    await reply_html(update, context, text, reply_markup=InlineKeyboardMarkup([nav_row()]))
 
 
 async def show_tarot_ritual(
@@ -2340,18 +2428,18 @@ async def on_tarot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 def iching_ready_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[_tarot_btn("✨ SONO PRONTO", "iching:ready")]])
+    return InlineKeyboardMarkup([[_tarot_btn("✨ SONO PRONTO", "iching:ready")], nav_row()])
 
 
 def iching_throw_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[_tarot_btn("🪙 LANCIA LE MONETE", "iching:throw")]])
+    return InlineKeyboardMarkup([[_tarot_btn("🪙 LANCIA LE MONETE", "iching:throw")], nav_row()])
 
 
 def iching_after_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [_tarot_btn("☯️ Nuova consultazione", "iching:new")],
-            [_tarot_btn("🏠 Torna alla Home", "iching:home")],
+            nav_row(),
         ]
     )
 
@@ -2550,7 +2638,7 @@ def iching_final_en(primary: dict[str, Any], transformed: dict[str, Any] | None)
 
 
 async def cmd_iching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "iching:open")
     await show_iching_intro(update, context)
     await delete_user_command(update)
 
@@ -2580,7 +2668,7 @@ async def show_iching_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "Esempio:\n"
         "<i>Cosa dovrei comprendere della situazione che sto vivendo?</i>"
     )
-    await reply_html(update, context, text)
+    await reply_html(update, context, text, reply_markup=InlineKeyboardMarkup([nav_row()]))
 
 
 async def show_iching_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2797,6 +2885,8 @@ def _remember_from_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if query is not None and query.message is not None:
         kind = "text" if query.message.text else "photo"
         _remember_bot_msg(context, query.message.message_id, kind)
+    if query is not None and query.data:
+        nav_mark(context, query.data)
 
 
 def natal_chart_from_state(state: dict[str, Any]) -> dict[str, Any] | None:
@@ -2821,7 +2911,7 @@ def natal_point_from_lon(lon: float) -> tuple[str, float, str]:
 
 
 async def cmd_tema(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "natal:open")
     await natal_open(update, context)
     await delete_user_command(update)
 
@@ -2846,7 +2936,7 @@ async def show_natal_intro(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         "I calcoli li fa CosmyDay (Swiss Ephemeris). Tu non devi sapere niente "
         "di astrologia: inserisci i dati, il resto è automatico."
     )
-    kb = InlineKeyboardMarkup([[_tarot_btn("✨ Inizia", "natal:start")]])
+    kb = InlineKeyboardMarkup([[_tarot_btn("✨ Inizia", "natal:start")], nav_row()])
     await reply_html(update, context, text, reply_markup=kb)
 
 
@@ -2866,7 +2956,8 @@ async def show_natal_saved_profile(
     kb = InlineKeyboardMarkup(
         [
             [_tarot_btn("🔮 Rileggi il tema", "natal:reload"), _tarot_btn("🌙 Transiti", "natal:transits")],
-            [_tarot_btn("✨ Nuovo tema", "natal:start"), _tarot_btn("🏠 Inizio", "natal:homebtn")],
+            [_tarot_btn("✨ Nuovo tema", "natal:start")],
+            nav_row(),
         ]
     )
     await reply_html(update, context, text, reply_markup=kb)
@@ -2881,13 +2972,14 @@ async def ask_natal_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "📅 <b>Quando sei nato/a?</b>\n\n"
         "Scrivi la data così: <code>GG/MM/AAAA</code>\n"
         "Esempio: <code>14/08/1998</code>",
+        reply_markup=InlineKeyboardMarkup([nav_row()]),
     )
 
 
 async def ask_natal_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = _natal_state(context)
     state["step"] = "time"
-    kb = InlineKeyboardMarkup([[_tarot_btn("❓ Non conosco l'ora", "natal:notime")]])
+    kb = InlineKeyboardMarkup([[_tarot_btn("❓ Non conosco l'ora", "natal:notime")], nav_row()])
     await reply_html(
         update,
         context,
@@ -2911,6 +3003,7 @@ async def ask_natal_place(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "Scrivi città e paese.\n"
         "Esempio: <code>Milano, Italia</code>\n\n"
         "Cerco io le coordinate. Non ti chiedo latitudine né fuso orario.",
+        reply_markup=InlineKeyboardMarkup([nav_row()]),
     )
 
 
@@ -2940,6 +3033,7 @@ async def show_natal_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [
             [_tarot_btn("✅ Calcola tema natale", "natal:calc")],
             [_tarot_btn("✏️ Modifica", "natal:start")],
+            nav_row(),
         ]
     )
     await reply_html(update, context, text, reply_markup=kb)
@@ -2974,7 +3068,7 @@ async def receive_natal_text(
                 update,
                 context,
                 "Orario non valido. Usa <code>HH:MM</code>, tipo <code>21:35</code>.",
-                reply_markup=InlineKeyboardMarkup([[_tarot_btn("❓ Non conosco l'ora", "natal:notime")]]),
+                reply_markup=InlineKeyboardMarkup([[_tarot_btn("❓ Non conosco l'ora", "natal:notime")], nav_row()]),
             )
             return True
         state["hour"], state["minute"] = parsed
@@ -3005,6 +3099,7 @@ async def receive_natal_text(
         for idx, place in enumerate(places[:4]):
             label = clip_text(str(place["display"]), 40)
             rows.append([_tarot_btn(f"📍 {label}", f"natal:loc:{idx}")])
+        rows.append(nav_row())
         await reply_html(
             update,
             context,
@@ -3051,7 +3146,7 @@ async def calculate_natal(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             update,
             context,
             STARS_OFFLINE + "\n\nPuoi ritentare il calcolo.",
-            reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔁 Riprova", "natal:calc")]]),
+            reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔁 Riprova", "natal:calc")], nav_row()]),
         )
         return
     state["chart"] = chart
@@ -3133,6 +3228,7 @@ async def show_natal_planets(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if pair:
         rows.append(pair)
     rows.append([_tarot_btn("⬅️ Big Three", "natal:big")])
+    rows.append(nav_row())
     await reply_html(update, context, "\n".join(lines), reply_markup=InlineKeyboardMarkup(rows))
 
 
@@ -3172,7 +3268,12 @@ async def show_natal_planet(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         f"{e(blurb)}\n\n"
         f"<i>Dati live CosmyDay · casa {house}: {e(house_name)}</i>"
     )
-    kb = InlineKeyboardMarkup([[_tarot_btn("⬅️ Pianeti", "natal:planets"), _tarot_btn("🌌 Big Three", "natal:big")]])
+    kb = InlineKeyboardMarkup(
+        [
+            [_tarot_btn("⬅️ Pianeti", "natal:planets"), _tarot_btn("🌌 Big Three", "natal:big")],
+            nav_row(),
+        ]
+    )
     await reply_html(update, context, text, reply_markup=kb)
 
 
@@ -3200,6 +3301,7 @@ async def show_natal_houses(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if pair:
         rows.append(pair)
     rows.append([_tarot_btn("⬅️ Big Three", "natal:big")])
+    rows.append(nav_row())
     await reply_html(update, context, "\n".join(lines), reply_markup=InlineKeyboardMarkup(rows))
 
 
@@ -3222,7 +3324,12 @@ async def show_natal_house(update: Update, context: ContextTypes.DEFAULT_TYPE, n
         f"Cuspide in {e(label)} {e(format_degree(deg))}\n\n"
     )
     text += "\n".join(inside) if inside else "Nessun pianeta principale in questa casa."
-    kb = InlineKeyboardMarkup([[_tarot_btn("⬅️ Case", "natal:houses"), _tarot_btn("🌌 Big Three", "natal:big")]])
+    kb = InlineKeyboardMarkup(
+        [
+            [_tarot_btn("⬅️ Case", "natal:houses"), _tarot_btn("🌌 Big Three", "natal:big")],
+            nav_row(),
+        ]
+    )
     await reply_html(update, context, text, reply_markup=kb)
 
 
@@ -3711,6 +3818,7 @@ async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if action == "menu":
         await query.answer()
         _flows_reset(context)
+        nav_clear(context)
         await reply_html(update, context, start_text(), reply_markup=home_keyboard())
         return
     if action == "esplora":
@@ -3765,7 +3873,7 @@ async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:luna")
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -3838,12 +3946,12 @@ async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "<i>Fonti live: sunrisesunset.io (osservazione) e CosmyDay "
         "(fase + testo del giorno).</i>"
     )
-    await reply_html(update, context, "\n".join(lines))
+    await reply_html(update, context, "\n".join(lines), reply_markup=back_home_keyboard())
     await delete_user_command(update)
 
 
 async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:pianeti")
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -3916,7 +4024,7 @@ async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         "<i>Efemeridi live: CosmyDay API (Swiss Ephemeris / NASA JPL DE431). "
         "Posizioni tropicali.</i>"
     )
-    await reply_html(update, context, "\n".join(lines))
+    await reply_html(update, context, "\n".join(lines), reply_markup=back_home_keyboard())
     await delete_user_command(update)
 
 
@@ -3990,7 +4098,7 @@ async def _deliver_apod(
 
 
 async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:apod")
     await send_typing(update)
     await show_loading(update, context)
     client = _http_client(context)
@@ -4009,7 +4117,7 @@ async def cmd_apod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_stelle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:stelle")
     await show_stelle_menu(update, context)
     await delete_user_command(update)
 
@@ -4043,7 +4151,8 @@ def astronomy_after_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [_tarot_btn("🔭 Osserva", "home:osserva"), _tarot_btn("🌠 Meteore", "home:meteore")],
-            [_tarot_btn("🌌 Spazio", "home:spazio"), _tarot_btn("🏠 Inizio", "osserva:home")],
+            [_tarot_btn("🌌 Spazio", "home:spazio")],
+            nav_row(),
         ]
     )
 
@@ -4059,7 +4168,7 @@ def osserva_picker_keyboard() -> InlineKeyboardMarkup:
     if pair:
         rows.append(pair)
     rows.append([_tarot_btn("✍️ Altra città", "osserva:ask")])
-    rows.append([_tarot_btn("🏠 Inizio", "osserva:home")])
+    rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
 
@@ -4088,7 +4197,7 @@ async def show_asteroids_need_chart(update: Update, context: ContextTypes.DEFAUL
     kb = InlineKeyboardMarkup(
         [
             [_tarot_btn("✨ Crea il tema", "natal:start")],
-            [_tarot_btn("🏠 Inizio", "osserva:home")],
+            nav_row(),
         ]
     )
     await reply_html(update, context, text, reply_markup=kb)
@@ -4098,6 +4207,7 @@ async def cmd_asteroidi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     _tarot_reset(context)
     _iching_reset(context)
     _osserva_reset(context)
+    nav_mark(context, "home:asteroidi")
     await show_asteroid_chooser(update, context)
     await delete_user_command(update)
 
@@ -4238,7 +4348,7 @@ async def show_natal_asteroids(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def cmd_meteore(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:meteore")
     await send_meteore(update, context)
     await delete_user_command(update)
 
@@ -4308,7 +4418,7 @@ async def send_meteore(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def cmd_spazio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:spazio")
     await send_spazio(update, context)
     await delete_user_command(update)
 
@@ -4478,13 +4588,13 @@ async def send_spazio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def cmd_osserva(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:osserva")
     await show_osserva_picker(update, context)
     await delete_user_command(update)
 
 
 async def cmd_cielo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:cielo")
     raw = " ".join(context.args) if context.args else ""
     if raw:
         await receive_cielo_city(update, context, raw)
@@ -4515,6 +4625,7 @@ async def show_osserva_ask_city(update: Update, context: ContextTypes.DEFAULT_TY
         "🔭 <b>Da dove guardi?</b>\n\n"
         "Scrivi città e paese.\n"
         "Esempio: <code>Bologna, Italia</code>",
+        reply_markup=InlineKeyboardMarkup([nav_row()]),
     )
 
 
@@ -4697,7 +4808,7 @@ async def send_osserva(
         [
             [InlineKeyboardButton("🌌 Mappa del cielo", url=map_url)],
             [_tarot_btn("🔭 Aggiorna", "osserva:refresh"), _tarot_btn("📍 Città", "osserva:open")],
-            [_tarot_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
     await reply_html(update, context, "\n".join(lines), reply_markup=kb)
@@ -4757,7 +4868,7 @@ async def show_rune_intro(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def cmd_rune(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:rune")
     await show_rune_intro(update, context)
     await delete_user_command(update)
 
@@ -4771,6 +4882,7 @@ async def show_rune_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "🪶 <b>Qual è la tua domanda?</b>\n\n"
         "Scrivila in un messaggio.\n"
         "Esempio: <i>Cosa dovrei osservare in questa fase?</i>",
+        reply_markup=InlineKeyboardMarkup([nav_row()]),
     )
 
 
@@ -4856,17 +4968,585 @@ async def cmd_domanda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def cmd_esplora(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:esplora")
     await reply_html(update, context, esplora_text(), reply_markup=esplora_keyboard())
     await delete_user_command(update)
+
+
+async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    if not token or token in NAV_HOME_TOKENS:
+        nav_clear(context)
+        await reply_html(update, context, start_text(), reply_markup=home_keyboard())
+        return
+    prefix, _, rest = token.partition(":")
+    action, _, extra = rest.partition(":")
+
+    worlds = {
+        "self": (world_self_text, world_self_keyboard),
+        "div": (world_div_text, world_div_keyboard),
+        "sky": (world_sky_text, world_sky_keyboard),
+        "mondi": (world_mondi_text, world_mondi_keyboard),
+        "vita": (world_vita_text, world_vita_keyboard),
+        "miss": (world_miss_text, world_miss_keyboard),
+    }
+    if prefix == "world" and action in worlds:
+        text_fn, kb_fn = worlds[action]
+        await reply_html(update, context, text_fn(), reply_markup=kb_fn())
+        return
+    if prefix == "nav":
+        pages = {
+            "me": (world_self_text, nav_me_keyboard),
+            "risposte": (world_div_text, nav_risposte_keyboard),
+            "cielo": (world_sky_text, nav_cielo_keyboard),
+            "universo": (world_mondi_text, nav_universo_keyboard),
+        }
+        page = pages.get(action)
+        if page:
+            text_fn, kb_fn = page
+            await reply_html(update, context, text_fn(), reply_markup=kb_fn())
+            return
+    if prefix == "w" and action and extra:
+        await send_wiki_sheet(update, context, action, extra)
+        return
+    if prefix == "tarot":
+        if action == "menu":
+            await show_tarot_menu(update, context)
+            return
+        if action == "hist":
+            await show_tarot_history(update, context)
+            return
+        if action == "pick" and extra == "ask":
+            await show_tarot_ask_prompt(update, context)
+            return
+        if action == "pick" and extra in TAROT_SPREADS:
+            await show_tarot_ritual(update, context, extra)
+            return
+    if prefix == "iching":
+        if action in {"open", "new"}:
+            await show_iching_intro(update, context)
+            return
+    if prefix == "natal":
+        natal_pages = {
+            "open": natal_open,
+            "start": ask_natal_date,
+            "big": show_natal_big_three,
+            "planets": show_natal_planets,
+            "houses": show_natal_houses,
+            "aspects": show_natal_aspects,
+            "love": show_natal_love,
+            "asteroids": show_natal_asteroids,
+            "read": show_natal_reading,
+            "elements": show_natal_elements,
+            "me": natal_open,
+            "reload": reload_saved_natal,
+            "transits": show_natal_transits,
+        }
+        fn = natal_pages.get(action)
+        if fn:
+            await fn(update, context)
+            return
+        if action == "p" and extra:
+            await show_natal_planet(update, context, extra)
+            return
+        if action == "h" and extra.isdigit():
+            await show_natal_house(update, context, int(extra))
+            return
+    if prefix == "osserva":
+        if action in {"open", "pick"}:
+            await show_osserva_picker(update, context)
+            return
+        if action == "ask":
+            await show_osserva_ask_city(update, context)
+            return
+        if action == "city" and extra.isdigit():
+            idx = int(extra)
+            if 0 <= idx < len(OSSERVA_CITIES):
+                name, lat, lon = OSSERVA_CITIES[idx]
+                await send_osserva(update, context, name=name, lat=lat, lon=lon)
+                return
+    if prefix == "cielo":
+        if action == "pick":
+            await show_cielo_picker(update, context)
+            return
+        if action == "ask":
+            context.user_data["cielo_ask"] = True
+            await reply_html(
+                update,
+                context,
+                "📍 <b>Da dove guardi?</b>\n\nScrivi città e paese.\nEsempio: <code>Bologna, Italia</code>",
+                reply_markup=cielo_picker_keyboard(),
+            )
+            return
+        if action == "city" and extra.isdigit():
+            idx = int(extra)
+            if 0 <= idx < len(OSSERVA_CITIES):
+                name, lat, lon = OSSERVA_CITIES[idx]
+                await send_cielo(update, context, name=name, lat=lat, lon=lon)
+                return
+        if action == "planets":
+            name, lat, lon = _cielo_place(context)
+            await send_osserva(update, context, name=name, lat=lat, lon=lon)
+            return
+    if prefix == "st":
+        if action == "rand":
+            await send_random_star(update, context)
+            return
+        if action == "day":
+            await send_star_of_day(update, context)
+            return
+        if action == "bright":
+            await send_stars_now(update, context, brightest_only=True)
+            return
+        if action == "now":
+            await send_stars_now(update, context)
+            return
+        if action == "near":
+            await send_near_or_giants(update, context, NEAR_STARS)
+            return
+        if action == "rg":
+            await send_near_or_giants(update, context, GIANT_STARS)
+            return
+        if action == "nasa":
+            await send_stelle_nasa(update, context)
+            return
+    if prefix == "co":
+        if action == "day":
+            item = CONSTELLATIONS[datetime.now(DEFAULT_TZ).timetuple().tm_yday % len(CONSTELLATIONS)]
+            await send_wiki_sheet(update, context, "k", item["id"])
+            return
+        if action == "rand":
+            await send_wiki_sheet(update, context, "k", random.choice(CONSTELLATIONS)["id"])
+            return
+        if action == "now":
+            await send_constellations_now(update, context)
+            return
+    if prefix == "ev":
+        if action == "solar":
+            await send_solar_activity(update, context)
+            return
+        if action == "moon":
+            await send_moon_distance(update, context)
+            return
+    if prefix == "xp" and action in {"rand", "earth", "hell", "extreme", "ocean", "recent", "hz"}:
+        await send_exo_filter(update, context, action)
+        return
+    if prefix == "aster":
+        if action == "neo":
+            await send_neo_asteroids(update, context)
+            return
+        if action == "natal":
+            await show_natal_asteroids(update, context)
+            return
+        if action == "famous":
+            await show_famous_asteroids(update, context)
+            return
+    if prefix == "quiz":
+        if action == "go" and extra:
+            await send_quiz_question(update, context, extra)
+            return
+        if action == "board":
+            await send_quiz_board(update, context)
+            return
+    if prefix == "ora":
+        if action in {"arch", "anim", "symb", "elem", "plan"}:
+            await send_deck_card(update, context, action)
+            return
+        if action == "lunar":
+            await send_lunar_oracle(update, context)
+            return
+        if action == "yes":
+            await reply_html(
+                update,
+                context,
+                "🪞 <b>DOMANDA SÌ / NO</b>\n\n"
+                "Pensa alla domanda. Non serve scriverla.\n"
+                "Pesco un tarocco, una runa o un I Ching e ti do un'inclinazione simbolica.\n"
+                "Non è un verdetto.",
+                reply_markup=yesno_keyboard(),
+            )
+            return
+        if action == "askq":
+            await show_oracle_question(update, context)
+            return
+        if action == "surprise":
+            await show_oracoli_hub(update, context)
+            return
+    if prefix == "leno":
+        await show_lenormand_menu(update, context)
+        return
+    if prefix == "lett":
+        await show_lettura_methods(update, context)
+        return
+    if prefix == "rune":
+        if action == "new":
+            await show_rune_intro(update, context)
+            return
+        await show_rune_intro(update, context)
+        return
+    if prefix == "sole":
+        await send_sole(update, context)
+        return
+    if prefix == "md":
+        if action == "hub":
+            await show_mondi_hub(update, context)
+            return
+        if action == "cosmo":
+            await show_cosmo(update, context)
+            return
+        if action == "sys":
+            await show_sistemi_menu(update, context)
+            return
+        if action == "life":
+            await reply_html(update, context, life_plus_text(), reply_markup=life_plus_keyboard())
+            return
+        if action == "ss":
+            await reply_html(
+                update,
+                context,
+                "🛰️ <b>MONDI DEL SISTEMA SOLARE</b>\n\n"
+                "Atmosfera, gravità, giorno e anno: solo se Wikidata li ha.\n"
+                "Curiosità = estratto Wikipedia, non un copione.",
+                reply_markup=ss_bodies_keyboard(),
+            )
+            return
+        if action == "miss":
+            await reply_html(
+                update,
+                context,
+                "🚀 <b>CHI È ANDATO LÌ?</b>\n\n"
+                "Missione → corpi del catalogo. Poi la voce Wikipedia per scoperte e immagini.",
+                reply_markup=miss_worlds_keyboard(),
+            )
+            return
+        if action == "neb":
+            await send_nebulae(update, context)
+            return
+        if action == "rand":
+            await send_mondi_random(update, context)
+            return
+        if action == "day":
+            await send_mondi_day(update, context)
+            return
+        if action == "gen":
+            world = generate_world()
+            _mondi_remember(context, world, kind="imag")
+            await reply_html(update, context, format_imaginary(world), reply_markup=mondi_after_keyboard())
+            return
+        if action == "rogue":
+            client = _http_client(context)
+            rows = await exoplanets_by_filter(client, "rogue", limit=8)
+            if rows:
+                context.user_data[MONDI_LIST_KEY] = rows
+                text = format_exo_list(
+                    rows,
+                    title="🌑 Senza stella (righe senza stella ospite)",
+                    blurb="Se l'archivio non ha una stella ospite. Altrimenti non invento pianeti erranti.",
+                )
+                await reply_html(update, context, text, reply_markup=mondi_list_keyboard(len(rows)))
+                return
+            await send_wiki_sheet(update, context, "v", "rogue")
+            return
+        if action == "volc":
+            await send_wiki_sheet(update, context, "m", "io")
+            return
+        if action == "rings":
+            await reply_html(
+                update,
+                context,
+                "💍 <b>MONDI CON ANELLI</b>\n\n"
+                "Nel Sistema Solare le schede sono Saturno e Urano (anelli noti, voce Wikipedia).\n"
+                "Gli anelli extrasolari non sono un campo dell'archivio: non li segno io.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [_tarot_btn("💍 Saturno", "w:p:saturn"), _tarot_btn("🌀 Urano", "w:p:uranus")],
+                        [_tarot_btn("🌍 Esplora", "md:hub")],
+                        nav_row(),
+                    ]
+                ),
+            )
+            return
+        if action == "moons":
+            await reply_html(
+                update,
+                context,
+                "🌙 <b>MOLTE LUNE</b>\n\n"
+                "Giove e Saturno nel Sistema Solare. "
+                "Le lune extrasolari quasi non esistono nell'archivio: non ne fabbrico.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [_tarot_btn("🟠 Giove", "w:p:jupiter"), _tarot_btn("💍 Saturno", "w:p:saturn")],
+                        [_tarot_btn("🌑 Catalogo lune", "home:lune")],
+                        [_tarot_btn("🌍 Esplora", "md:hub")],
+                        nav_row(),
+                    ]
+                ),
+            )
+            return
+        if action == "f" and extra in FILTERS:
+            await send_mondi_filter(update, context, extra)
+            return
+        if action == "o" and extra.isdigit():
+            rows = context.user_data.get(MONDI_LIST_KEY)
+            idx = int(extra)
+            if isinstance(rows, list) and 0 <= idx < len(rows):
+                await send_mondi_world(update, context, rows[idx])
+                return
+            await show_mondi_hub(update, context)
+            return
+        if action == "sysf" and extra:
+            await send_systems_kind(update, context, extra)
+            return
+        if action == "sysr":
+            client = _http_client(context)
+            card = await random_system(client)
+            if card is None:
+                await show_sistemi_menu(update, context)
+                return
+            planets = card.get("planets") if isinstance(card.get("planets"), list) else []
+            context.user_data[MONDI_LIST_KEY] = planets
+            await reply_html(
+                update,
+                context,
+                format_system_tree(card),
+                reply_markup=mondi_list_keyboard(min(len(planets), 8), back="md:sys") if planets else sistemi_keyboard(),
+            )
+            return
+        if action == "syso" and extra.isdigit():
+            rows = context.user_data.get(MONDI_SYS_KEY)
+            idx = int(extra)
+            if isinstance(rows, list) and 0 <= idx < len(rows):
+                host = str(rows[idx].get("hostname") or "")
+                await send_system_card(update, context, host)
+                return
+            await show_sistemi_menu(update, context)
+            return
+        if action == "sy" and extra in FAMOUS_HOSTS:
+            await send_system_card(update, context, FAMOUS_HOSTS[extra])
+            return
+        if action == "fav":
+            user = update.effective_user
+            favs = await world_list(user.id) if user else []
+            context.user_data[MONDI_FAV_KEY] = favs
+            if not favs:
+                await reply_html(
+                    update,
+                    context,
+                    "📌 <b>I TUOI MONDI</b>\n\nAncora vuota. Apri una scheda e tocca Salva.",
+                    reply_markup=mondi_hub_keyboard(),
+                )
+                return
+            lines = ["📌 <b>I TUOI MONDI</b>", "", "Solo tuoi, sul server. Tocca un numero.", ""]
+            for idx, item in enumerate(favs, start=1):
+                tag = "generato" if item.get("kind") == "imag" else "archivio"
+                lines.append(f"{idx}. {e(item.get('name') or '—')} <i>({tag})</i>")
+            await reply_html(update, context, "\n".join(lines), reply_markup=fav_list_keyboard(len(favs)))
+            return
+        if action == "fo" and extra.isdigit():
+            favs = context.user_data.get(MONDI_FAV_KEY)
+            idx = int(extra)
+            if isinstance(favs, list) and 0 <= idx < len(favs):
+                item = favs[idx]
+                if item.get("kind") == "imag":
+                    await reply_html(
+                        update,
+                        context,
+                        format_imaginary(
+                            item
+                            if item.get("pl_rade")
+                            else {
+                                "name": item.get("name"),
+                                "kind": "imag",
+                                "note": "Salvato come nome. Rigenera per nuovi dadi.",
+                                "climate": "—",
+                                "stars": "—",
+                                "pl_rade": "—",
+                                "pl_eqt": "—",
+                                "pl_orbper": "—",
+                                "moons": "—",
+                            }
+                        ),
+                        reply_markup=mondi_after_keyboard(),
+                    )
+                    return
+                client = _http_client(context)
+                row = await exoplanet_by_name(client, str(item.get("name") or ""))
+                if row:
+                    await send_mondi_world(update, context, row)
+                    return
+            await show_mondi_hub(update, context)
+            return
+        if action == "wm" and extra:
+            await send_mission_worlds(update, context, extra)
+            return
+    if prefix == "home":
+        await _resume_home(update, context, action)
+        return
+    await reply_html(update, context, start_text(), reply_markup=home_keyboard())
+
+
+async def _resume_home(update: Update, context: ContextTypes.DEFAULT_TYPE, action: str) -> None:
+    if action == "oroscopo":
+        await begin_oroscopo(update, context, "")
+        return
+    if action == "luna":
+        await cmd_luna(update, context)
+        return
+    if action == "spazio":
+        await send_spazio(update, context)
+        return
+    if action == "meteore":
+        await send_meteore(update, context)
+        return
+    if action == "osserva":
+        await show_osserva_picker(update, context)
+        return
+    if action == "cielo":
+        await send_cielo(update, context)
+        return
+    if action == "pianeta":
+        await show_pianeta_menu(update, context)
+        return
+    if action == "mondi":
+        await show_mondi_hub(update, context)
+        return
+    if action == "cosmo":
+        await show_cosmo(update, context)
+        return
+    if action == "lune":
+        await show_lune_menu(update, context)
+        return
+    if action == "sistema":
+        await show_sistema(update, context)
+        return
+    if action == "buchineri":
+        await show_buchineri_menu(update, context)
+        return
+    if action == "galassia":
+        await show_galassia_menu(update, context)
+        return
+    if action == "eclissi":
+        await send_eclissi(update, context)
+        return
+    if action == "missioni":
+        await show_missioni_menu(update, context)
+        return
+    if action == "astronauta":
+        await show_astronauta_menu(update, context)
+        return
+    if action == "satelliti":
+        await show_satelliti_menu(update, context)
+        return
+    if action == "sonde":
+        await show_sonde_menu(update, context)
+        return
+    if action == "impara":
+        await show_impara_menu(update, context)
+        return
+    if action == "quiz":
+        await show_quiz_menu(update, context)
+        return
+    if action == "esopianeta":
+        await show_esopianeta_menu(update, context)
+        return
+    if action == "nani":
+        await show_nani_menu(update, context)
+        return
+    if action == "comete":
+        await show_comete_menu(update, context)
+        return
+    if action == "costellazioni":
+        await show_costellazioni_menu(update, context)
+        return
+    if action == "profondo":
+        await show_profondo_menu(update, context)
+        return
+    if action == "abitabile":
+        await send_abitabile(update, context)
+        return
+    if action == "vita":
+        await show_vita_menu(update, context)
+        return
+    if action == "specchio":
+        await show_specchio(update, context)
+        return
+    if action == "rituale":
+        await send_rituale(update, context)
+        return
+    if action == "random":
+        await send_random(update, context)
+        return
+    if action == "missione":
+        await send_missione(update, context)
+        return
+    if action == "oracoli":
+        await show_oracoli_hub(update, context)
+        return
+    if action == "sibille":
+        await show_lenormand_menu(update, context)
+        return
+    if action == "lettura":
+        await show_lettura_ask(update, context)
+        return
+    if action == "esplora":
+        await reply_html(update, context, esplora_text(), reply_markup=esplora_keyboard())
+        return
+    if action == "transits":
+        await show_natal_transits(update, context)
+        return
+    if action == "rune":
+        await show_rune_intro(update, context)
+        return
+    if action == "domanda":
+        await show_domanda(update, context)
+        return
+    if action == "iss":
+        await send_iss(update, context)
+        return
+    if action == "cosmico":
+        await send_cosmico(update, context)
+        return
+    if action == "sole":
+        await send_sole(update, context)
+        return
+    if action == "eventi":
+        await send_eventi(update, context)
+        return
+    if action == "asteroidi":
+        await show_asteroid_chooser(update, context)
+        return
+    if action == "pianeti":
+        await cmd_pianeti(update, context)
+        return
+    if action == "apod":
+        await cmd_apod(update, context)
+        return
+    if action == "stelle":
+        await show_stelle_menu(update, context)
+        return
+    if action == "aiuto":
+        await reply_html(update, context, help_text(), reply_markup=back_home_keyboard())
+        return
+    await reply_html(update, context, start_text(), reply_markup=home_keyboard())
 
 
 async def on_nav_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None or not query.data:
         return
-    _remember_from_callback(update, context)
     action = query.data.split(":")[1] if ":" in query.data else ""
+    if action == "back":
+        await query.answer()
+        if query.message is not None:
+            kind = "text" if query.message.text else "photo"
+            _remember_bot_msg(context, query.message.message_id, kind)
+        token = nav_pop(context)
+        if not token:
+            nav_clear(context)
+            await reply_html(update, context, start_text(), reply_markup=home_keyboard())
+            return
+        await resume_nav(update, context, token)
+        return
+    _remember_from_callback(update, context)
     await query.answer()
     if action == "me":
         await reply_html(update, context, world_self_text(), reply_markup=nav_me_keyboard())
@@ -4883,7 +5563,7 @@ async def on_nav_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def cmd_iss(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:iss")
     await send_iss(update, context)
     await delete_user_command(update)
 
@@ -4938,7 +5618,7 @@ async def send_iss(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_cosmico(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:cosmico")
     await send_cosmico(update, context)
     await delete_user_command(update)
 
@@ -5055,7 +5735,7 @@ async def send_cosmico(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def cmd_sole(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:sole")
     await send_sole(update, context)
     await delete_user_command(update)
 
@@ -5099,7 +5779,7 @@ async def send_sole(
 
 
 async def cmd_eventi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:eventi")
     await send_eventi(update, context)
     await delete_user_command(update)
 
@@ -5169,7 +5849,7 @@ async def send_eventi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         [
             [_tarot_btn("🌠 Sciami", "home:meteore"), _tarot_btn("🌑 Eclissi", "home:eclissi")],
             [_tarot_btn("☀️ Attività solare", "ev:solar"), _tarot_btn("🌙 Distanza Luna", "ev:moon")],
-            [_tarot_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
     await reply_html(update, context, "\n".join(lines), reply_markup=kb)
@@ -5180,6 +5860,7 @@ async def cmd_transiti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     _iching_reset(context)
     _osserva_reset(context)
     _rune_reset(context)
+    nav_mark(context, "home:transits")
     await show_natal_transits(update, context)
     await delete_user_command(update)
 
@@ -5571,7 +6252,7 @@ def cielo_picker_keyboard() -> InlineKeyboardMarkup:
     if pair:
         rows.append(pair)
     rows.append([_tarot_btn("✍️ Altra città", "cielo:ask")])
-    rows.append([_tarot_btn("🔭 Cielo", "home:cielo"), _tarot_btn("🏠 Inizio", "home:menu")])
+    rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
 
@@ -5715,6 +6396,7 @@ async def send_near_or_giants(update: Update, context: ContextTypes.DEFAULT_TYPE
     if pair:
         rows.append(pair)
     rows.append([_tarot_btn("⭐ Stelle", "home:stelle")])
+    rows.append(nav_row())
     await reply_html(update, context, "\n".join(lines), reply_markup=InlineKeyboardMarkup(rows))
 
 
@@ -6204,7 +6886,8 @@ async def send_mission_worlds(update: Update, context: ContextTypes.DEFAULT_TYPE
     if pair:
         rows.append(pair)
     rows.append([_tarot_btn("📖 Scheda missione", f"w:n:{mission_id}")])
-    rows.append([_tarot_btn("🚀 Altre missioni", "md:miss"), _tarot_btn("🏠 Inizio", "home:menu")])
+    rows.append([_tarot_btn("🚀 Altre missioni", "md:miss")])
+    rows.append(nav_row())
     await reply_html(update, context, "\n".join(lines), reply_markup=InlineKeyboardMarkup(rows))
 
 
@@ -6221,7 +6904,8 @@ async def send_nebulae(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             pair = []
     if pair:
         rows.append(pair)
-    rows.append([_tarot_btn("🌌 COSMO", "md:cosmo"), _tarot_btn("🏠 Inizio", "home:menu")])
+    rows.append([_tarot_btn("🌌 COSMO", "md:cosmo")])
+    rows.append(nav_row())
     await reply_html(
         update,
         context,
@@ -6325,6 +7009,7 @@ async def on_md_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 [
                     [_tarot_btn("💍 Saturno", "w:p:saturn"), _tarot_btn("🌀 Urano", "w:p:uranus")],
                     [_tarot_btn("🌍 Esplora", "md:hub")],
+                    nav_row(),
                 ]
             ),
         )
@@ -6342,6 +7027,7 @@ async def on_md_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     [_tarot_btn("🟠 Giove", "w:p:jupiter"), _tarot_btn("💍 Saturno", "w:p:saturn")],
                     [_tarot_btn("🌑 Catalogo lune", "home:lune")],
                     [_tarot_btn("🌍 Esplora", "md:hub")],
+                    nav_row(),
                 ]
             ),
         )
@@ -6533,7 +7219,8 @@ async def send_eclissi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     lines.extend(["", "<i>Fonte live: calendario eclissi Skytime.</i>"])
     kb = InlineKeyboardMarkup(
         [
-            [_tarot_btn("🔭 Cielo Roma", "home:cielo"), _tarot_btn("🏠 Inizio", "home:menu")],
+            [_tarot_btn("🔭 Cielo Roma", "home:cielo")],
+            nav_row(),
         ]
     )
     await reply_html(update, context, "\n".join(lines), reply_markup=kb)
@@ -6715,6 +7402,7 @@ async def show_specchio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"<b>{e(question)}</b>\n\n"
         "Rispondi in un messaggio. Poi ti rimando una riflessione.\n"
         "<i>Pratica simbolica, non un oracolo e non un dato astronomico.</i>",
+        reply_markup=InlineKeyboardMarkup([nav_row()]),
     )
 
 
@@ -6737,7 +7425,7 @@ async def receive_mirror_answer(
     kb = InlineKeyboardMarkup(
         [
             [_tarot_btn("🪞 Un'altra domanda", "home:specchio")],
-            [_tarot_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
     await reply_html(update, context, "🪞 <b>SPECCHIO</b>\n\n" + reflection, reply_markup=kb)
@@ -6764,7 +7452,7 @@ async def send_rituale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     kb = InlineKeyboardMarkup(
         [
             [_tarot_btn("🌙 Luna", "home:luna"), _tarot_btn("🪞 Specchio", "home:specchio")],
-            [_tarot_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
     await reply_html(update, context, text, reply_markup=kb)
@@ -6873,157 +7561,157 @@ async def on_miss_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def cmd_pianeta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:pianeta")
     await show_pianeta_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_lune(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:lune")
     await show_lune_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_sistema(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:sistema")
     await show_sistema_chooser(update, context)
     await delete_user_command(update)
 
 
 async def cmd_buchineri(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:buchineri")
     await show_buchineri_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_galassia(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:galassia")
     await show_galassia_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_eclissi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:eclissi")
     await send_eclissi(update, context)
     await delete_user_command(update)
 
 
 async def cmd_missioni(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:missioni")
     await show_missioni_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_astronauta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:astronauta")
     await show_astronauta_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_satelliti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:satelliti")
     await show_satelliti_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_sonde(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:sonde")
     await show_sonde_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_impara(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:impara")
     await show_impara_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:quiz")
     await show_quiz_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_esopianeta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:esopianeta")
     await show_esopianeta_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_costellazioni(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:costellazioni")
     await show_costellazioni_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_nani(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:nani")
     await show_nani_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_comete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:comete")
     await show_comete_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_profondo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:profondo")
     await show_profondo_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_mondi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "md:hub")
     await show_mondi_hub(update, context)
     await delete_user_command(update)
 
 
 async def cmd_cosmo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "md:cosmo")
     await show_cosmo(update, context)
     await delete_user_command(update)
 
 
 async def cmd_sistemi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "md:sys")
     await show_sistemi_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_abitabile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:abitabile")
     await send_abitabile(update, context)
     await delete_user_command(update)
 
 
 async def cmd_vita(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:vita")
     await show_vita_menu(update, context)
     await delete_user_command(update)
 
 
 async def cmd_specchio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:specchio")
     await show_specchio(update, context)
     await delete_user_command(update)
 
 
 async def cmd_rituale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:rituale")
     await send_rituale(update, context)
     await delete_user_command(update)
 
 
 async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:random")
     await send_random(update, context)
     await delete_user_command(update)
 
 
 async def cmd_missione(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:missione")
     await send_missione(update, context)
     await delete_user_command(update)
 
@@ -7033,7 +7721,7 @@ async def show_oracoli_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def cmd_oracoli(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:oracoli")
     await show_oracoli_hub(update, context)
     await delete_user_command(update)
 
@@ -7055,7 +7743,7 @@ async def show_lenormand_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def cmd_sibille(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:sibille")
     await show_lenormand_menu(update, context)
     await delete_user_command(update)
 
@@ -7178,7 +7866,7 @@ async def receive_oq_answer(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     kb = InlineKeyboardMarkup(
         [
             [_tarot_btn("🕯️ Un'altra", "ora:askq")],
-            [_tarot_btn("🔮 Oracoli", "home:oracoli")],
+            nav_row(),
         ]
     )
     await reply_html(update, context, body, reply_markup=kb)
@@ -7189,7 +7877,7 @@ async def show_lettura_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     state = _lettura_state(context)
     state.clear()
     state["step"] = "ask"
-    await reply_html(update, context, lettura_text())
+    await reply_html(update, context, lettura_text(), reply_markup=InlineKeyboardMarkup([nav_row()]))
 
 
 async def show_lettura_methods(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -7245,7 +7933,7 @@ async def start_lettura_method(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def cmd_lettura(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "home:lettura")
     raw = " ".join(context.args).strip() if context.args else ""
     if raw:
         _lettura_state(context)["question"] = clip_text(raw, 400)
@@ -7368,7 +8056,7 @@ async def on_lett_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def cmd_sino(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "ora:yes")
     await reply_html(
         update,
         context,
@@ -7379,43 +8067,43 @@ async def cmd_sino(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_archetipi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "ora:arch")
     await send_deck_card(update, context, "arch")
     await delete_user_command(update)
 
 
 async def cmd_animali(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "ora:anim")
     await send_deck_card(update, context, "anim")
     await delete_user_command(update)
 
 
 async def cmd_simboli(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "ora:symb")
     await send_deck_card(update, context, "symb")
     await delete_user_command(update)
 
 
 async def cmd_elementi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "ora:elem")
     await send_deck_card(update, context, "elem")
     await delete_user_command(update)
 
 
 async def cmd_oracoloplanetario(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "ora:plan")
     await send_deck_card(update, context, "plan")
     await delete_user_command(update)
 
 
 async def cmd_oracololunare(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "ora:lunar")
     await send_lunar_oracle(update, context)
     await delete_user_command(update)
 
 
 async def cmd_oracolodande(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _flows_reset(context)
+    _cmd_begin(context, "ora:askq")
     await show_oracle_question(update, context)
     await delete_user_command(update)
 

@@ -29,6 +29,10 @@ def kb_btn(label: str, data: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(label, callback_data=data)
 
 
+def nav_row() -> list[InlineKeyboardButton]:
+    return [kb_btn("⬅️ Indietro", "nav:back"), kb_btn("🏠 Inizio", "home:menu")]
+
+
 def _pairs(items: list[InlineKeyboardButton]) -> list[list[InlineKeyboardButton]]:
     rows: list[list[InlineKeyboardButton]] = []
     pair: list[InlineKeyboardButton] = []
@@ -61,7 +65,7 @@ def esplora_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🪐 Mondi", "world:mondi")],
             [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
             [kb_btn("✨ COSMICO", "home:cosmico")],
-            [kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -72,7 +76,7 @@ def world_self_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌌 Tema Natale", "natal:open"), kb_btn("🔮 Oroscopo", "home:oroscopo")],
             [kb_btn("🪐 Transiti", "home:transits"), kb_btn("🪞 Specchio", "home:specchio")],
             [kb_btn("🌙 Rituale", "home:rituale")],
-            [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -91,7 +95,7 @@ def oracoli_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌙 Luna", "ora:lunar"), kb_btn("🪐 Pianeti", "ora:plan")],
             [kb_btn("🪞 Sì / No", "ora:yes"), kb_btn("🕯️ Domande", "ora:askq")],
             [kb_btn("📖 Lettura", "home:lettura"), kb_btn("🎲 Sorprendimi", "ora:surprise")],
-            [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -105,7 +109,7 @@ def world_sky_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌠 Eventi", "home:eventi"), kb_btn("🛰️ Oggetti", "home:profondo")],
             [kb_btn("🧊 Nani", "home:nani"), kb_btn("☄️ Comete", "home:comete")],
             [kb_btn("🌅 Alba", "home:sole"), kb_btn("🛰️ ISS", "home:iss")],
-            [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -120,7 +124,7 @@ def world_mondi_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🪨 Asteroidi", "home:asteroidi"), kb_btn("🚀 Chi è andato lì", "md:miss")],
             [kb_btn("🎲 Mondo casuale", "md:rand"), kb_btn("📌 Salvati", "md:fav")],
             [kb_btn("🕳️ Buchi neri", "home:buchineri"), kb_btn("🌌 Galassie", "home:galassia")],
-            [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -131,7 +135,7 @@ def world_vita_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("👽 Siamo soli?", "home:vita"), kb_btn("🪐 Esopianeta", "home:esopianeta")],
             [kb_btn("🌍 Zona abitabile", "home:abitabile"), kb_btn("🧬 E se ci fosse vita?", "md:life")],
             [kb_btn("🌍 Esplora mondi", "md:hub")],
-            [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -143,7 +147,7 @@ def world_miss_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🚀 Chi è andato lì", "md:miss")],
             [kb_btn("👨‍🚀 Astronauti", "home:astronauta"), kb_btn("🎓 Impara", "home:impara")],
             [kb_btn("🧩 Quiz", "home:quiz"), kb_btn("🏆 Missione", "home:missione")],
-            [kb_btn("🧭 Esplora", "home:esplora"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -174,7 +178,7 @@ def lettura_method_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🃏 Tarocchi", "lett:tarot"), kb_btn("☯️ I Ching", "lett:iching")],
             [kb_btn("🪶 Rune", "lett:rune"), kb_btn("🌿 Lenormand", "lett:leno")],
             [kb_btn("🎲 Sorprendimi", "lett:surprise")],
-            [kb_btn("🔮 Oracoli", "home:oracoli"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -184,7 +188,7 @@ def lenormand_menu_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("1 carta", "leno:n:1"), kb_btn("3 carte", "leno:n:3")],
             [kb_btn("5 carte", "leno:n:5"), kb_btn("9 carte", "leno:n:9")],
-            [kb_btn("🔮 Oracoli", "home:oracoli"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -195,7 +199,7 @@ def yesno_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🎲 ESTRAI", "yn:go")],
             [kb_btn("🃏 Tarocco", "yn:tarot"), kb_btn("🪶 Runa", "yn:rune")],
             [kb_btn("☯️ I Ching", "yn:iching")],
-            [kb_btn("🔮 Oracoli", "home:oracoli")],
+            nav_row(),
         ]
     )
 
@@ -204,7 +208,7 @@ def oracle_question_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("💭 Rifletto", "oq:wait")],
-            [kb_btn("🕯️ Un'altra", "ora:askq"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -213,7 +217,7 @@ def deck_after_keyboard(kind: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🎲 Ancora", f"ora:{kind}")],
-            [kb_btn("🔮 Oracoli", "home:oracoli"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -222,19 +226,20 @@ def lenormand_after_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🌿 Nuova pesca", "home:sibille")],
-            [kb_btn("🔮 Oracoli", "home:oracoli"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
 
 def rune_ready_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[kb_btn("✨ SONO PRONTO", "rune:ready")]])
+    return InlineKeyboardMarkup([[kb_btn("✨ SONO PRONTO", "rune:ready")], nav_row()])
 
 
 def rune_draw_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("ᚠ 1 RUNA", "rune:draw:1"), kb_btn("ᛏ 3 RUNE", "rune:draw:3")],
+            nav_row(),
         ]
     )
 
@@ -242,7 +247,8 @@ def rune_draw_keyboard() -> InlineKeyboardMarkup:
 def rune_after_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🪶 Nuova lettura", "rune:new"), kb_btn("🏠 Inizio", "home:menu")],
+            [kb_btn("🪶 Nuova lettura", "rune:new")],
+            nav_row(),
         ]
     )
 
@@ -251,14 +257,16 @@ def iss_keyboard(map_url: str | None = None) -> InlineKeyboardMarkup:
     rows = []
     if map_url:
         rows.append([InlineKeyboardButton("🗺️ Vedi posizione", url=map_url)])
-    rows.append([kb_btn("🔄 Aggiorna", "home:iss"), kb_btn("🏠 Inizio", "home:menu")])
+    rows.append([kb_btn("🔄 Aggiorna", "home:iss")])
+    rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
 
 def cosmico_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔄 Aggiorna", "home:cosmico"), kb_btn("🏠 Inizio", "home:menu")],
+            [kb_btn("🔄 Aggiorna", "home:cosmico")],
+            nav_row(),
         ]
     )
 
@@ -267,13 +275,14 @@ def sole_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("📍 Roma", "sole:city:0"), kb_btn("📍 Milano", "sole:city:1")],
-            [kb_btn("🔄 Aggiorna", "home:sole"), kb_btn("🏠 Inizio", "home:menu")],
+            [kb_btn("🔄 Aggiorna", "home:sole")],
+            nav_row(),
         ]
     )
 
 
 def back_home_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[kb_btn("🏠 Inizio", "home:menu")]])
+    return InlineKeyboardMarkup([nav_row()])
 
 
 def catalog_keyboard(kind: str, rows: tuple[dict[str, str], ...], extra: list[list[InlineKeyboardButton]] | None = None) -> InlineKeyboardMarkup:
@@ -281,7 +290,7 @@ def catalog_keyboard(kind: str, rows: tuple[dict[str, str], ...], extra: list[li
     grid = _pairs(buttons)
     if extra:
         grid.extend(extra)
-    grid.append([kb_btn("🏠 Inizio", "home:menu")])
+    grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
 
@@ -350,7 +359,7 @@ def sheet_after_keyboard(kind: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn(back[0], back[1])],
-            [kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -361,7 +370,7 @@ def asteroid_chooser_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("☄️ Vicini alla Terra", "aster:neo")],
             [kb_btn("🪨 Asteroidi noti", "aster:famous")],
             [kb_btn("🌌 Nel tema natale", "aster:natal")],
-            [kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -372,7 +381,7 @@ def quiz_menu_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🟢 Facile", "quiz:go:easy"), kb_btn("🟡 Medio", "quiz:go:medium")],
             [kb_btn("🔴 Difficile", "quiz:go:hard"), kb_btn("☠️ Esperto", "quiz:go:expert")],
             [kb_btn("🏆 La mia classifica", "quiz:board")],
-            [kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -380,20 +389,21 @@ def quiz_menu_keyboard() -> InlineKeyboardMarkup:
 def quiz_options_keyboard(n: int) -> InlineKeyboardMarkup:
     labels = ("A", "B", "C", "D")
     buttons = [kb_btn(labels[i], f"quiz:ans:{i}") for i in range(n)]
-    return InlineKeyboardMarkup([buttons, [kb_btn("🧩 Altra domanda", "home:quiz")]])
+    return InlineKeyboardMarkup([buttons, [kb_btn("🧩 Altra domanda", "home:quiz")], nav_row()])
 
 
 def mission_keyboard(*, done: bool) -> InlineKeyboardMarkup:
     if done:
         return InlineKeyboardMarkup(
             [
-                [kb_btn("🎲 Casuale", "home:random"), kb_btn("🏠 Inizio", "home:menu")],
+                [kb_btn("🎲 Casuale", "home:random")],
+                nav_row(),
             ]
         )
     return InlineKeyboardMarkup(
         [
             [kb_btn("✅ FATTO", "miss:ok")],
-            [kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -402,7 +412,8 @@ def random_after_keyboard(discover: str | None = None) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     if discover:
         rows.append([kb_btn("🔭 Scopri", discover)])
-    rows.append([kb_btn("🎲 Ancora", "home:random"), kb_btn("🏠 Inizio", "home:menu")])
+    rows.append([kb_btn("🎲 Ancora", "home:random")])
+    rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
 
@@ -413,7 +424,7 @@ def exo_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔥 Infernale", "xp:hell"), kb_btn("💎 Estremo", "xp:extreme")],
             [kb_btn("🌊 Oceanico (modello)", "xp:ocean"), kb_btn("🔭 Recente", "xp:recent")],
             [kb_btn("🌍 Zona abitabile", "home:abitabile"), kb_btn("🌍 Esplora mondi", "md:hub")],
-            [kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -433,7 +444,7 @@ def mondi_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("⭐ Sistemi", "md:sys"), kb_btn("🧬 E se ci fosse vita?", "md:life")],
             [kb_btn("☀️ Sistema Solare", "md:ss"), kb_btn("🚀 Missioni→mondi", "md:miss")],
             [kb_btn("📌 Salvati", "md:fav"), kb_btn("🌌 COSMO", "md:cosmo")],
-            [kb_btn("🪐 Mondi", "world:mondi"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -447,14 +458,16 @@ def mondi_after_keyboard(*, has_system: bool = False, saved: bool = False) -> In
     rows.append(
         [kb_btn("📌 Salva" if not saved else "📌 Già in lista", "md:save"), kb_btn("📌 I miei mondi", "md:fav")]
     )
-    rows.append([kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🏠 Inizio", "home:menu")])
+    rows.append([kb_btn("🌍 Esplora mondi", "md:hub")])
+    rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
 
 def mondi_list_keyboard(n: int, *, back: str = "md:hub") -> InlineKeyboardMarkup:
     buttons = [kb_btn(str(i + 1), f"md:o:{i}") for i in range(n)]
     grid = _pairs(buttons)
-    grid.append([kb_btn("🌍 Esplora", back), kb_btn("🏠 Inizio", "home:menu")])
+    grid.append([kb_btn("🌍 Esplora", back)])
+    grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
 
@@ -468,7 +481,7 @@ def sistemi_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("⭐ Kepler-90", "md:sy:k90"), kb_btn("⭐ Proxima", "md:sy:proxima")],
             [kb_btn("⭐ HR 8799", "md:sy:hr8799"), kb_btn("⭐ Kepler-186", "md:sy:k186")],
             [kb_btn("⭐ K2-18", "md:sy:k18"), kb_btn("⭐ LHS 1140", "md:sy:lhs1140")],
-            [kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -476,7 +489,8 @@ def sistemi_keyboard() -> InlineKeyboardMarkup:
 def sistemi_list_keyboard(n: int) -> InlineKeyboardMarkup:
     buttons = [kb_btn(str(i + 1), f"md:syso:{i}") for i in range(n)]
     grid = _pairs(buttons)
-    grid.append([kb_btn("⭐ Sistemi", "md:sys"), kb_btn("🏠 Inizio", "home:menu")])
+    grid.append([kb_btn("⭐ Sistemi", "md:sys")])
+    grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
 
@@ -486,7 +500,7 @@ def sistema_chooser_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("☀️ Sistema Solare", "md:ss")],
             [kb_btn("⭐ Sistemi extrasolari", "md:sys")],
             [kb_btn("⭐ TRAPPIST-1", "md:sy:trappist")],
-            [kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -504,7 +518,7 @@ def ss_bodies_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌙 Io", "w:m:io"), kb_btn("🌙 Ganimede", "w:m:ganymede")],
             [kb_btn("🌙 Callisto", "w:m:callisto"), kb_btn("☄️ Comete", "home:comete")],
             [kb_btn("🪨 Asteroidi", "home:asteroidi"), kb_btn("🧊 Nani", "home:nani")],
-            [kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -512,7 +526,8 @@ def ss_bodies_keyboard() -> InlineKeyboardMarkup:
 def miss_worlds_keyboard() -> InlineKeyboardMarkup:
     buttons = [kb_btn(f"{item.get('emoji', '🚀')} {item['it']}", f"md:wm:{item['id']}") for item in MISSIONS]
     grid = _pairs(buttons)
-    grid.append([kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🏠 Inizio", "home:menu")])
+    grid.append([kb_btn("🌍 Esplora mondi", "md:hub")])
+    grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
 
@@ -531,7 +546,7 @@ def cosmo_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌍 Mondi", "md:hub"), kb_btn("🌌 Galassie", "home:galassia")],
             [kb_btn("🌀 Nebulose", "md:neb"), kb_btn("🕳️ Buchi neri", "home:buchineri")],
             [kb_btn("💥 Supernovae", "w:y:sn"), kb_btn("🔭 Profondo", "home:profondo")],
-            [kb_btn("🪐 Mondi (reparto)", "world:mondi"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -539,7 +554,8 @@ def cosmo_keyboard() -> InlineKeyboardMarkup:
 def fav_list_keyboard(n: int) -> InlineKeyboardMarkup:
     buttons = [kb_btn(str(i + 1), f"md:fo:{i}") for i in range(n)]
     grid = _pairs(buttons)
-    grid.append([kb_btn("🌍 Esplora", "md:hub"), kb_btn("🏠 Inizio", "home:menu")])
+    grid.append([kb_btn("🌍 Esplora", "md:hub")])
+    grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
 
@@ -550,7 +566,8 @@ def cielo_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("⭐ Stelle", "home:stelle"), kb_btn("☄️ Eventi", "home:eventi")],
             [kb_btn("🌌 Costellazioni", "home:costellazioni"), kb_btn("🔭 Oggetti", "home:profondo")],
             [kb_btn("📍 Città", "cielo:pick"), kb_btn("👁️ Dettaglio", "home:osserva")],
-            [kb_btn("🔄 Aggiorna", "home:cielo"), kb_btn("🏠 Inizio", "home:menu")],
+            [kb_btn("🔄 Aggiorna", "home:cielo")],
+            nav_row(),
         ]
     )
 
@@ -564,7 +581,7 @@ def stelle_menu_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("⚪ Nane bianche", "w:y:wd"), kb_btn("💠 Neutroni", "w:y:ns")],
             [kb_btn("📡 Pulsar", "w:y:pu"), kb_btn("💥 Supernovae", "w:y:sn")],
             [kb_btn("⭐ Doppie", "w:y:bi"), kb_btn("📸 Foto NASA", "st:nasa")],
-            [kb_btn("🔭 Cielo", "home:cielo"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
 
@@ -606,6 +623,6 @@ def eventi_extra_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🌑 Eclissi", "home:eclissi"), kb_btn("🌠 Sciami", "home:meteore")],
             [kb_btn("☀️ Attività solare", "ev:solar"), kb_btn("🌙 Distanza Luna", "ev:moon")],
-            [kb_btn("🔭 Cielo", "home:cielo"), kb_btn("🏠 Inizio", "home:menu")],
+            nav_row(),
         ]
     )
