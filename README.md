@@ -20,6 +20,8 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 
 Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come `/oroscopo`.
 
+In chat il bot tiene **un solo messaggio**: ogni comando modifica (o sostituisce) la risposta precedente, senza accodarne di nuove.
+
 I feed in inglese vengono tradotti in italiano al volo. Se un’API non risponde il bot dice:
 
 > Le stelle sono temporaneamente offline ✨ riprova tra poco
