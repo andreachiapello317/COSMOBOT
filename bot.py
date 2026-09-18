@@ -27,11 +27,12 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from dotenv import load_dotenv
-from telegram import BotCommand, InputMediaPhoto, Update
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
 from telegram.constants import ChatAction, ParseMode
 from telegram.error import TelegramError
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -363,6 +364,12 @@ def e(text: Any) -> str:
 def format_date_it(value: str | None) -> str:
     if not value:
         return datetime.now(DEFAULT_TZ).strftime("%d/%m/%Y")
+    value = value.strip()
+    if re.fullmatch(r"\d{4}-\d{2}", value):
+        year, month = value.split("-")
+        month_i = int(month)
+        if 1 <= month_i <= 12:
+            return f"{MONTHS_IT[month_i - 1]} {year}"
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%B %d, %Y", "%b %d, %Y"):
         try:
             dt = datetime.strptime(value[:19], fmt)
@@ -415,19 +422,112 @@ def list_signs_help() -> str:
     return ", ".join(parts)
 
 
+# Periodi oroscopo (stessi path dell'API live).
+HORO_PERIODS: dict[str, dict[str, str]] = {
+    "daily": {
+        "it": "giornaliero",
+        "title": "Oroscopo di oggi",
+        "button": "📅 Giorno",
+    },
+    "weekly": {
+        "it": "settimanale",
+        "title": "Oroscopo della settimana",
+        "button": "🗓 Settimana",
+    },
+    "monthly": {
+        "it": "mensile",
+        "title": "Oroscopo del mese",
+        "button": "📆 Mese",
+    },
+}
+
+_PERIOD_ALIASES: dict[str, str] = {
+    "daily": "daily",
+    "giornaliero": "daily",
+    "giorno": "daily",
+    "oggi": "daily",
+    "day": "daily",
+    "weekly": "weekly",
+    "settimanale": "weekly",
+    "settimana": "weekly",
+    "week": "weekly",
+    "monthly": "monthly",
+    "mensile": "monthly",
+    "mese": "monthly",
+    "month": "monthly",
+}
+
+EMPTY_KEYBOARD = InlineKeyboardMarkup([])
+
+
+def normalize_period(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    cleaned = re.sub(r"[^a-zàèéìòù]", "", raw.strip().lower())
+    return _PERIOD_ALIASES.get(cleaned)
+
+
+def parse_oroscopo_query(raw: str) -> tuple[str | None, str | None, bool]:
+    """Estrae (segno inglese | None se invalido, periodo | None, usato default)."""
+    tokens = raw.strip().split()
+    period: str | None = None
+    sign_parts: list[str] = []
+    for tok in tokens:
+        maybe_period = normalize_period(tok)
+        if maybe_period:
+            period = maybe_period
+        else:
+            sign_parts.append(tok)
+    sign_raw = " ".join(sign_parts).strip()
+    used_default = not sign_raw
+    if used_default:
+        return DEFAULT_SIGN, period, True
+    return normalize_sign(sign_raw), period, False
+
+
+def oroscopo_keyboard(sign: str, selected: str | None = None) -> InlineKeyboardMarkup:
+    row: list[InlineKeyboardButton] = []
+    for key, meta in HORO_PERIODS.items():
+        label = meta["button"]
+        if selected == key:
+            label = f"✓ {label}"
+        row.append(InlineKeyboardButton(label, callback_data=f"horo:{sign}:{key}"))
+    return InlineKeyboardMarkup([row])
+
+
+def format_horoscope_when(period: str, date_value: str) -> str:
+    pretty = format_date_it(date_value)
+    if period == "weekly":
+        return f"settimana dal {pretty}"
+    return pretty
+
+
 # ---------------------------------------------------------------------------
 # API live
 # ---------------------------------------------------------------------------
 
 
-async def api_horoscope(client: httpx.AsyncClient, sign: str) -> dict[str, Any]:
-    cache_key = f"horo:{sign}:{datetime.now(DEFAULT_TZ).date()}"
+async def api_horoscope(
+    client: httpx.AsyncClient,
+    sign: str,
+    period: str = "daily",
+) -> dict[str, Any]:
+    if period not in HORO_PERIODS:
+        period = "daily"
+    now = datetime.now(DEFAULT_TZ)
+    if period == "monthly":
+        bucket = now.strftime("%Y-%m")
+    elif period == "weekly":
+        bucket = now.strftime("%Y-%W")
+    else:
+        bucket = str(now.date())
+    cache_key = f"horo:{period}:{sign}:{bucket}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
     data = await fetch_json(
         client,
-        "https://freehoroscopeapi.com/api/v1/get-horoscope/daily",
+        f"https://freehoroscopeapi.com/api/v1/get-horoscope/{period}",
         params={"sign": sign},
     )
     payload = data.get("data") if isinstance(data, dict) else None
@@ -589,6 +689,7 @@ async def deliver_text(
     text: str,
     *,
     preview: bool = False,
+    reply_markup: InlineKeyboardMarkup | None = None,
 ) -> None:
     """Invia un testo, oppure modifica l'ultimo messaggio del bot in questa chat."""
     chat = update.effective_chat
@@ -596,6 +697,8 @@ async def deliver_text(
         return
     text = clip_text(text, TELEGRAM_MAX_LEN)
     last = _last_bot_msg(context)
+    # Sempre esplicito: se ometti reply_markup Telegram lascia i bottoni vecchi.
+    markup = reply_markup if reply_markup is not None else EMPTY_KEYBOARD
 
     if last and last.get("kind") == "text":
         try:
@@ -605,6 +708,7 @@ async def deliver_text(
                 text=text,
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=not preview,
+                reply_markup=markup,
             )
             return
         except TelegramError as exc:
@@ -618,6 +722,7 @@ async def deliver_text(
         text=text,
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=not preview,
+        reply_markup=markup,
     )
     _remember_bot_msg(context, sent.message_id, "text")
 
@@ -670,8 +775,9 @@ async def reply_html(
     text: str,
     *,
     preview: bool = False,
+    reply_markup: InlineKeyboardMarkup | None = None,
 ) -> None:
-    await deliver_text(update, context, text, preview=preview)
+    await deliver_text(update, context, text, preview=preview, reply_markup=reply_markup)
 
 
 async def reply_offline(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -694,7 +800,7 @@ def start_text() -> str:
         f"Se non mi dici un segno, uso {default_emoji} <b>{default_it}</b> "
         f"(costante <code>DEFAULT_SIGN</code>).\n\n"
         "<b>Comandi</b>\n"
-        "• /oroscopo [segno] — previsioni del giorno\n"
+        "• /oroscopo [segno] — poi scegli giorno, settimana o mese\n"
         "• /luna — fase lunare di oggi\n"
         "• /pianeti — dove sono i pianeti adesso\n"
         "• /apod — Astronomy Picture of the Day (NASA)\n"
@@ -710,8 +816,9 @@ def help_text() -> str:
     return (
         "📚 <b>Manuale di sopravvivenza cosmica</b>\n\n"
         "/start — presentazione (e un po' di pepe)\n"
-        f"/oroscopo [segno] — oroscopo giornaliero live. Senza segno uso "
-        f"{default_emoji} {default_it}. Segni: {e(list_signs_help())}\n"
+        f"/oroscopo [segno] — oroscopo live. Senza segno uso "
+        f"{default_emoji} {default_it}. Poi i bottoni: giorno, settimana, mese. "
+        f"Segni: {e(list_signs_help())}\n"
         "/luna — fase, illuminazione, alba/tramonto della Luna su Roma\n"
         "/pianeti — posizioni attuali (efemeridi CosmyDay / Swiss Ephemeris)\n"
         "/apod — immagine (o video) astronomica del giorno, NASA\n"
@@ -738,19 +845,16 @@ async def cmd_aiuto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_oroscopo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     raw = " ".join(context.args) if context.args else ""
-    await send_oroscopo(update, context, raw)
+    await begin_oroscopo(update, context, raw)
 
 
-async def send_oroscopo(
+async def begin_oroscopo(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
-    raw_sign: str,
+    raw: str,
 ) -> None:
-    await send_typing(update)
-    await show_loading(update, context)
-    requested = raw_sign.strip()
-    sign = normalize_sign(requested) if requested else DEFAULT_SIGN
-    if requested and sign is None:
+    sign, period, used_default = parse_oroscopo_query(raw)
+    if sign is None:
         await reply_html(
             update,
             context,
@@ -758,23 +862,63 @@ async def send_oroscopo(
             f"Prova uno di questi: {e(list_signs_help())}",
         )
         return
+    if period:
+        await send_oroscopo_period(update, context, sign, period, used_default=used_default)
+        return
+    await show_oroscopo_picker(update, context, sign, used_default=used_default)
 
-    assert sign is not None
+
+async def show_oroscopo_picker(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    sign: str,
+    *,
+    used_default: bool,
+) -> None:
     it_name, emoji, _ = ZODIAC[sign]
-    used_default = not requested
+    text = (
+        f"{emoji} <b>Oroscopo — {e(it_name)}</b>\n\n"
+        "Quale cielo vuoi consultare?\n"
+        "Giorno, settimana o mese: tocca un bottone, i dati arrivano live."
+    )
+    if used_default:
+        text += (
+            f"\n\n<i>Nessun segno indicato: uso {e(it_name)} "
+            f"(<code>DEFAULT_SIGN</code>).</i>"
+        )
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=oroscopo_keyboard(sign),
+    )
+
+
+async def send_oroscopo_period(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    sign: str,
+    period: str,
+    *,
+    used_default: bool = False,
+) -> None:
+    await send_typing(update)
+    await show_loading(update, context)
+    it_name, emoji, _ = ZODIAC[sign]
+    meta = HORO_PERIODS[period]
     client = _http_client(context)
 
     try:
-        payload = await api_horoscope(client, sign)
+        payload = await api_horoscope(client, sign, period)
         text_en = str(payload.get("horoscope") or "")
         text_it = await translate_to_italian(client, text_en)
-        date_it = format_date_it(str(payload.get("date") or ""))
+        when = format_horoscope_when(period, str(payload.get("date") or ""))
     except StelleOfflineError:
-        logger.exception("Oroscopo non disponibile per %s", sign)
+        logger.exception("Oroscopo %s non disponibile per %s", period, sign)
         await reply_offline(update, context)
         return
 
-    header = f"{emoji} <b>Oroscopo di oggi — {e(it_name)}</b>\n📅 {e(date_it)}"
+    header = f"{emoji} <b>{e(meta['title'])} — {e(it_name)}</b>\n📅 {e(when)}"
     if used_default:
         header += (
             f"\n<i>Nessun segno indicato: uso il default {e(it_name)} "
@@ -782,9 +926,34 @@ async def send_oroscopo(
         )
     body = (
         f"{header}\n\n{e(text_it)}\n\n"
-        "<i>Dati live da freehoroscopeapi.com · traduzione automatica.</i>"
+        "<i>Dati live da freehoroscopeapi.com · traduzione automatica.</i>\n"
+        "<i>Cambia periodo con i bottoni sotto.</i>"
     )
-    await reply_html(update, context, body)
+    await reply_html(
+        update,
+        context,
+        body,
+        reply_markup=oroscopo_keyboard(sign, selected=period),
+    )
+
+
+async def on_oroscopo_period(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    parts = query.data.split(":")
+    if len(parts) != 3 or parts[0] != "horo":
+        await query.answer("Bottone stanco. Riprova con /oroscopo.")
+        return
+    _, sign, period = parts
+    if sign not in ZODIAC or period not in HORO_PERIODS:
+        await query.answer("Segno o periodo sconosciuto.")
+        return
+    await query.answer()
+    if query.message is not None:
+        kind = "text" if query.message.text else "photo"
+        _remember_bot_msg(context, query.message.message_id, kind)
+    await send_oroscopo_period(update, context, sign, period)
 
 
 async def cmd_luna(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1051,8 +1220,9 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if message is None or not message.text:
         return
     text = message.text.strip()
-    if normalize_sign(text):
-        await send_oroscopo(update, context, text)
+    sign, period, _used_default = parse_oroscopo_query(text)
+    if sign is not None and (normalize_sign(text) or period):
+        await begin_oroscopo(update, context, text)
         return
     # In un gruppo non rispondiamo a ogni chiacchiera: solo in chat privata.
     chat = update.effective_chat
@@ -1099,7 +1269,7 @@ async def post_init(application: Application) -> None:
         await application.bot.set_my_commands(
             [
                 BotCommand("start", "Presentazione del bot"),
-                BotCommand("oroscopo", "Oroscopo del giorno (segno opzionale)"),
+                BotCommand("oroscopo", "Oroscopo: giorno, settimana o mese"),
                 BotCommand("luna", "Fase lunare di oggi"),
                 BotCommand("pianeti", "Posizioni attuali dei pianeti"),
                 BotCommand("apod", "Foto NASA del giorno"),
@@ -1135,6 +1305,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler("apod", cmd_apod))
     application.add_handler(CommandHandler("stelle", cmd_stelle))
     application.add_handler(CommandHandler(["aiuto", "help"], cmd_aiuto))
+    application.add_handler(CallbackQueryHandler(on_oroscopo_period, pattern=r"^horo:"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))
     application.add_error_handler(on_error)

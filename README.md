@@ -11,14 +11,14 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | Comando | Effetto | Fonte live |
 | --- | --- | --- |
 | `/start` | Presenta il bot e i comandi | — |
-| `/oroscopo [segno]` | Oroscopo del giorno. Senza segno usa **Leone** (`DEFAULT_SIGN` in `bot.py`) | [freehoroscopeapi.com](https://freehoroscopeapi.com) |
+| `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Leone** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
 | `/luna` | Fase, illuminazione, moonrise/moonset + spiegazione del giorno | [sunrisesunset.io](https://sunrisesunset.io/api/) + [CosmyDay](https://api.cosmyday.com/content/moon) |
 | `/pianeti` | Posizioni attuali dei pianeti principali sopra Roma | [CosmyDay `/natal`](https://cosmyday.com/api-docs) (Swiss Ephemeris) |
 | `/apod` | Astronomy Picture of the Day (foto o video) | [NASA APOD](https://api.nasa.gov) |
 | `/stelle` | Una scheda NASA pescata a caso (`count=1`) | NASA APOD random |
 | `/aiuto` | Elenco comandi | — |
 
-Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come `/oroscopo`.
+Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come `/oroscopo`. Puoi anche scrivere `/oroscopo vergine settimanale` per saltare la scelta.
 
 In chat il bot tiene **un solo messaggio**: ogni comando modifica (o sostituisce) la risposta precedente, senza accodarne di nuove.
 
