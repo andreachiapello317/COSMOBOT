@@ -121,6 +121,7 @@ from services.stones import (
     search_stones,
     stone_of_day,
 )
+from services.stonephoto import guess_stones, read_photo_hints
 from services.lenormand import SPREADS as LENORMAND_SPREADS, draw_lenormand
 from services.oracles import (
     DECK_META,
@@ -2007,7 +2008,7 @@ def help_text() -> str:
         "📚 <b>Manuale di sopravvivenza cosmica</b>\n\n"
         "/start — presentazione (e un po' di pepe)\n"
         "/tema — tema natale: data, ora, luogo, poi Big Three / pianeti / case\n"
-        "/compatibilita — due segni, o sinastria se hai il tema salvato\n"
+        "/compatibilita — soli, lune, venere/marte, elementi, Big Three, sinastria\n"
         f"/oroscopo [segno] — oroscopo live. Senza segno uso "
         f"{default_emoji} {default_it}. Poi i bottoni: giorno, settimana, mese. "
         f"Segni: {e(list_signs_help())}\n"
@@ -8331,6 +8332,7 @@ async def show_pietre_lab(update: Update, context: ContextTypes.DEFAULT_TYPE, st
         state["lab"] = {}
         step = "color"
     state["lab_step"] = step
+    state["photo"] = True
     prompts = {
         "color": "🔬 <b>IDENTIFICA LA PIETRA</b>\n\nChe colore è, soprattutto?",
         "hard": "🔬 <b>DUREZZA</b>\n\nQuanto è dura? (unghia ~2, vetro ~5,5, acciaio ~6–7, corindone 9)",
@@ -8384,7 +8386,7 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
     extra2 = parts[3] if len(parts) > 3 else ""
     if action != "find":
         _stone_state(context)["search"] = False
-    if action != "photo":
+    if action not in {"photo", "lab"}:
         _stone_state(context)["photo"] = False
 
     if action in {"hub", ""}:
@@ -8498,9 +8500,9 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
             update,
             context,
             "📸 <b>FOTO</b>\n\n"
-            "Mandami una foto della pietra.\n"
-            "Ti dirò onestamente che da un'immagine <b>non</b> si fa un'identificazione mineralogica.\n"
-            "Poi ti riporto al laboratorio guidato (colore, durezza, lucentezza).",
+            "Mandami adesso la foto della pietra.\n"
+            "Azzardo tre ipotesi dal catalogo (colore se lo leggo, altrimenti pesco).\n"
+            "Resta una scommessa: una foto <b>non</b> sostituisce durezza, striscio e densità.",
             reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔬 Laboratorio", "pt:lab")], nav_row()]),
         )
         return
@@ -8725,21 +8727,76 @@ async def receive_pietre_search(update: Update, context: ContextTypes.DEFAULT_TY
     await send_stone_list(update, context, hits, "🔍 <b>RISULTATI</b>", f"Ricerca: {e(text)}")
 
 
-async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def _pietre_accepts_photo(context: ContextTypes.DEFAULT_TYPE) -> bool:
     state = context.user_data.get(STONE_STATE_KEY)
-    if not isinstance(state, dict) or not state.get("photo"):
+    if isinstance(state, dict) and (state.get("photo") or state.get("lab") is not None or state.get("last")):
+        return True
+    here = str(context.user_data.get(NAV_HERE_KEY) or "")
+    return here.startswith("pt:")
+
+
+async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if message is None or not message.photo:
         return
-    state["photo"] = False
+    chat = update.effective_chat
+    if not _pietre_accepts_photo(context):
+        if chat is None or chat.type != "private":
+            return
+        # in privato, se non siamo in Pietre, non rubo la foto
+        return
+    state = _stone_state(context)
+    state["photo"] = True
     await delete_user_command(update)
-    await reply_html(
-        update,
-        context,
-        "📸 Ho visto la foto.\n\n"
-        "Da un'immagine <b>non</b> si identifica un minerale: mancano durezza, striscio, densità, "
-        "eventuale magnetismo e, se serve, analisi.\n"
-        "Usiamola come spunto e andiamo per caratteristiche.",
-        reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔬 Laboratorio", "pt:lab")], nav_row()]),
+    await send_typing(update)
+    await deliver_text(update, context, "📸 Guardo la foto e azzardo…")
+    hints: dict[str, Any] = {"colors": [], "metallic": False, "ok": False}
+    try:
+        from io import BytesIO
+
+        tg_file = await context.bot.get_file(message.photo[-1].file_id)
+        buf = BytesIO()
+        await tg_file.download_to_memory(buf)
+        hints = read_photo_hints(buf.getvalue())
+    except Exception:
+        hints = {"colors": [], "metallic": False, "ok": False}
+    guesses = guess_stones(hints, n=3)
+    if guesses:
+        state["last"] = guesses[0]["id"]
+        user = update.effective_user
+        if user:
+            for stone in guesses:
+                await stone_discover(user.id, stone["id"])
+    color_bits = []
+    for key in hints.get("colors") or []:
+        if key in COLORS:
+            color_bits.append(f"{COLORS[key][0]} {COLORS[key][1]}")
+    if hints.get("metallic"):
+        color_bits.append("lucentezza chiara / metallica")
+    seen = ", ".join(color_bits) if color_bits else "colore incerto, pesco dal catalogo"
+    method = "dal colore che ho letto" if hints.get("ok") and color_bits else "a occhio, anche a caso"
+    lines = [
+        "📸 <b>IPOTESI DA FOTO</b>",
+        f"Nella foto: {e(seen)}.",
+        f"Tre scommesse {method}.",
+        "",
+    ]
+    if not guesses:
+        guesses = []
+    for i, stone in enumerate(guesses, start=1):
+        rem, rname = RARITY[stone["rarity"]]
+        lines.append(f"{i}. {stone['emoji']} <b>{e(stone['it'])}</b> · {e(stone['formula'])} · {rem} {rname}")
+    lines.extend(
+        [
+            "",
+            "Non è un'identificazione. Mancano durezza, striscio, densità.",
+            "Tocca una scommessa o continua il laboratorio.",
+        ]
     )
+    rows = [[_tarot_btn(f"{s['emoji']} {s['it']}", f"pt:s:{s['id']}")] for s in guesses]
+    rows.append([_tarot_btn("🔬 Continua il laboratorio", "pt:lab"), _tarot_btn("📸 Un'altra foto", "pt:photo")])
+    rows.append(nav_row())
+    await reply_html(update, context, "\n".join(lines), reply_markup=InlineKeyboardMarkup(rows))
 
 
 async def cmd_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
