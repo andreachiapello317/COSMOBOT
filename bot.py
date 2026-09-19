@@ -80,7 +80,21 @@ from services.progress import (
     world_list,
     world_save,
 )
-from services.compat import SIGNS as COMPAT_SIGNS, format_sign_compat, format_synastry
+from services.compat import (
+    COMPAT_SLOTS,
+    ELEMENTS as COMPAT_ELEMENTS,
+    MINE_FILL,
+    SIGNS as COMPAT_SIGNS,
+    chart_element,
+    chart_points,
+    format_big_three,
+    format_elements,
+    format_overlays,
+    format_point_compat,
+    format_sign_compat,
+    format_synastry,
+    format_venus_mars,
+)
 from services.stones import (
     CATS,
     COLORS,
@@ -199,6 +213,7 @@ from ui.keyboards import (
     world_mondi_keyboard,
     world_self_keyboard,
     compat_after_keyboard,
+    compat_element_keyboard,
     compat_hub_keyboard,
     compat_sign_keyboard,
     world_sky_keyboard,
@@ -320,6 +335,8 @@ NAV_SKIP_PREFIXES = (
     "cp:a:",
     "cp:b:",
     "cp:loc:",
+    "cp:p:",
+    "cp:el:",
 )
 NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
 
@@ -8787,31 +8804,135 @@ async def _compat_my_sun(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return None
 
 
+async def _compat_kb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> InlineKeyboardMarkup:
+    return compat_hub_keyboard(
+        has_natal=await _compat_has_natal(update),
+        has_syn=isinstance(_compat_state(context).get("chart_b"), dict),
+    )
+
+
+async def _compat_my_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any] | None:
+    chart = natal_chart_from_state(_natal_state(context))
+    if chart:
+        return chart
+    if await _compat_my_sun(update, context):
+        return natal_chart_from_state(_natal_state(context))
+    return None
+
+
 async def show_compat_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     has_natal = await _compat_has_natal(update)
-    await reply_html(update, context, compat_hub_text(has_natal=has_natal), reply_markup=compat_hub_keyboard(has_natal=has_natal))
+    has_syn = isinstance(_compat_state(context).get("chart_b"), dict)
+    await reply_html(
+        update,
+        context,
+        compat_hub_text(has_natal=has_natal, has_syn=has_syn),
+        reply_markup=compat_hub_keyboard(has_natal=has_natal, has_syn=has_syn),
+    )
+
+
+async def start_compat_mode(update: Update, context: ContextTypes.DEFAULT_TYPE, mode: str) -> None:
+    state = _compat_state(context)
+    state["mode"] = mode
+    state["picks"] = {}
+    state["step"] = None
+    if mode == "el":
+        chart = await _compat_my_chart(update, context)
+        mine = chart_element(chart) if chart else None
+        if mine:
+            state["picks"] = {"a": mine}
+            await show_compat_element_pick(update, context, "b")
+            return
+        await show_compat_element_pick(update, context, "a")
+        return
+    slots = COMPAT_SLOTS.get(mode)
+    if not slots:
+        await show_compat_hub(update, context)
+        return
+    chart = await _compat_my_chart(update, context)
+    points = chart_points(chart) if chart else {}
+    picks = state["picks"]
+    for slot, dest in MINE_FILL.get(mode, {}).items():
+        if dest in points:
+            picks[slot] = points[dest]
+    await show_compat_slot(update, context)
+
+
+async def show_compat_slot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _compat_state(context)
+    mode = str(state.get("mode") or "signs")
+    slots = COMPAT_SLOTS.get(mode) or COMPAT_SLOTS["signs"]
+    picks = state.setdefault("picks", {})
+    nxt = next((slot for slot, _label in slots if slot not in picks), None)
+    if nxt is None:
+        await finish_compat_mode(update, context)
+        return
+    label = dict(slots)[nxt]
+    text = f"❤️ <b>COMPATIBILITÀ</b>\n\nScegli {label}."
+    if picks:
+        filled = ", ".join(f"{COMPAT_SIGNS[v][1]} {COMPAT_SIGNS[v][0]}" for v in picks.values() if v in COMPAT_SIGNS)
+        if filled:
+            text += f"\nGià scelti: {filled}"
+    await reply_html(update, context, text, reply_markup=compat_sign_keyboard(f"cp:p:{nxt}:"))
+
+
+async def show_compat_element_pick(update: Update, context: ContextTypes.DEFAULT_TYPE, which: str) -> None:
+    title = "il tuo elemento" if which == "a" else "l'elemento dell'altra persona"
+    await reply_html(
+        update,
+        context,
+        f"❤️ <b>DUE ELEMENTI</b>\n\nScegli {title}.",
+        reply_markup=compat_element_keyboard(which),
+    )
 
 
 async def show_compat_pick(update: Update, context: ContextTypes.DEFAULT_TYPE, which: str) -> None:
-    mine = None
+    _compat_state(context)["mode"] = "signs"
     if which == "a":
-        mine = await _compat_my_sun(update, context)
-    title = "il tuo segno" if which == "a" else "il segno dell'altra persona"
-    text = f"❤️ <b>COMPATIBILITÀ</b>\n\nScegli {title}."
-    if which == "a" and mine:
-        it, emoji, _el, _md = COMPAT_SIGNS[mine]
-        text += f"\n\nIl Sole del tuo tema: {emoji} {it}."
-    rows = list(compat_sign_keyboard(f"cp:{which}:").inline_keyboard)
-    if which == "a" and mine:
-        rows = [[_tarot_btn("☀️ Usa il mio Sole", f"cp:a:{mine}")]] + rows
-    await reply_html(update, context, text, reply_markup=InlineKeyboardMarkup(rows))
+        _compat_state(context)["picks"] = {}
+    await show_compat_slot(update, context)
+
+
+POINT_KINDS = frozenset({"signs", "moon", "asc", "merc"})
+
+
+async def finish_compat_mode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _compat_state(context)
+    mode = str(state.get("mode") or "signs")
+    picks = state.get("picks") if isinstance(state.get("picks"), dict) else {}
+    kb = await _compat_kb(update, context)
+    if mode == "el" and picks.get("a") in COMPAT_ELEMENTS and picks.get("b") in COMPAT_ELEMENTS:
+        await reply_html(update, context, format_elements(picks["a"], picks["b"]), reply_markup=kb)
+        return
+    if mode == "vm" and all(picks.get(k) in COMPAT_SIGNS for k in ("av", "am", "bv", "bm")):
+        await reply_html(update, context, format_venus_mars(picks["av"], picks["am"], picks["bv"], picks["bm"]), reply_markup=kb)
+        return
+    if mode == "b3" and all(picks.get(k) in COMPAT_SIGNS for k in ("as", "am", "aa", "bs", "bm", "ba")):
+        await reply_html(
+            update,
+            context,
+            format_big_three(picks["as"], picks["am"], picks["aa"], picks["bs"], picks["bm"], picks["ba"]),
+            reply_markup=kb,
+        )
+        return
+    if mode in POINT_KINDS and picks.get("a") in COMPAT_SIGNS and picks.get("b") in COMPAT_SIGNS:
+        await reply_html(update, context, format_point_compat(mode, picks["a"], picks["b"]), reply_markup=kb)
+        return
+    await show_compat_hub(update, context)
 
 
 async def send_compat_signs(update: Update, context: ContextTypes.DEFAULT_TYPE, a: str, b: str) -> None:
-    _compat_state(context).update({"a": a, "b": b, "step": None})
-    extra = [[_tarot_btn("🌌 Sinastria", "cp:syn")]] if await _compat_has_natal(update) else []
-    kb = InlineKeyboardMarkup(extra + list(compat_after_keyboard().inline_keyboard))
-    await reply_html(update, context, format_sign_compat(a, b), reply_markup=kb)
+    _compat_state(context).update({"mode": "signs", "picks": {"a": a, "b": b}, "step": None})
+    await finish_compat_mode(update, context)
+
+
+async def send_compat_overlay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chart_a = await _compat_my_chart(update, context)
+    chart_b = _compat_state(context).get("chart_b")
+    if not chart_a or not isinstance(chart_b, dict):
+        await show_compat_hub(update, context)
+        return
+    await reply_html(update, context, format_overlays(chart_a, chart_b), reply_markup=await _compat_kb(update, context))
 
 
 async def ask_compat_other_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -8885,42 +9006,65 @@ async def send_compat_synastry(update: Update, context: ContextTypes.DEFAULT_TYP
         await reply_offline(update, context)
         return
     other["step"] = None
+    other["chart_b"] = chart_b
     name_a = str(profile.get("place") or "il tuo tema")
     name_b = str(other.get("place") or "l'altra carta")
-    extra = [[_tarot_btn("♈ Solo i segni", "cp:signs")]]
-    kb = InlineKeyboardMarkup(extra + list(compat_after_keyboard().inline_keyboard))
-    await reply_html(update, context, format_synastry(chart_a, chart_b, name_a=name_a, name_b=name_b), reply_markup=kb)
+    await reply_html(
+        update,
+        context,
+        format_synastry(chart_a, chart_b, name_a=name_a, name_b=name_b),
+        reply_markup=await _compat_kb(update, context),
+    )
 
 
 async def dispatch_compat(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     parts = token.split(":")
     action = parts[1] if len(parts) > 1 else "hub"
     extra = parts[2] if len(parts) > 2 else ""
-    if action != "date" and action != "time" and action != "place":
-        if action not in {"a", "b", "loc", "notime"}:
-            _compat_state(context)["step"] = None
+    extra2 = parts[3] if len(parts) > 3 else ""
+    if action not in {"a", "b", "loc", "notime", "p", "el"}:
+        _compat_state(context)["step"] = None
     if action in {"hub", ""}:
         await show_compat_hub(update, context)
         return
+    if action == "go" and extra in {*COMPAT_SLOTS, "el"}:
+        await start_compat_mode(update, context, extra)
+        return
     if action == "signs":
-        await show_compat_pick(update, context, "a")
+        await start_compat_mode(update, context, "signs")
+        return
+    if action == "p" and extra2 in COMPAT_SIGNS:
+        _compat_state(context).setdefault("picks", {})[extra] = extra2
+        await show_compat_slot(update, context)
+        return
+    if action == "el" and extra2 in COMPAT_ELEMENTS:
+        picks = _compat_state(context).setdefault("picks", {})
+        picks[extra] = extra2
+        _compat_state(context)["mode"] = "el"
+        if extra == "a":
+            await show_compat_element_pick(update, context, "b")
+            return
+        await finish_compat_mode(update, context)
         return
     if action == "a" and extra in COMPAT_SIGNS:
-        _compat_state(context)["a"] = extra
-        await show_compat_pick(update, context, "b")
+        _compat_state(context)["mode"] = "signs"
+        _compat_state(context)["picks"] = {"a": extra}
+        await show_compat_slot(update, context)
         return
     if action == "b" and extra in COMPAT_SIGNS:
-        a = str(_compat_state(context).get("a") or "")
-        if a not in COMPAT_SIGNS:
-            await show_compat_pick(update, context, "a")
-            return
-        await send_compat_signs(update, context, a, extra)
+        _compat_state(context)["mode"] = "signs"
+        picks = _compat_state(context).setdefault("picks", {})
+        picks["b"] = extra
+        await finish_compat_mode(update, context)
         return
     if action == "syn":
         if not await _compat_has_natal(update):
             await show_compat_hub(update, context)
             return
         await ask_compat_other_date(update, context)
+        return
+    if action == "ov":
+        await send_compat_overlay(update, context)
         return
     if action == "notime":
         state = _compat_state(context)

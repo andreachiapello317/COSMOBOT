@@ -80,19 +80,20 @@ def world_self_text() -> str:
     )
 
 
-def compat_hub_text(*, has_natal: bool) -> str:
+def compat_hub_text(*, has_natal: bool, has_syn: bool = False) -> str:
     extra = (
-        "🌌 <b>Sinastria</b> — il tuo tema salvato + data, ora e luogo dell'altra persona. "
-        "Posizioni live, aspetti tra le due carte.\n\n"
+        "🌌 <b>Sinastria</b> — due temi live, aspetti tra le carte.\n"
         if has_natal
-        else "Per la sinastria serve prima il tuo 🌌 tema salvato.\n\n"
+        else "Per sinastria e overlay serve il 🌌 tema salvato.\n"
     )
+    overlay = "🏠 <b>Overlay</b> — i loro pianeti nelle tue case.\n" if has_syn else ""
     return (
         "❤️ <b>COMPATIBILITÀ</b>\n\n"
-        "Due modi, entrambi dichiarati come astrologia tradizionale.\n\n"
-        "♈ <b>Due segni</b> — elementi, modalità, angolo tra i Soli. "
-        "Niente percentuali.\n\n"
-        f"{extra}"
+        "Più porte, nessuna percentuale. Tutto è tradizione, non astronomia.\n\n"
+        "☀️ Soli · 🌙 Lune · ⬆️ Ascendenti · ☿️ Mercurio\n"
+        "♀️♂️ Venere e Marte · 🔥 Elementi · ☀️🌙⬆️ Big Three\n"
+        f"{extra}{overlay}\n"
+        "Se hai il tema, i tuoi punti li prendo dalla carta. "
         "Non è una previsione e non sostituisce due persone che si parlano."
     )
 

@@ -82,12 +82,17 @@ def world_self_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def compat_hub_keyboard(*, has_natal: bool = False) -> InlineKeyboardMarkup:
+def compat_hub_keyboard(*, has_natal: bool = False, has_syn: bool = False) -> InlineKeyboardMarkup:
     rows = [
-        [kb_btn("♈ Due segni", "cp:signs")],
+        [kb_btn("☀️ Soli", "cp:go:signs"), kb_btn("🌙 Lune", "cp:go:moon")],
+        [kb_btn("♀️♂️ Venere·Marte", "cp:go:vm"), kb_btn("⬆️ Ascendenti", "cp:go:asc")],
+        [kb_btn("☿️ Mercurio", "cp:go:merc"), kb_btn("🔥 Elementi", "cp:go:el")],
+        [kb_btn("☀️🌙⬆️ Big Three", "cp:go:b3")],
     ]
     if has_natal:
         rows.append([kb_btn("🌌 Sinastria (due temi)", "cp:syn")])
+    if has_syn:
+        rows.append([kb_btn("🏠 Overlay case", "cp:ov")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
@@ -101,13 +106,15 @@ def compat_sign_keyboard(prefix: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(grid)
 
 
-def compat_after_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("🔄 Altri segni", "cp:signs"), kb_btn("❤️ Hub", "cp:hub")],
-            nav_row(),
-        ]
-    )
+def compat_element_keyboard(which: str) -> InlineKeyboardMarkup:
+    from services.compat import ELEMENTS
+
+    buttons = [kb_btn(f"{em} {name}", f"cp:el:{which}:{key}") for key, (em, name) in ELEMENTS.items()]
+    return InlineKeyboardMarkup(_pairs(buttons) + [nav_row()])
+
+
+def compat_after_keyboard(*, has_natal: bool = False, has_syn: bool = False) -> InlineKeyboardMarkup:
+    return compat_hub_keyboard(has_natal=has_natal, has_syn=has_syn)
 
 
 def world_div_keyboard() -> InlineKeyboardMarkup:

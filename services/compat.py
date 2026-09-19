@@ -102,29 +102,255 @@ def _pair_note(el_a: str, el_b: str) -> str:
     return ELEMENT_NOTE.get(key, "Due temperamenti diversi: la tradizione li legge come lavoro, non come verdetto.")
 
 
-def format_sign_compat(a: str, b: str) -> str:
-    ia, ea, ela, mda = SIGNS[a]
-    ib, eb, elb, mdb = SIGNS[b]
+POINT_META = {
+    "signs": ("☀️ DUE SOLI", "Identità e ciò che si vuole esprimere."),
+    "moon": ("🌙 DUE LUNE", "Bisogni, umore, come ci si accudisce."),
+    "asc": ("⬆️ DUE ASCENDENTI", "Come ci si presenta e si entra in relazione."),
+    "merc": ("☿️ DUE MERCURI", "Parole, ritmo mentale, come si discute."),
+}
+
+ELEMENTS = {
+    "fuoco": ("🔥", "Fuoco"),
+    "terra": ("🌍", "Terra"),
+    "aria": ("💨", "Aria"),
+    "acqua": ("💧", "Acqua"),
+}
+
+HOUSE_IT = {
+    1: "identità / come ti incontrano",
+    2: "risorse e valore",
+    3: "parole e quotidianità",
+    4: "casa e radici",
+    5: "piacere e creatività",
+    6: "cura e routine",
+    7: "relazione e confronto",
+    8: "intimità e crisi",
+    9: "senso e orizzonte",
+    10: "ruolo nel mondo",
+    11: "amicizie e progetti",
+    12: "invisibile e soglia",
+}
+
+
+def _angle(a: str, b: str) -> tuple[int, str, str, str]:
     diff = abs(SIGN_ORDER.index(a) - SIGN_ORDER.index(b))
     steps = min(diff % 12, 12 - (diff % 12))
-    ang_name, glyph, ang_note = SIGN_ANGLE[steps]
+    name, glyph, note = SIGN_ANGLE[steps]
+    return steps, name, glyph, note
+
+
+def format_sign_compat(a: str, b: str) -> str:
+    return format_point_compat("signs", a, b)
+
+
+def format_point_compat(kind: str, a: str, b: str) -> str:
+    title, blurb = POINT_META.get(kind, POINT_META["signs"])
+    ia, ea, ela, mda = SIGNS[a]
+    ib, eb, elb, mdb = SIGNS[b]
+    steps, ang_name, glyph, ang_note = _angle(a, b)
     same_mode = "stessa modalità" if mda == mdb else f"{mda} + {mdb}"
     return "\n".join(
         [
-            "❤️ <b>COMPATIBILITÀ</b>",
+            f"❤️ <b>{title}</b>",
+            blurb,
+            "",
             f"{ea} <b>{ia}</b>  ·  {eb} <b>{ib}</b>",
             "",
             f"Elementi: {ela} + {elb}",
             _pair_note(ela, elb),
             "",
             f"Modalità: {same_mode}",
-            f"Angolo tra i segni: {glyph} {ang_name} ({steps * 30}°)",
+            f"Angolo: {glyph} {ang_name} ({steps * 30}°)",
             ang_note,
             "",
-            "<i>Lettura tradizionale dei segni. Non è astronomia, non è un verdetto "
-            "e non assegno percentuali. Due persone sono più dei due Soli.</i>",
+            "<i>Tradizione astrologica, non astronomia e non un verdetto. "
+            "Niente percentuali.</i>",
         ]
     )
+
+
+def format_elements(a: str, b: str) -> str:
+    ea, na = ELEMENTS[a]
+    eb, nb = ELEMENTS[b]
+    return "\n".join(
+        [
+            "❤️ <b>DUE ELEMENTI</b>",
+            "Temperamenti, non due oroscopi.",
+            "",
+            f"{ea} <b>{na}</b>  ·  {eb} <b>{nb}</b>",
+            "",
+            _pair_note(a, b),
+            "",
+            "<i>Fuoco, terra, aria, acqua: schema tradizionale. "
+            "Non è chimica e non è un test di coppia.</i>",
+        ]
+    )
+
+
+def format_venus_mars(av: str, am: str, bv: str, bm: str) -> str:
+    lines = [
+        "❤️ <b>VENERE E MARTE</b>",
+        "Gusto e slancio, nella tradizione: come ci si piace e come si insegue.",
+        "",
+    ]
+    pairs = (
+        ("Tua Venere · Marte altra", av, bm),
+        ("Tuo Marte · Venere altra", am, bv),
+        ("Due Veneri (gusto)", av, bv),
+        ("Due Marti (ritmo)", am, bm),
+    )
+    for title, a, b in pairs:
+        ia, ea, ela, _m = SIGNS[a]
+        ib, eb, elb, _n = SIGNS[b]
+        steps, ang_name, glyph, _note = _angle(a, b)
+        lines.append(f"<b>{title}</b>")
+        lines.append(f"{ea} {ia}  ·  {eb} {ib}")
+        lines.append(f"{ela}+{elb} · {glyph} {ang_name} ({steps * 30}°)")
+        lines.append(_pair_note(ela, elb))
+        lines.append("")
+    lines.append("<i>Non è una previsione sessuale né un punteggio. È uno schema tradizionale.</i>")
+    return "\n".join(lines)
+
+
+def format_big_three(
+    asun: str,
+    amoon: str,
+    aasc: str,
+    bsun: str,
+    bmoon: str,
+    basc: str,
+) -> str:
+    lines = [
+        "❤️ <b>BIG THREE</b>",
+        "Sole, Luna, Ascendente: tre porte, non un verdetto.",
+        "",
+    ]
+    rows = (
+        ("☀️ Soli — identità", asun, bsun),
+        ("🌙 Lune — bisogni", amoon, bmoon),
+        ("⬆️ Ascendenti — incontro", aasc, basc),
+    )
+    for title, a, b in rows:
+        ia, ea, ela, _m = SIGNS[a]
+        ib, eb, elb, _n = SIGNS[b]
+        steps, ang_name, glyph, ang_note = _angle(a, b)
+        lines.append(f"<b>{title}</b>")
+        lines.append(f"{ea} {ia}  ·  {eb} {ib}")
+        lines.append(f"{ela}+{elb} · {glyph} {ang_name} ({steps * 30}°)")
+        lines.append(ang_note)
+        lines.append("")
+    lines.append("<i>Tre confronti tradizionali. Due persone restano più di sei segni.</i>")
+    return "\n".join(lines)
+
+
+def chart_points(chart: dict[str, Any]) -> dict[str, str]:
+    planets = chart.get("planets") if isinstance(chart.get("planets"), dict) else {}
+    out: dict[str, str] = {}
+    for key, dest in (("Sun", "sun"), ("Moon", "moon"), ("Venus", "venus"), ("Mars", "mars"), ("Mercury", "merc")):
+        body = planets.get(key)
+        if not isinstance(body, dict):
+            continue
+        sign = str(body.get("sign") or "").lower()
+        if sign in SIGNS:
+            out[dest] = sign
+    try:
+        lon = float(chart.get("ascendant") or 0) % 360.0
+        out["asc"] = SIGN_ORDER[int(lon // 30) % 12]
+    except (TypeError, ValueError):
+        pass
+    return out
+
+
+def chart_element(chart: dict[str, Any]) -> str | None:
+    planets = chart.get("planets") if isinstance(chart.get("planets"), dict) else {}
+    counts = {key: 0 for key in ELEMENTS}
+    for key in ("Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"):
+        body = planets.get(key)
+        if not isinstance(body, dict):
+            continue
+        meta = SIGNS.get(str(body.get("sign") or "").lower())
+        if meta:
+            counts[meta[2]] += 1
+    if not any(counts.values()):
+        return None
+    return max(counts, key=counts.get)
+
+
+def _house_for_lon(lon: float, cusps: list[float]) -> int | None:
+    if len(cusps) < 12:
+        return None
+    lon = float(lon) % 360.0
+    for idx in range(12):
+        start = float(cusps[idx]) % 360.0
+        end = float(cusps[(idx + 1) % 12]) % 360.0
+        if start <= end:
+            if start <= lon < end:
+                return idx + 1
+        elif lon >= start or lon < end:
+            return idx + 1
+    return None
+
+
+def format_overlays(chart_a: dict[str, Any], chart_b: dict[str, Any]) -> str:
+    cusps = chart_a.get("cusps") or []
+    try:
+        cusps_f = [float(x) for x in cusps[:12]]
+    except (TypeError, ValueError):
+        cusps_f = []
+    pb = chart_b.get("planets") if isinstance(chart_b.get("planets"), dict) else {}
+    lines = [
+        "❤️ <b>OVERLAY DELLE CASE</b>",
+        "I pianeti dell'altra persona nelle tue case (cuspidi live).",
+        "",
+    ]
+    shown = 0
+    for key, (emoji, label) in PLANET_IT.items():
+        lon = body_lon(pb.get(key))
+        house = _house_for_lon(lon, cusps_f) if lon is not None else None
+        if house is None:
+            continue
+        lines.append(f"{emoji} <b>{label}</b> dell'altra → casa {house} ({HOUSE_IT[house]})")
+        shown += 1
+    if shown == 0:
+        lines.append("Non ho abbastanza cuspidi per l'overlay. Riprova la sinastria con ora e luogo.")
+    lines.extend(
+        [
+            "",
+            "<i>Overlay da efemeridi e case Placidus. Tradizione, non un verdetto.</i>",
+        ]
+    )
+    return "\n".join(lines)
+
+
+COMPAT_SLOTS = {
+    "signs": (("a", "il tuo Sole"), ("b", "il Sole dell'altra persona")),
+    "moon": (("a", "la tua Luna"), ("b", "la Luna dell'altra persona")),
+    "asc": (("a", "il tuo Ascendente"), ("b", "l'Ascendente dell'altra")),
+    "merc": (("a", "il tuo Mercurio"), ("b", "il Mercurio dell'altra")),
+    "vm": (
+        ("av", "la tua Venere"),
+        ("am", "il tuo Marte"),
+        ("bv", "la Venere dell'altra"),
+        ("bm", "il Marte dell'altra"),
+    ),
+    "b3": (
+        ("as", "il tuo Sole"),
+        ("am", "la tua Luna"),
+        ("aa", "il tuo Ascendente"),
+        ("bs", "il Sole dell'altra"),
+        ("bm", "la Luna dell'altra"),
+        ("ba", "l'Ascendente dell'altra"),
+    ),
+}
+
+MINE_FILL = {
+    "signs": {"a": "sun"},
+    "moon": {"a": "moon"},
+    "asc": {"a": "asc"},
+    "merc": {"a": "merc"},
+    "vm": {"av": "venus", "am": "mars"},
+    "b3": {"as": "sun", "am": "moon", "aa": "asc"},
+}
 
 
 def body_lon(body: dict[str, Any] | None) -> float | None:
