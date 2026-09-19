@@ -121,7 +121,7 @@ from services.stones import (
     search_stones,
     stone_of_day,
 )
-from services.stonephoto import guess_stones, read_photo_hints
+from services.stonephoto import confidence_label, guess_stones, identify_from_photo, read_photo_hints
 from services.lenormand import SPREADS as LENORMAND_SPREADS, draw_lenormand
 from services.oracles import (
     DECK_META,
@@ -8334,7 +8334,11 @@ async def show_pietre_lab(update: Update, context: ContextTypes.DEFAULT_TYPE, st
     state["lab_step"] = step
     state["photo"] = True
     prompts = {
-        "color": "🔬 <b>IDENTIFICA LA PIETRA</b>\n\nChe colore è, soprattutto?",
+        "color": (
+            "🔬 <b>IDENTIFICA LA PIETRA</b>\n\n"
+            "Che colore è, soprattutto?\n"
+            "Oppure mandami una foto: confronto il colore e le miniature Wikipedia del catalogo."
+        ),
         "hard": "🔬 <b>DUREZZA</b>\n\nQuanto è dura? (unghia ~2, vetro ~5,5, acciaio ~6–7, corindone 9)",
         "trans": "🔬 <b>TRASPARENZA</b>\n\nLascia passare la luce?",
         "metal": "🔬 <b>LUCENTEZZA</b>\n\nHa lucentezza metallica?",
@@ -8749,18 +8753,38 @@ async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     state["photo"] = True
     await delete_user_command(update)
     await send_typing(update)
-    await deliver_text(update, context, "📸 Guardo la foto e azzardo…")
+    await deliver_text(update, context, "📸 Confronto la foto con le miniature Wikipedia del catalogo…")
     hints: dict[str, Any] = {"colors": [], "metallic": False, "ok": False}
+    details: list[dict[str, Any]] = []
+    method = "none"
     try:
         from io import BytesIO
 
         tg_file = await context.bot.get_file(message.photo[-1].file_id)
         buf = BytesIO()
         await tg_file.download_to_memory(buf)
-        hints = read_photo_hints(buf.getvalue())
+        raw = buf.getvalue()
+        hints = read_photo_hints(raw)
+        try:
+            client = _http_client(context)
+        except StelleOfflineError:
+            client = None
+        identified = await identify_from_photo(client, raw, n=3)
+        hints = identified.get("hints") or hints
+        details = list(identified.get("details") or [])
+        method = str(identified.get("method") or "none")
     except Exception:
-        hints = {"colors": [], "metallic": False, "ok": False}
-    guesses = guess_stones(hints, n=3)
+        details = []
+        method = "none"
+    if not details:
+        fallback = guess_stones(hints, n=3)
+        if fallback:
+            details = [
+                {"stone": stone, "score": 0.22, "why": "solo colore del catalogo"}
+                for stone in fallback
+            ]
+            method = "color"
+    guesses = [row["stone"] for row in details if isinstance(row, dict) and row.get("stone")]
     color_keys = [c for c in (hints.get("colors") or []) if c in COLORS]
     if color_keys:
         state.setdefault("lab", {})
@@ -8787,19 +8811,31 @@ async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         return
     seen = ", ".join(color_bits)
+    if method == "wiki+clip":
+        how = "Confronto: miniature Wikipedia + modello visivo CLIP."
+    elif method == "wiki":
+        how = "Confronto: miniature Wikipedia delle pietre dello stesso colore."
+    elif method == "clip":
+        how = "Confronto: modello visivo CLIP, sul catalogo già filtrato per colore."
+    else:
+        how = "Le miniature Wikipedia non hanno risposto: resto sul colore, senza pescare a caso."
     lines = [
         "📸 <b>IPOTESI DA FOTO</b>",
-        f"Colore letto: <b>{e(seen)}</b>.",
-        "Solo pietre di quel colore. Niente catalogo a caso.",
+        f"Colore letto: <b>{e(seen)}</b> — vincolo, non suggerimento.",
+        how,
         "",
     ]
-    for i, stone in enumerate(guesses, start=1):
+    for i, row in enumerate(details, start=1):
+        stone = row["stone"]
         rem, rname = RARITY[stone["rarity"]]
+        why = str(row.get("why") or "catalogo")
+        label = confidence_label(float(row.get("score") or 0.0))
         lines.append(f"{i}. {stone['emoji']} <b>{e(stone['it'])}</b> · {e(stone['color'])} · {rem} {rname}")
+        lines.append(f"   <i>{e(label)} · {e(why)}</i>")
     lines.extend(
         [
             "",
-            "Il colore è vincolo. Il nome resta un'ipotesi: mancano durezza e striscio.",
+            "Il nome resta un'ipotesi: una foto non sostituisce durezza, striscio e densità.",
         ]
     )
     rows = [[_tarot_btn(f"{s['emoji']} {s['it']}", f"pt:s:{s['id']}")] for s in guesses]

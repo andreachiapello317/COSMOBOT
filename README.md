@@ -91,7 +91,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 Il mondo **🔭 CIELO** è astronomia reale. Il mondo **🔮 ORACOLI** è esperienza simbolica. Il mondo **💎 PIETRE** è autonomo: mineralogia e geologia da catalogo pubblico, folklore tenuto a parte. Non si mescolano.
 
-`/pietre` apre l’universo: schede (scienza / geologia / storia / simbolismo), colori, ambienti, laboratorio guidato, confronto, giochi, museo, collezione, pietre dallo spazio. `/pietra` è l’oracolo dichiarato come gioco. Una foto nel laboratorio azzarda tre ipotesi di catalogo (colore se si legge, altrimenti a caso): non è un’analisi. Niente prezzi inventati. La rarità è di catalogo, non una quotazione.
+`/pietre` apre l’universo: schede (scienza / geologia / storia / simbolismo), colori, ambienti, laboratorio guidato, confronto, giochi, museo, collezione, pietre dallo spazio. `/pietra` è l’oracolo dichiarato come gioco. Una foto nel laboratorio prima legge il colore (vincolo duro), poi confronta l’immagine con le miniature Wikipedia del catalogo e, se c’è `HF_TOKEN`, con CLIP zero-shot. Tre ipotesi, non un’analisi mineralogica. Niente prezzi inventati. La rarità è di catalogo, non una quotazione.
 
 `/start` apre una home a **sette mondi** (te stesso, divinazione, cielo, mondi, vita, missioni, pietre) più **COSMICO** e **RANDOM**. `/esplora` è la stessa mappa. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` prende un pezzo da ogni mondo: se una API cade, le altre restano.
 
@@ -136,6 +136,12 @@ Opzionale ma consigliato: una chiave NASA gratuita su [api.nasa.gov](https://api
 
 ```env
 NASA_API_KEY=la_tua_chiave
+```
+
+Opzionale per il laboratorio pietre: un token Hugging Face. Senza, il bot confronta comunque la foto con le miniature Wikipedia del catalogo (stesso colore). Con `HF_TOKEN` prova anche CLIP zero-shot.
+
+```env
+HF_TOKEN=hf_...
 ```
 
 Avvio:
@@ -255,6 +261,7 @@ services/eclipses.py   # Skytime eclissi
 services/sheets.py     # schede e quiz da fonti live
 services/progress.py   # punti quiz, missione del giorno, collezione pietre (file locale)
 services/stones.py     # catalogo mineralogico, schede, laboratorio, quiz
+services/stonephoto.py # foto lab: colore + miniature Wikipedia + CLIP opzionale
 services/compat.py     # segni e sinastria (tradizione + carte live)
 services/runes.py      # dataset Elder Futhark
 services/iss.py        # posizione ISS
@@ -266,7 +273,7 @@ requirements.txt
 README.md
 ```
 
-Dipendenze Python: `python-telegram-bot[webhooks]`, `httpx`, `python-dotenv`.
+Dipendenze Python: `python-telegram-bot[webhooks]`, `httpx`, `python-dotenv`, `Pillow`.
 
 ---
 
@@ -276,3 +283,4 @@ Dipendenze Python: `python-telegram-bot[webhooks]`, `httpx`, `python-dotenv`.
 - **CosmyDay** è gratis e senza chiave: va indicato come fonte (il bot lo fa nei footer). Non martellare gli endpoint; c’è una cache in memoria di pochi minuti.
 - **NASA `DEMO_KEY`**: limite stretto. In produzione usa una chiave tua.
 - Traduzione: prima un endpoint pubblico di Google Translate, in fallback MyMemory. Se entrambi falliscono, il testo originale inglese viene comunque inviato con cornice in italiano.
+- **Foto pietre**: il colore letto al centro è un vincolo. Poi il bot scarica (e mette in cache in `data/stone_refs.json`) le miniature Wikipedia delle pietre di quel colore e confronta gli istogrammi HSV. `HF_TOKEN` abilita CLIP su Hugging Face; senza token il confronto Wikipedia resta. Non è un’analisi di laboratorio.

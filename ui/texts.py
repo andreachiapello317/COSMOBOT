@@ -190,7 +190,7 @@ def pietre_hub_text() -> str:
     return (
         "💎 <b>PIETRE</b>\n\n"
         "Mineralogia da catalogo. Il simbolismo sta a parte, come tradizione.\n"
-        "Niente prezzi inventati. Una foto non identifica un minerale.\n\n"
+        "Niente prezzi inventati. Una foto confronta colore e miniature Wikipedia: non è un'analisi.\n\n"
         "🧭 Esplora — tipo, colore, ambiente, formazione, mito\n"
         "🔬 Laboratorio · ✨ Oracolo · 🏛️ Museo · 🧠 Giochi"
     )
