@@ -8819,10 +8819,11 @@ async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif method == "clip":
         how = "Confronto: modello visivo CLIP, sul catalogo già filtrato per colore."
     else:
-        how = "Le miniature Wikipedia non hanno risposto: resto sul colore, senza pescare a caso."
+        how = "Le miniature Wikipedia non hanno risposto: resto sul colore tipico, senza pescare a caso."
     lines = [
         "📸 <b>IPOTESI DA FOTO</b>",
         f"Colore della pietra: <b>{e(seen)}</b> — sfondo escluso, vincolo non suggerimento.",
+        "Prima le pietre tipicamente di quel colore. Le multicolori (fluorite…) solo se la foto è zonata.",
         how,
         "",
     ]

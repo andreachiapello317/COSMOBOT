@@ -34,7 +34,7 @@ logger = logging.getLogger("stellebot.stonephoto")
 CHROMA = ("red", "orange", "yellow", "green", "blue", "purple", "pink")
 
 REF_CACHE = Path("data/stone_refs.json")
-REF_VERSION = 3
+REF_VERSION = 4
 HUE_BINS = 18
 SAT_BINS = 8
 VAL_BINS = 8
@@ -249,16 +249,19 @@ def _vote_colors(pixels: list[tuple[int, int, int]]) -> dict[str, Any]:
         if key:
             weights[key] += weight
     if not weights or total_w <= 0:
-        return {"colors": [], "metallic": False, "ok": False}
+        return {"colors": [], "metallic": False, "ok": False, "multi": False}
     chroma = [(key, n) for key, n in weights.most_common() if key in CHROMA]
+    multi = False
     if chroma and chroma[0][1] / total_w >= 0.10:
         ranked = [chroma[0][0]]
         if (
             len(chroma) > 1
-            and chroma[1][1] >= chroma[0][1] * 0.78
-            and chroma[1][1] / total_w >= 0.16
+            and chroma[1][1] >= chroma[0][1] * 0.55
+            and chroma[1][1] / total_w >= 0.14
         ):
-            ranked.append(chroma[1][0])
+            multi = True
+            if chroma[1][1] >= chroma[0][1] * 0.78 and chroma[1][1] / total_w >= 0.16:
+                ranked.append(chroma[1][0])
     else:
         neutral = [
             key
@@ -267,11 +270,12 @@ def _vote_colors(pixels: list[tuple[int, int, int]]) -> dict[str, Any]:
         ]
         ranked = neutral[:1]
     if not ranked:
-        return {"colors": [], "metallic": False, "ok": False}
+        return {"colors": [], "metallic": False, "ok": False, "multi": False}
     return {
         "colors": ranked,
         "metallic": metal_w / total_w >= 0.22,
         "ok": True,
+        "multi": multi,
     }
 
 
@@ -295,17 +299,26 @@ def primary_color(stone: dict[str, Any]) -> str | None:
     return None
 
 
-def stone_fits_color(stone: dict[str, Any], key: str) -> bool:
+def stone_color_rank(stone: dict[str, Any], key: str) -> int:
+    """0 = colore principale, 1 = anche di quel colore, 2 = catch-all multi, 9 = no."""
     cols = tuple(stone.get("colors") or ())
-    if not cols:
-        return False
+    if not cols or key not in COLORS:
+        return 9
     head = cols[0]
     if head == key:
+        return 0
+    if key not in cols:
+        return 9
+    if head == "multi":
+        return 2
+    return 1
+
+
+def stone_fits_color(stone: dict[str, Any], key: str, *, allow_multi: bool = False) -> bool:
+    rank = stone_color_rank(stone, key)
+    if rank <= 1:
         return True
-    # Multicolore / cangiante: il colore letto deve comparire, non un altro a caso.
-    if head in {"multi", "change"}:
-        return key in cols
-    return False
+    return allow_multi and rank == 2
 
 
 def color_pool(hints: dict[str, Any]) -> list[dict[str, Any]]:
@@ -313,7 +326,15 @@ def color_pool(hints: dict[str, Any]) -> list[dict[str, Any]]:
     if not colors:
         return []
     dominant = colors[0]
-    pool = [s for s in STONES if stone_fits_color(s, dominant)]
+    allow_multi = bool(hints.get("multi")) or len(colors) > 1
+    pool = [s for s in STONES if stone_fits_color(s, dominant, allow_multi=allow_multi)]
+    if len(pool) < 2:
+        extra = [
+            s
+            for s in STONES
+            if s not in pool and stone_fits_color(s, dominant, allow_multi=True)
+        ]
+        pool = pool + extra
     if hints.get("metallic"):
         metal = [s for s in pool if s.get("metallic")]
         if metal:
@@ -322,10 +343,9 @@ def color_pool(hints: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _color_typicality(stone: dict[str, Any], key: str) -> tuple[int, int]:
-    cols = [c for c in (stone.get("colors") or ()) if c not in {"multi", "change"}]
-    extra = max(0, len(cols) - 1)
-    head = 0 if (stone.get("colors") or (None,))[0] == key else 1
-    return (head, extra)
+    rank = stone_color_rank(stone, key)
+    extra = max(0, len([c for c in (stone.get("colors") or ()) if c not in {"multi", "change"}]) - 1)
+    return (rank, extra)
 
 
 def guess_stones(hints: dict[str, Any], n: int = 3) -> list[dict[str, Any]]:
@@ -504,6 +524,51 @@ async def _wiki_thumb(client: httpx.AsyncClient, title: str) -> str:
     return ""
 
 
+async def _commons_thumbs(client: httpx.AsyncClient, query: str, limit: int = 3) -> list[str]:
+    try:
+        response = await client.get(
+            "https://commons.wikimedia.org/w/api.php",
+            params={
+                "action": "query",
+                "generator": "search",
+                "gsrsearch": query,
+                "gsrnamespace": "6",
+                "gsrlimit": str(limit),
+                "prop": "imageinfo",
+                "iiprop": "url",
+                "iiurlwidth": "320",
+                "format": "json",
+            },
+            timeout=8.0,
+        )
+        response.raise_for_status()
+        pages = (response.json().get("query") or {}).get("pages") or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.info("commons %s: %s", query, exc)
+        return []
+    urls: list[str] = []
+    for page in pages.values() if isinstance(pages, dict) else []:
+        infos = page.get("imageinfo") or []
+        if not infos or not isinstance(infos[0], dict):
+            continue
+        url = str(infos[0].get("thumburl") or infos[0].get("url") or "")
+        if url:
+            urls.append(url)
+    return urls
+
+
+def _bytes_sig_color(raw: bytes) -> tuple[list[float] | None, str | None]:
+    img = _open_rgb(raw, 220)
+    if img is None:
+        return None, None
+    pixels, _meta = isolate_stone(img)
+    if not pixels:
+        return None, None
+    voted = _vote_colors(pixels)
+    color = (voted.get("colors") or [None])[0]
+    return _pixels_signature(pixels), color if isinstance(color, str) else None
+
+
 async def _download_image(client: httpx.AsyncClient, url: str) -> bytes:
     try:
         response = await client.get(
@@ -521,55 +586,90 @@ async def _download_image(client: httpx.AsyncClient, url: str) -> bytes:
     return payload
 
 
-async def _stone_ref_signature(client: httpx.AsyncClient, stone: dict[str, Any]) -> list[float] | None:
+def _parse_cached_refs(row: Any) -> list[dict[str, Any]] | None:
+    if not isinstance(row, dict):
+        return None
+    raw_refs = row.get("refs")
+    if not isinstance(raw_refs, list) or not raw_refs:
+        return None
+    out: list[dict[str, Any]] = []
+    for item in raw_refs:
+        if not isinstance(item, dict):
+            continue
+        sig = item.get("sig")
+        if not isinstance(sig, list) or len(sig) != SIG_LEN:
+            continue
+        try:
+            nums = [float(x) for x in sig]
+        except (TypeError, ValueError):
+            continue
+        color = item.get("color")
+        out.append({"sig": nums, "color": color if isinstance(color, str) else None})
+    return out or None
+
+
+async def _stone_refs(client: httpx.AsyncClient, stone: dict[str, Any]) -> list[dict[str, Any]]:
     sid = stone["id"]
     async with _ref_lock:
-        cache = _load_ref_cache()
-        row = cache["stones"].get(sid)
-        if isinstance(row, dict):
-            sig = row.get("sig")
-            if isinstance(sig, list) and len(sig) == SIG_LEN:
-                try:
-                    return [float(x) for x in sig]
-                except (TypeError, ValueError):
-                    pass
-    url = ""
+        cached = _parse_cached_refs(_load_ref_cache()["stones"].get(sid))
+        if cached:
+            return cached
+    urls: list[str] = []
     for title in _wiki_titles(stone):
         url = await _wiki_thumb(client, title)
-        if url:
-            break
-    if not url:
-        return None
-    raw = await _download_image(client, url)
-    sig = photo_signature(raw)
-    if not sig:
-        return None
-    async with _ref_lock:
-        cache = _load_ref_cache()
-        cache["stones"][sid] = {"url": url, "sig": [round(x, 5) for x in sig]}
-        try:
-            _save_ref_cache(cache)
-        except OSError as exc:
-            logger.info("cache refs: %s", exc)
-    return sig
+        if url and url not in urls:
+            urls.append(url)
+    english = _english_name(stone)
+    for query in (f"{english} mineral", f"{english} crystal"):
+        for url in await _commons_thumbs(client, query, 2):
+            if url not in urls:
+                urls.append(url)
+    refs: list[dict[str, Any]] = []
+    for url in urls[:4]:
+        raw = await _download_image(client, url)
+        sig, color = _bytes_sig_color(raw)
+        if not sig:
+            continue
+        refs.append({"url": url, "sig": [round(x, 5) for x in sig], "color": color})
+    if refs:
+        async with _ref_lock:
+            cache = _load_ref_cache()
+            cache["stones"][sid] = {"refs": refs}
+            try:
+                _save_ref_cache(cache)
+            except OSError as exc:
+                logger.info("cache refs: %s", exc)
+    return _parse_cached_refs({"refs": refs}) or []
 
 
 async def visual_scores(
     client: httpx.AsyncClient,
     photo_sig: list[float],
     pool: list[dict[str, Any]],
+    user_color: str | None = None,
 ) -> dict[str, float]:
-    sem = asyncio.Semaphore(6)
+    sem = asyncio.Semaphore(5)
 
     async def one(stone: dict[str, Any]) -> tuple[str, float]:
         async with sem:
             try:
-                ref = await asyncio.wait_for(_stone_ref_signature(client, stone), timeout=9.0)
+                refs = await asyncio.wait_for(_stone_refs(client, stone), timeout=14.0)
             except Exception:
-                ref = None
-        if not ref:
-            return stone["id"], 0.0
-        return stone["id"], signature_similarity(photo_sig, ref)
+                refs = []
+        best = 0.0
+        matched = False
+        for ref in refs:
+            sim = signature_similarity(photo_sig, ref["sig"])
+            ref_color = ref.get("color")
+            if user_color and ref_color and ref_color != user_color:
+                sim *= 0.42
+            else:
+                matched = True
+            if sim > best:
+                best = sim
+        if user_color and refs and not matched:
+            best *= 0.65
+        return stone["id"], best
 
     rows = await asyncio.gather(*(one(s) for s in pool))
     return {sid: score for sid, score in rows if score > 0}
@@ -680,6 +780,23 @@ async def clip_scores(data: bytes, pool: list[dict[str, Any]]) -> dict[str, floa
 # ---------------------------------------------------------------------------
 
 
+def _color_prior(stone: dict[str, Any], hints: dict[str, Any]) -> float:
+    colors = [c for c in hints.get("colors") or [] if c in COLORS]
+    dominant = colors[0] if colors else ""
+    rank = stone_color_rank(stone, dominant)
+    if rank == 0:
+        return 0.30
+    if rank == 1:
+        return 0.12
+    if rank == 2:
+        return 0.18 if hints.get("multi") else -0.22
+    return 0.0
+
+
+def _norm_prior(prior: float) -> float:
+    return max(0.0, min(1.0, (prior + 0.22) / 0.52))
+
+
 def _blend(
     pool: list[dict[str, Any]],
     visual: dict[str, float],
@@ -695,19 +812,27 @@ def _blend(
         sid = stone["id"]
         vis = visual.get(sid, 0.0)
         clp = clip.get(sid, 0.0)
-        if has_visual and has_clip:
-            score = 0.55 * vis + 0.45 * clp
-            why = "miniature Wikipedia + CLIP"
-        elif has_visual:
-            score = vis
-            why = "miniature Wikipedia"
-        elif has_clip:
-            score = 0.35 + 0.65 * clp
-            why = "modello visivo CLIP"
+        prior = _color_prior(stone, hints)
+        rank = stone_color_rank(stone, dominant)
+        if rank == 0:
+            note = "colore tipico"
+        elif rank == 2:
+            note = "multicolore"
         else:
-            typ = _color_typicality(stone, dominant)
-            score = 0.22 - 0.04 * typ[0] - 0.03 * typ[1]
-            why = "solo colore del catalogo"
+            note = "anche di questo colore"
+        prior_n = _norm_prior(prior)
+        if has_visual and has_clip:
+            score = 0.40 * vis + 0.26 * clp + 0.34 * prior_n
+            why = f"Wikipedia + CLIP · {note}"
+        elif has_visual:
+            score = 0.55 * vis + 0.45 * prior_n
+            why = f"miniature Wikipedia · {note}"
+        elif has_clip:
+            score = 0.48 * (0.35 + 0.65 * clp) + 0.52 * prior_n
+            why = f"CLIP · {note}"
+        else:
+            score = 0.22 + prior
+            why = f"solo colore · {note}"
         ranked.append({"stone": stone, "score": max(0.0, min(1.0, score)), "why": why})
     ranked.sort(key=lambda row: (-float(row["score"]), row["stone"].get("it") or ""))
     return ranked
@@ -737,7 +862,8 @@ async def identify_from_photo(
         if client is None or photo_sig is None:
             return {}
         try:
-            return await visual_scores(client, photo_sig, pool)
+            color = next((c for c in (hints.get("colors") or []) if c in COLORS), None)
+            return await visual_scores(client, photo_sig, pool, user_color=color)
         except Exception as exc:  # noqa: BLE001
             logger.info("visual match: %s", exc)
             return {}
