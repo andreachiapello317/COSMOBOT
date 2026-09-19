@@ -91,7 +91,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 Il mondo **🔭 CIELO** è astronomia reale. Il mondo **🔮 ORACOLI** è esperienza simbolica. Il mondo **💎 PIETRE** è autonomo: mineralogia e geologia da catalogo pubblico, folklore tenuto a parte. Non si mescolano.
 
-`/pietre` apre l’universo: schede (scienza / geologia / storia / simbolismo), colori, ambienti, laboratorio guidato, confronto, giochi, museo, collezione, pietre dallo spazio. `/pietra` è l’oracolo dichiarato come gioco. Una foto nel laboratorio prima legge il colore (vincolo duro), poi confronta l’immagine con le miniature Wikipedia del catalogo e, se c’è `HF_TOKEN`, con CLIP zero-shot. Tre ipotesi, non un’analisi mineralogica. Niente prezzi inventati. La rarità è di catalogo, non una quotazione.
+`/pietre` apre l’universo: schede (scienza / geologia / storia / simbolismo), colori, ambienti, laboratorio guidato, confronto, giochi, museo, collezione, pietre dallo spazio. `/pietra` è l’oracolo dichiarato come gioco. Una foto nel laboratorio (pietra al centro, tavolo uniforme) prima legge il colore (vincolo duro), poi confronta l’immagine con le miniature Wikipedia del catalogo e, se c’è `HF_TOKEN`, con CLIP zero-shot. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati. La rarità è di catalogo, non una quotazione.
 
 `/start` apre una home a **sette mondi** (te stesso, divinazione, cielo, mondi, vita, missioni, pietre) più **COSMICO** e **RANDOM**. `/esplora` è la stessa mappa. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` prende un pezzo da ogni mondo: se una API cade, le altre restano.
 

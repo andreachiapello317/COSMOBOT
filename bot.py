@@ -8337,8 +8337,7 @@ async def show_pietre_lab(update: Update, context: ContextTypes.DEFAULT_TYPE, st
         "color": (
             "🔬 <b>IDENTIFICA LA PIETRA</b>\n\n"
             "Che colore è, soprattutto?\n"
-            "Oppure mandami una foto con la pietra al centro: ignoro tavolo e mani, "
-            "poi confronto le miniature Wikipedia."
+            "Oppure una foto: pietra al centro, su un tavolo di colore uniforme."
         ),
         "hard": "🔬 <b>DUREZZA</b>\n\nQuanto è dura? (unghia ~2, vetro ~5,5, acciaio ~6–7, corindone 9)",
         "trans": "🔬 <b>TRASPARENZA</b>\n\nLascia passare la luce?",
@@ -8506,8 +8505,10 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
             context,
             "📸 <b>FOTO</b>\n\n"
             "Mandami adesso la foto della pietra.\n"
-            "Azzardo tre ipotesi dal catalogo (colore se lo leggo, altrimenti pesco).\n"
-            "Resta una scommessa: una foto <b>non</b> sostituisce durezza, striscio e densità.",
+            "Mettila <b>al centro</b>, su un <b>tavolo di colore uniforme</b> "
+            "(un solo colore, senza venature, tovaglia a disegno o mani in mezzo).\n"
+            "Ti do cinque ipotesi dal catalogo. Una foto <b>non</b> sostituisce "
+            "durezza, striscio e densità.",
             reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔬 Laboratorio", "pt:lab")], nav_row()]),
         )
         return
@@ -8770,7 +8771,7 @@ async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             client = _http_client(context)
         except StelleOfflineError:
             client = None
-        identified = await identify_from_photo(client, raw, n=3)
+        identified = await identify_from_photo(client, raw, n=5)
         hints = identified.get("hints") or hints
         details = list(identified.get("details") or [])
         method = str(identified.get("method") or "none")
@@ -8778,7 +8779,7 @@ async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         details = []
         method = "none"
     if not details:
-        fallback = guess_stones(hints, n=3)
+        fallback = guess_stones(hints, n=5)
         if fallback:
             details = [
                 {"stone": stone, "score": 0.22, "why": "solo colore del catalogo"}

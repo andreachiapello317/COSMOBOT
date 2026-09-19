@@ -328,7 +328,7 @@ def color_pool(hints: dict[str, Any]) -> list[dict[str, Any]]:
     dominant = colors[0]
     allow_multi = bool(hints.get("multi")) or len(colors) > 1
     pool = [s for s in STONES if stone_fits_color(s, dominant, allow_multi=allow_multi)]
-    if len(pool) < 2:
+    if len(pool) < 5:
         extra = [
             s
             for s in STONES
@@ -348,7 +348,7 @@ def _color_typicality(stone: dict[str, Any], key: str) -> tuple[int, int]:
     return (rank, extra)
 
 
-def guess_stones(hints: dict[str, Any], n: int = 3) -> list[dict[str, Any]]:
+def guess_stones(hints: dict[str, Any], n: int = 5) -> list[dict[str, Any]]:
     colors = [c for c in hints.get("colors") or [] if c in COLORS]
     pool = color_pool(hints)
     if not pool or not colors:
@@ -841,7 +841,7 @@ def _blend(
 async def identify_from_photo(
     client: httpx.AsyncClient | None,
     data: bytes,
-    n: int = 3,
+    n: int = 5,
 ) -> dict[str, Any]:
     hints = read_photo_hints(data)
     pool = color_pool(hints)

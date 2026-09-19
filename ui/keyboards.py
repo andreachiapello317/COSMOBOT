@@ -756,7 +756,7 @@ def pietre_lab_keyboard(step: str) -> InlineKeyboardMarkup:
         "fizz": [("Effervescente", "pt:la:f:yes"), ("Non reagisce", "pt:la:f:no"), ("Non so", "pt:la:f:skip")],
     }.get(step, [])
     grid = _pairs([kb_btn(label, data) for label, data in options])
-    grid.append([kb_btn("📸 Mandami una foto", "pt:photo")])
+    grid.append([kb_btn("📸 Foto (centro, tavolo uniforme)", "pt:photo")])
     grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
