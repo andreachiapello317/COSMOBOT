@@ -8337,7 +8337,8 @@ async def show_pietre_lab(update: Update, context: ContextTypes.DEFAULT_TYPE, st
         "color": (
             "🔬 <b>IDENTIFICA LA PIETRA</b>\n\n"
             "Che colore è, soprattutto?\n"
-            "Oppure mandami una foto: confronto il colore e le miniature Wikipedia del catalogo."
+            "Oppure mandami una foto con la pietra al centro: ignoro tavolo e mani, "
+            "poi confronto le miniature Wikipedia."
         ),
         "hard": "🔬 <b>DUREZZA</b>\n\nQuanto è dura? (unghia ~2, vetro ~5,5, acciaio ~6–7, corindone 9)",
         "trans": "🔬 <b>TRASPARENZA</b>\n\nLascia passare la luce?",
@@ -8803,8 +8804,8 @@ async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await reply_html(
             update,
             context,
-            "📸 Non ho letto un colore netto al centro della foto "
-            "(sfondo, ombra o foto troppo scura).\n"
+            "📸 Non ho isolato un colore netto della pietra "
+            "(sfondo troppo simile, ombra o foto troppo larga).\n"
             "Scegli tu il colore: da lì restringo il catalogo. "
             "Non pesco pietre di un altro colore.",
             reply_markup=pietre_lab_keyboard("color"),
@@ -8821,7 +8822,7 @@ async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         how = "Le miniature Wikipedia non hanno risposto: resto sul colore, senza pescare a caso."
     lines = [
         "📸 <b>IPOTESI DA FOTO</b>",
-        f"Colore letto: <b>{e(seen)}</b> — vincolo, non suggerimento.",
+        f"Colore della pietra: <b>{e(seen)}</b> — sfondo escluso, vincolo non suggerimento.",
         how,
         "",
     ]

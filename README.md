@@ -283,4 +283,4 @@ Dipendenze Python: `python-telegram-bot[webhooks]`, `httpx`, `python-dotenv`, `P
 - **CosmyDay** è gratis e senza chiave: va indicato come fonte (il bot lo fa nei footer). Non martellare gli endpoint; c’è una cache in memoria di pochi minuti.
 - **NASA `DEMO_KEY`**: limite stretto. In produzione usa una chiave tua.
 - Traduzione: prima un endpoint pubblico di Google Translate, in fallback MyMemory. Se entrambi falliscono, il testo originale inglese viene comunque inviato con cornice in italiano.
-- **Foto pietre**: il colore letto al centro è un vincolo. Poi il bot scarica (e mette in cache in `data/stone_refs.json`) le miniature Wikipedia delle pietre di quel colore e confronta gli istogrammi HSV. `HF_TOKEN` abilita CLIP su Hugging Face; senza token il confronto Wikipedia resta. Non è un’analisi di laboratorio.
+- **Foto pietre**: il bot isola la pietra (angoli = sfondo, meno peso a mani/tavolo) e usa quel colore come vincolo. Poi confronta le miniature Wikipedia (`data/stone_refs.json`). `HF_TOKEN` abilita CLIP; senza token resta Wikipedia. Non è un’analisi di laboratorio.

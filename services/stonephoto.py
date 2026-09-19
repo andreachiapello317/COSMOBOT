@@ -34,7 +34,7 @@ logger = logging.getLogger("stellebot.stonephoto")
 CHROMA = ("red", "orange", "yellow", "green", "blue", "purple", "pink")
 
 REF_CACHE = Path("data/stone_refs.json")
-REF_VERSION = 2
+REF_VERSION = 3
 HUE_BINS = 18
 SAT_BINS = 8
 VAL_BINS = 8
@@ -82,7 +82,8 @@ def _hue_key(r: int, g: int, b: int) -> str | None:
     if hue < 12 or hue >= 345:
         return "red"
     if hue < 35:
-        return "orange" if val > 0.40 else "brown"
+        # Il legno del tavolo è spesso arancio-marrone: senza saturazione alta è sfondo.
+        return "orange" if val > 0.50 and sat > 0.45 else "brown"
     if hue < 62:
         return "yellow"
     if hue < 165:
@@ -106,8 +107,8 @@ def _metallic(r: int, g: int, b: int) -> bool:
 
 def _center_pixels(img: Any) -> list[tuple[int, int, int]]:
     w, h = img.size
-    x0, x1 = int(w * 0.22), int(w * 0.78)
-    y0, y1 = int(h * 0.22), int(h * 0.78)
+    x0, x1 = int(w * 0.28), int(w * 0.72)
+    y0, y1 = int(h * 0.28), int(h * 0.72)
     crop = img.crop((x0, y0, max(x0 + 1, x1), max(y0 + 1, y1)))
     return list(crop.getdata())
 
@@ -123,41 +124,168 @@ def _open_rgb(data: bytes, size: int = 160) -> Any | None:
         return None
 
 
-def read_photo_hints(data: bytes) -> dict[str, Any]:
-    img = _open_rgb(data, 160)
-    if img is None:
-        return {"colors": [], "metallic": False, "ok": False}
-    pixels = _center_pixels(img)
+def _is_skin(r: int, g: int, b: int) -> bool:
+    hue, sat, val = _hsv(r, g, b)
+    if not (8.0 <= hue <= 28.0):
+        return False
+    if sat < 0.14 or sat > 0.50:
+        return False
+    if val < 0.28 or val > 0.95:
+        return False
+    if r < 90 or r < g + 8:
+        return False
+    if g < b - 5:
+        return False
+    if sat > 0.46 and (r - b) > 90:
+        return False
+    return True
+
+
+def _mean_rgb(pixels: list[tuple[int, int, int]]) -> tuple[float, float, float]:
     if not pixels:
-        return {"colors": [], "metallic": False, "ok": False}
-    counts: Counter[str] = Counter()
-    metal = 0
-    for r, g, b in pixels:
-        if _metallic(r, g, b):
-            metal += 1
+        return (128.0, 128.0, 128.0)
+    n = float(len(pixels))
+    return (
+        sum(p[0] for p in pixels) / n,
+        sum(p[1] for p in pixels) / n,
+        sum(p[2] for p in pixels) / n,
+    )
+
+
+def _rgb_l1(pixel: tuple[float, float, float], other: tuple[float, float, float]) -> float:
+    return (
+        abs(pixel[0] - other[0]) + abs(pixel[1] - other[1]) + abs(pixel[2] - other[2])
+    ) / (3.0 * 255.0)
+
+
+def isolate_stone(img: Any) -> tuple[list[tuple[int, int, int]], dict[str, Any]]:
+    """Pixel della pietra: gli angoli sono sfondo, il centro e la saturazione pesano di più."""
+    w, h = img.size
+    data = list(img.getdata())
+    if not data:
+        return [], {"mode": "empty", "bg_keys": []}
+    bx = max(2, int(w * 0.16))
+    by = max(2, int(h * 0.16))
+    border: list[tuple[int, int, int]] = []
+    interior: list[tuple[int, int, int]] = []
+    for y in range(h):
+        row = y * w
+        for x in range(w):
+            pix = data[row + x]
+            if x < bx or x >= w - bx or y < by or y >= h - by:
+                border.append(pix)
+            else:
+                interior.append((row + x, x, y))
+    if not interior:
+        return _center_pixels(img), {"mode": "center", "bg_keys": []}
+    bg_mean = _mean_rgb(border)
+    border_keys: Counter[str] = Counter()
+    border_sat = 0.0
+    for r, g, b in border:
         key = _hue_key(r, g, b)
         if key:
-            counts[key] += 1
-    total = len(pixels)
-    if not counts:
+            border_keys[key] += 1
+        border_sat += _hsv(r, g, b)[1]
+    border_sat /= len(border) or 1
+    bg_n = sum(border_keys.values()) or 1
+    bg_keys = {key for key, n in border_keys.items() if n / bg_n >= 0.18}
+    # Tutto campo solo se anche il nucleo centrale è come il bordo (macro della pietra).
+    core: list[tuple[int, int, int]] = []
+    x0, x1 = int(w * 0.34), int(w * 0.66)
+    y0, y1 = int(h * 0.34), int(h * 0.66)
+    for y in range(y0, max(y0 + 1, y1)):
+        row = y * w
+        for x in range(x0, max(x0 + 1, x1)):
+            core.append(data[row + x])
+    core_mean = _mean_rgb(core)
+    core_sat = sum(_hsv(*p)[1] for p in core) / (len(core) or 1)
+    full_frame = _rgb_l1(bg_mean, core_mean) < 0.08 and abs(border_sat - core_sat) < 0.09
+    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+    half = math.hypot(cx, cy) or 1.0
+    scored: list[tuple[float, int, int, int]] = []
+    for i, x, y in interior:
+        r, g, b = data[i]
+        _hue, sat, val = _hsv(r, g, b)
+        center_w = math.exp(-4.4 * ((math.hypot(x - cx, y - cy) / half) ** 2))
+        score = center_w * (0.22 + 0.78 * min(1.0, sat / 0.52))
+        if val < 0.10:
+            score *= 0.12
+        if not full_frame:
+            key = _hue_key(r, g, b)
+            if key in bg_keys:
+                score *= 0.10
+            score *= 0.28 + 0.72 * min(1.0, _rgb_l1((r, g, b), bg_mean) * 2.9)
+            if _is_skin(r, g, b):
+                score *= 0.05
+        scored.append((score, r, g, b))
+    scored.sort(key=lambda row: row[0], reverse=True)
+    best = scored[0][0] if scored else 0.0
+    keep_n = max(48, int(len(scored) * 0.18))
+    cutoff = max(best * 0.36, 0.018)
+    fg = [(r, g, b) for score, r, g, b in scored[:keep_n] if score >= cutoff]
+    if len(fg) < 36:
+        fg = [(r, g, b) for _score, r, g, b in scored[: max(keep_n, 90)]]
+    if not fg:
+        fg = _center_pixels(img)
+    return fg, {
+        "mode": "full" if full_frame else "cutout",
+        "bg_keys": sorted(bg_keys),
+    }
+
+
+def _vote_colors(pixels: list[tuple[int, int, int]]) -> dict[str, Any]:
+    weights: Counter[str] = Counter()
+    metal_w = 0.0
+    total_w = 0.0
+    for r, g, b in pixels:
+        _hue, sat, val = _hsv(r, g, b)
+        weight = 0.35 + 0.65 * sat
+        if val < 0.12:
+            weight *= 0.25
+        total_w += weight
+        if _metallic(r, g, b):
+            metal_w += weight
+        key = _hue_key(r, g, b)
+        if key:
+            weights[key] += weight
+    if not weights or total_w <= 0:
         return {"colors": [], "metallic": False, "ok": False}
-    chroma = [(k, n) for k, n in counts.most_common() if k in CHROMA]
-    # Il colore della pietra: prima un cromatico chiaro, non l'ombra o il tavolo.
-    if chroma and chroma[0][1] / total >= 0.10:
-        dominant = chroma[0][0]
-        ranked = [dominant]
-        if len(chroma) > 1 and chroma[1][1] >= chroma[0][1] * 0.85 and chroma[1][1] / total >= 0.12:
+    chroma = [(key, n) for key, n in weights.most_common() if key in CHROMA]
+    if chroma and chroma[0][1] / total_w >= 0.10:
+        ranked = [chroma[0][0]]
+        if (
+            len(chroma) > 1
+            and chroma[1][1] >= chroma[0][1] * 0.78
+            and chroma[1][1] / total_w >= 0.16
+        ):
             ranked.append(chroma[1][0])
     else:
-        neutral = [k for k, n in counts.most_common() if k in {"black", "white", "brown"} and n / total >= 0.20]
+        neutral = [
+            key
+            for key, n in weights.most_common()
+            if key in {"black", "white", "brown"} and n / total_w >= 0.22
+        ]
         ranked = neutral[:1]
     if not ranked:
         return {"colors": [], "metallic": False, "ok": False}
     return {
         "colors": ranked,
-        "metallic": metal / total >= 0.18,
+        "metallic": metal_w / total_w >= 0.22,
         "ok": True,
     }
+
+
+def read_photo_hints(data: bytes) -> dict[str, Any]:
+    img = _open_rgb(data, 220)
+    if img is None:
+        return {"colors": [], "metallic": False, "ok": False, "mode": "none", "bg_keys": []}
+    pixels, meta = isolate_stone(img)
+    if not pixels:
+        return {"colors": [], "metallic": False, "ok": False, "mode": "none", "bg_keys": []}
+    voted = _vote_colors(pixels)
+    voted["mode"] = meta.get("mode") or "cutout"
+    voted["bg_keys"] = list(meta.get("bg_keys") or [])
+    return voted
 
 
 def primary_color(stone: dict[str, Any]) -> str | None:
@@ -232,10 +360,10 @@ def _hist(values: list[float], bins: int, lo: float, hi: float) -> list[float]:
 
 
 def photo_signature(data: bytes) -> list[float] | None:
-    img = _open_rgb(data, 192)
+    img = _open_rgb(data, 220)
     if img is None:
         return None
-    pixels = _center_pixels(img)
+    pixels, _meta = isolate_stone(img)
     if not pixels:
         return None
     return _pixels_signature(pixels)
