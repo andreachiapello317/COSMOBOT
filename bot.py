@@ -80,6 +80,7 @@ from services.progress import (
     world_list,
     world_save,
 )
+from services.compat import SIGNS as COMPAT_SIGNS, format_sign_compat, format_synastry
 from services.stones import (
     CATS,
     COLORS,
@@ -197,6 +198,9 @@ from ui.keyboards import (
     world_miss_keyboard,
     world_mondi_keyboard,
     world_self_keyboard,
+    compat_after_keyboard,
+    compat_hub_keyboard,
+    compat_sign_keyboard,
     world_sky_keyboard,
     world_vita_keyboard,
     world_pietre_keyboard,
@@ -229,6 +233,7 @@ from ui.texts import (
     sistemi_text,
     world_mondi_text,
     world_self_text,
+    compat_hub_text,
     world_sky_text,
     world_vita_text,
     world_pietre_text,
@@ -312,6 +317,9 @@ NAV_SKIP_PREFIXES = (
     "pt:ga:",
     "pt:la:",
     "pt:g:next",
+    "cp:a:",
+    "cp:b:",
+    "cp:loc:",
 )
 NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
 
@@ -554,6 +562,7 @@ OSSERVA_CITIES = (
 )
 
 NATAL_STATE_KEY = "natal_flow"
+COMPAT_STATE_KEY = "compat_flow"
 NATAL_PROFILE_PATH = Path("data/natal_profiles.json")
 _natal_profile_lock = asyncio.Lock()
 
@@ -1198,9 +1207,22 @@ def _natal_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.pop(NATAL_STATE_KEY, None)
 
 
+def _compat_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(COMPAT_STATE_KEY, None)
+
+
+def _compat_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(COMPAT_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[COMPAT_STATE_KEY] = state
+    return state
+
+
 def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     _tarot_reset(context)
     _natal_reset(context)
+    _compat_reset(context)
     _iching_reset(context)
     _osserva_reset(context)
     _rune_reset(context)
@@ -1313,6 +1335,7 @@ def natal_nav_keyboard() -> InlineKeyboardMarkup:
         [
             [_tarot_btn("🪐 Pianeti", "natal:planets"), _tarot_btn("🏠 Case", "natal:houses")],
             [_tarot_btn("⚡ Aspetti", "natal:aspects"), _tarot_btn("❤️ Amore", "natal:love")],
+            [_tarot_btn("❤️ Compatibilità", "cp:hub")],
             [_tarot_btn("☄️ Asteroidi", "natal:asteroids"), _tarot_btn("📊 Profilo", "natal:elements")],
             [_tarot_btn("🔮 Lettura", "natal:read"), _tarot_btn("👤 Il mio tema", "natal:me")],
             nav_row(),
@@ -1967,6 +1990,7 @@ def help_text() -> str:
         "📚 <b>Manuale di sopravvivenza cosmica</b>\n\n"
         "/start — presentazione (e un po' di pepe)\n"
         "/tema — tema natale: data, ora, luogo, poi Big Three / pianeti / case\n"
+        "/compatibilita — due segni, o sinastria se hai il tema salvato\n"
         f"/oroscopo [segno] — oroscopo live. Senza segno uso "
         f"{default_emoji} {default_it}. Poi i bottoni: giorno, settimana, mese. "
         f"Segni: {e(list_signs_help())}\n"
@@ -3018,6 +3042,7 @@ async def show_natal_saved_profile(
     kb = InlineKeyboardMarkup(
         [
             [_tarot_btn("🔮 Rileggi il tema", "natal:reload"), _tarot_btn("🌙 Transiti", "natal:transits")],
+            [_tarot_btn("❤️ Compatibilità", "cp:hub")],
             [_tarot_btn("✨ Nuovo tema", "natal:start")],
             nav_row(),
         ]
@@ -3856,6 +3881,10 @@ async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if action == "rituale":
         await query.answer()
         await send_rituale(update, context)
+        return
+    if action == "compat":
+        await query.answer()
+        await show_compat_hub(update, context)
         return
     if action == "random":
         await query.answer()
@@ -5444,6 +5473,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
     if prefix == "pt":
         await dispatch_pietre(update, context, token)
         return
+    if prefix == "cp":
+        await dispatch_compat(update, context, token)
+        return
     if prefix == "home":
         await _resume_home(update, context, action)
         return
@@ -5537,6 +5569,9 @@ async def _resume_home(update: Update, context: ContextTypes.DEFAULT_TYPE, actio
         return
     if action == "rituale":
         await send_rituale(update, context)
+        return
+    if action == "compat":
+        await show_compat_hub(update, context)
         return
     if action == "random":
         await send_random(update, context)
@@ -8709,6 +8744,285 @@ async def cmd_pietra(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await delete_user_command(update)
 
 
+async def _compat_has_natal(update: Update) -> bool:
+    user = update.effective_user
+    if not user:
+        return False
+    profile = await natal_profile_get(user.id)
+    return bool(profile and profile.get("lat") is not None)
+
+
+async def _compat_my_sun(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str | None:
+    chart = natal_chart_from_state(_natal_state(context))
+    if chart:
+        sun = (chart.get("planets") or {}).get("Sun")
+        if isinstance(sun, dict):
+            key = str(sun.get("sign") or "").lower()
+            if key in COMPAT_SIGNS:
+                return key
+    user = update.effective_user
+    profile = await natal_profile_get(user.id) if user else None
+    if not profile or profile.get("lat") is None:
+        return None
+    client = _http_client(context)
+    try:
+        chart = await api_natal_chart(
+            client,
+            year=int(profile["year"]),
+            month=int(profile["month"]),
+            day=int(profile["day"]),
+            hour=int(profile.get("hour") or 12),
+            minute=int(profile.get("minute") or 0),
+            lat=float(profile["lat"]),
+            lon=float(profile["lon"]),
+        )
+    except StelleOfflineError:
+        return None
+    _natal_state(context).update({"chart": chart, **{k: profile.get(k) for k in ("year", "month", "day", "hour", "minute", "lat", "lon", "place")}})
+    sun = (chart.get("planets") or {}).get("Sun")
+    if isinstance(sun, dict):
+        key = str(sun.get("sign") or "").lower()
+        if key in COMPAT_SIGNS:
+            return key
+    return None
+
+
+async def show_compat_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    has_natal = await _compat_has_natal(update)
+    await reply_html(update, context, compat_hub_text(has_natal=has_natal), reply_markup=compat_hub_keyboard(has_natal=has_natal))
+
+
+async def show_compat_pick(update: Update, context: ContextTypes.DEFAULT_TYPE, which: str) -> None:
+    mine = None
+    if which == "a":
+        mine = await _compat_my_sun(update, context)
+    title = "il tuo segno" if which == "a" else "il segno dell'altra persona"
+    text = f"❤️ <b>COMPATIBILITÀ</b>\n\nScegli {title}."
+    if which == "a" and mine:
+        it, emoji, _el, _md = COMPAT_SIGNS[mine]
+        text += f"\n\nIl Sole del tuo tema: {emoji} {it}."
+    rows = list(compat_sign_keyboard(f"cp:{which}:").inline_keyboard)
+    if which == "a" and mine:
+        rows = [[_tarot_btn("☀️ Usa il mio Sole", f"cp:a:{mine}")]] + rows
+    await reply_html(update, context, text, reply_markup=InlineKeyboardMarkup(rows))
+
+
+async def send_compat_signs(update: Update, context: ContextTypes.DEFAULT_TYPE, a: str, b: str) -> None:
+    _compat_state(context).update({"a": a, "b": b, "step": None})
+    extra = [[_tarot_btn("🌌 Sinastria", "cp:syn")]] if await _compat_has_natal(update) else []
+    kb = InlineKeyboardMarkup(extra + list(compat_after_keyboard().inline_keyboard))
+    await reply_html(update, context, format_sign_compat(a, b), reply_markup=kb)
+
+
+async def ask_compat_other_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _compat_state(context)["step"] = "date"
+    await reply_html(
+        update,
+        context,
+        "❤️ <b>SINASTRIA</b>\n\n"
+        "Il tuo tema salvato resta tu.\n"
+        "📅 Data di nascita dell'altra persona: <code>GG/MM/AAAA</code>",
+        reply_markup=InlineKeyboardMarkup([nav_row()]),
+    )
+
+
+async def ask_compat_other_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _compat_state(context)["step"] = "time"
+    await reply_html(
+        update,
+        context,
+        "🕐 Ora di nascita dell'altra persona: <code>HH:MM</code>\n"
+        "Se non la sai, l'Ascendente sarà solo indicativo.",
+        reply_markup=InlineKeyboardMarkup([[_tarot_btn("❓ Non conosco l'ora", "cp:notime")], nav_row()]),
+    )
+
+
+async def ask_compat_other_place(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _compat_state(context)["step"] = "place"
+    await reply_html(
+        update,
+        context,
+        "📍 Luogo di nascita dell'altra persona.\nEsempio: <code>Roma, Italia</code>",
+        reply_markup=InlineKeyboardMarkup([nav_row()]),
+    )
+
+
+async def send_compat_synastry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    profile = await natal_profile_get(user.id) if user else None
+    other = _compat_state(context)
+    if not profile or other.get("lat") is None:
+        await show_compat_hub(update, context)
+        return
+    await send_typing(update)
+    await deliver_text(update, context, "❤️ Confronto le due carte (Swiss Ephemeris)…")
+    client = _http_client(context)
+    try:
+        chart_a = natal_chart_from_state(_natal_state(context))
+        if not chart_a:
+            chart_a = await api_natal_chart(
+                client,
+                year=int(profile["year"]),
+                month=int(profile["month"]),
+                day=int(profile["day"]),
+                hour=int(profile.get("hour") or 12),
+                minute=int(profile.get("minute") or 0),
+                lat=float(profile["lat"]),
+                lon=float(profile["lon"]),
+            )
+            _natal_state(context)["chart"] = chart_a
+        chart_b = await api_natal_chart(
+            client,
+            year=int(other["year"]),
+            month=int(other["month"]),
+            day=int(other["day"]),
+            hour=int(other.get("hour") or 12),
+            minute=int(other.get("minute") or 0),
+            lat=float(other["lat"]),
+            lon=float(other["lon"]),
+        )
+    except StelleOfflineError:
+        await reply_offline(update, context)
+        return
+    other["step"] = None
+    name_a = str(profile.get("place") or "il tuo tema")
+    name_b = str(other.get("place") or "l'altra carta")
+    extra = [[_tarot_btn("♈ Solo i segni", "cp:signs")]]
+    kb = InlineKeyboardMarkup(extra + list(compat_after_keyboard().inline_keyboard))
+    await reply_html(update, context, format_synastry(chart_a, chart_b, name_a=name_a, name_b=name_b), reply_markup=kb)
+
+
+async def dispatch_compat(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    parts = token.split(":")
+    action = parts[1] if len(parts) > 1 else "hub"
+    extra = parts[2] if len(parts) > 2 else ""
+    if action != "date" and action != "time" and action != "place":
+        if action not in {"a", "b", "loc", "notime"}:
+            _compat_state(context)["step"] = None
+    if action in {"hub", ""}:
+        await show_compat_hub(update, context)
+        return
+    if action == "signs":
+        await show_compat_pick(update, context, "a")
+        return
+    if action == "a" and extra in COMPAT_SIGNS:
+        _compat_state(context)["a"] = extra
+        await show_compat_pick(update, context, "b")
+        return
+    if action == "b" and extra in COMPAT_SIGNS:
+        a = str(_compat_state(context).get("a") or "")
+        if a not in COMPAT_SIGNS:
+            await show_compat_pick(update, context, "a")
+            return
+        await send_compat_signs(update, context, a, extra)
+        return
+    if action == "syn":
+        if not await _compat_has_natal(update):
+            await show_compat_hub(update, context)
+            return
+        await ask_compat_other_date(update, context)
+        return
+    if action == "notime":
+        state = _compat_state(context)
+        state["hour"], state["minute"] = 12, 0
+        state["time_unknown"] = True
+        await ask_compat_other_place(update, context)
+        return
+    if action == "loc" and extra.isdigit():
+        places = _compat_state(context).get("places")
+        if isinstance(places, list) and 0 <= int(extra) < len(places):
+            place = places[int(extra)]
+            _compat_state(context)["place"] = place.get("display")
+            _compat_state(context)["lat"] = place.get("lat")
+            _compat_state(context)["lon"] = place.get("lon")
+            await send_compat_synastry(update, context)
+            return
+        await ask_compat_other_place(update, context)
+        return
+    await show_compat_hub(update, context)
+
+
+async def on_cp_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    await query.answer()
+    await dispatch_compat(update, context, query.data)
+
+
+async def receive_compat_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
+    state = context.user_data.get(COMPAT_STATE_KEY)
+    if not isinstance(state, dict):
+        return False
+    step = state.get("step")
+    if step == "date":
+        parsed = parse_birth_date(text)
+        if not parsed:
+            await reply_html(update, context, "Data non valida. Usa <code>GG/MM/AAAA</code>.")
+            return True
+        state["year"], state["month"], state["day"] = parsed
+        await delete_user_command(update)
+        await ask_compat_other_time(update, context)
+        return True
+    if step == "time":
+        parsed = parse_birth_time(text)
+        if not parsed:
+            await reply_html(
+                update,
+                context,
+                "Orario non valido. Usa <code>HH:MM</code>.",
+                reply_markup=InlineKeyboardMarkup([[_tarot_btn("❓ Non conosco l'ora", "cp:notime")], nav_row()]),
+            )
+            return True
+        state["hour"], state["minute"] = parsed
+        state["time_unknown"] = False
+        await delete_user_command(update)
+        await ask_compat_other_place(update, context)
+        return True
+    if step == "place":
+        await send_typing(update)
+        await deliver_text(update, context, "📍 Cerco il luogo…")
+        try:
+            places = await api_geocode_place(_http_client(context), text)
+        except StelleOfflineError:
+            await reply_html(update, context, "Luogo non trovato. Prova <code>Milano, Italia</code>.")
+            return True
+        state["places"] = places
+        await delete_user_command(update)
+        if len(places) == 1:
+            state["place"] = places[0].get("display")
+            state["lat"] = places[0].get("lat")
+            state["lon"] = places[0].get("lon")
+            await send_compat_synastry(update, context)
+            return True
+        rows = [[_tarot_btn(clip_text(str(p["display"]), 40), f"cp:loc:{idx}")] for idx, p in enumerate(places[:4])]
+        rows.append(nav_row())
+        await reply_html(update, context, "Ho trovato più luoghi. Quale?", reply_markup=InlineKeyboardMarkup(rows))
+        return True
+    return False
+
+
+async def cmd_compatibilita(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    raw = " ".join(context.args).strip() if context.args else ""
+    _cmd_begin(context, "cp:hub")
+    if raw:
+        parts = raw.replace(" e ", " ").replace("+", " ").split()
+        signs = [normalize_sign(p) for p in parts]
+        signs = [s for s in signs if s]
+        if len(signs) >= 2:
+            await send_compat_signs(update, context, signs[0], signs[1])
+            await delete_user_command(update)
+            return
+        if len(signs) == 1:
+            _compat_state(context)["a"] = signs[0]
+            await show_compat_pick(update, context, "b")
+            await delete_user_command(update)
+            return
+    await show_compat_hub(update, context)
+    await delete_user_command(update)
+
+
 async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Domanda tarocchi in corso, oppure un segno trattato come /oroscopo."""
     message = update.effective_message
@@ -8718,6 +9032,8 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     stone = context.user_data.get(STONE_STATE_KEY)
     if isinstance(stone, dict) and stone.get("search"):
         await receive_pietre_search(update, context, text)
+        return
+    if await receive_compat_text(update, context, text):
         return
     if await receive_natal_text(update, context, text):
         return
@@ -8819,6 +9135,7 @@ async def post_init(application: Application) -> None:
                 BotCommand("esplora", "I sette mondi"),
                 BotCommand("pietre", "Mondo delle pietre"),
                 BotCommand("pietra", "Oracolo delle pietre"),
+                BotCommand("compatibilita", "Compatibilità e sinastria"),
                 BotCommand("cosmico", "Scheda da ogni mondo"),
                 BotCommand("cielo", "Cosa vedi ADESSO"),
                 BotCommand("osserva", "Cielo da una città, dettaglio"),
@@ -8865,6 +9182,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler(["esplora", "explore"], cmd_esplora))
     application.add_handler(CommandHandler("pietre", cmd_pietre))
     application.add_handler(CommandHandler("pietra", cmd_pietra))
+    application.add_handler(CommandHandler(["compatibilita", "compat", "sinastria"], cmd_compatibilita))
     application.add_handler(CommandHandler(["oracoli", "oracolo"], cmd_oracoli))
     application.add_handler(CommandHandler(["lettura", "domanda"], cmd_lettura))
     application.add_handler(CommandHandler(["sibille", "lenormand"], cmd_sibille))
@@ -8943,6 +9261,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_xp_action, pattern=r"^xp:"))
     application.add_handler(CallbackQueryHandler(on_md_action, pattern=r"^md:"))
     application.add_handler(CallbackQueryHandler(on_pt_action, pattern=r"^pt:"))
+    application.add_handler(CallbackQueryHandler(on_cp_action, pattern=r"^cp:"))
     application.add_handler(MessageHandler(filters.PHOTO, on_pietre_photo))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))

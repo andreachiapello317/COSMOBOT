@@ -5,7 +5,7 @@ def home_text() -> str:
     return (
         "🌌 <b>COSMOBOT</b>\n\n"
         "Esplorare sé stessi, il cielo e l'universo. Sette mondi, un filo.\n\n"
-        "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, specchio, rituale\n"
+        "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, compatibilità, specchio, rituale\n"
         "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, pietre\n"
         "🔭 <b>CIELO</b> — cosa vedi adesso, stelle, eventi, cielo profondo\n"
         "🪐 <b>MONDI</b> — esploratore: esopianeti, sistemi, salvataggi\n"
@@ -74,9 +74,26 @@ def rune_intro_text() -> str:
 def world_self_text() -> str:
     return (
         "🔮 <b>TE STESSO</b>\n\n"
-        "Tema natale, oroscopo, transiti sul tema salvato.\n"
+        "Tema natale, oroscopo, transiti, compatibilità.\n"
         "Più due pratiche simboliche: specchio e rituale lunare.\n"
-        "Non sono misure astronomiche: sono domande che ti fai."
+        "I segni e la sinastria sono tradizione, non astronomia."
+    )
+
+
+def compat_hub_text(*, has_natal: bool) -> str:
+    extra = (
+        "🌌 <b>Sinastria</b> — il tuo tema salvato + data, ora e luogo dell'altra persona. "
+        "Posizioni live, aspetti tra le due carte.\n\n"
+        if has_natal
+        else "Per la sinastria serve prima il tuo 🌌 tema salvato.\n\n"
+    )
+    return (
+        "❤️ <b>COMPATIBILITÀ</b>\n\n"
+        "Due modi, entrambi dichiarati come astrologia tradizionale.\n\n"
+        "♈ <b>Due segni</b> — elementi, modalità, angolo tra i Soli. "
+        "Niente percentuali.\n\n"
+        f"{extra}"
+        "Non è una previsione e non sostituisce due persone che si parlano."
     )
 
 

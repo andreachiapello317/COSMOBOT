@@ -12,6 +12,7 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 | --- | --- | --- |
 | `/start` | Presenta il bot e i comandi | — |
 | `/tema` | Tema natale guidato: data, ora, luogo → Big Three, pianeti, case, aspetti | [CosmyDay `/natal`](https://cosmyday.com/api-docs) |
+| `/compatibilita` | Due segni (elementi, modalità, angolo) o sinastria sul tema salvato | CosmyDay per i temi; i segni sono tradizione |
 | `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Bilancia** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
 | `/oracoli` | Hub del reparto: tradizionali + mazzi COSMOBOT | — |
 | `/lettura` | Scrivi la situazione, poi scegli tarocchi / I Ching / rune / Lenormand / sorprendimi | riusa i rituali |
@@ -73,6 +74,8 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come `/oroscopo`. Puoi anche scrivere `/oroscopo vergine settimanale` per saltare la scelta.
 
 `/tema` (o `/natale`) chiede data, ora e città una alla volta, geocodifica con CosmyDay e calcola Sole, Luna, Ascendente, pianeti, case e aspetti. Puoi salvare il tema e poi vedere i transiti di oggi rispetto alla carta.
+
+`/compatibilita` (o `/compat`, `/sinastria`) sta in 🔮 **Te stesso**. Due segni: elementi, modalità e angolo tradizionale, senza percentuali inventate. Se hai un tema salvato, la sinastria calcola la seconda carta su CosmyDay e mostra Sole/Luna/Venere/Marte più gli aspetti tra le due carte. È astrologia tradizionale, non astronomia.
 
 `/tarocchi` (o `/tarot`) è una lettura guidata: scegli lo spread, (se serve) scrivi la domanda, poi **PESCA LE CARTE**. L’API decide quali carte escono; dritta/rovesciata è casuale; i testi sono i significati ufficiali, tradotti e letti insieme. Lo storico resta sul server (su Render free può azzerarsi al riavvio).
 
@@ -252,6 +255,7 @@ services/eclipses.py   # Skytime eclissi
 services/sheets.py     # schede e quiz da fonti live
 services/progress.py   # punti quiz, missione del giorno, collezione pietre (file locale)
 services/stones.py     # catalogo mineralogico, schede, laboratorio, quiz
+services/compat.py     # segni e sinastria (tradizione + carte live)
 services/runes.py      # dataset Elder Futhark
 services/iss.py        # posizione ISS
 services/astronomy.py  # visibilità da numeri live

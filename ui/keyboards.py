@@ -75,8 +75,36 @@ def world_self_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🌌 Tema Natale", "natal:open"), kb_btn("🔮 Oroscopo", "home:oroscopo")],
-            [kb_btn("🪐 Transiti", "home:transits"), kb_btn("🪞 Specchio", "home:specchio")],
-            [kb_btn("🌙 Rituale", "home:rituale")],
+            [kb_btn("🪐 Transiti", "home:transits"), kb_btn("❤️ Compatibilità", "cp:hub")],
+            [kb_btn("🪞 Specchio", "home:specchio"), kb_btn("🌙 Rituale", "home:rituale")],
+            nav_row(),
+        ]
+    )
+
+
+def compat_hub_keyboard(*, has_natal: bool = False) -> InlineKeyboardMarkup:
+    rows = [
+        [kb_btn("♈ Due segni", "cp:signs")],
+    ]
+    if has_natal:
+        rows.append([kb_btn("🌌 Sinastria (due temi)", "cp:syn")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
+
+
+def compat_sign_keyboard(prefix: str) -> InlineKeyboardMarkup:
+    from services.compat import SIGNS
+
+    buttons = [kb_btn(f"{emoji} {it}", f"{prefix}{key}") for key, (it, emoji, _el, _md) in SIGNS.items()]
+    grid = _pairs(buttons)
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def compat_after_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔄 Altri segni", "cp:signs"), kb_btn("❤️ Hub", "cp:hub")],
             nav_row(),
         ]
     )
