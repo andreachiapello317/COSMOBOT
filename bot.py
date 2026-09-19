@@ -8761,36 +8761,45 @@ async def on_pietre_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     except Exception:
         hints = {"colors": [], "metallic": False, "ok": False}
     guesses = guess_stones(hints, n=3)
+    color_keys = [c for c in (hints.get("colors") or []) if c in COLORS]
+    if color_keys:
+        state.setdefault("lab", {})
+        if isinstance(state["lab"], dict):
+            state["lab"]["color"] = color_keys[0]
     if guesses:
         state["last"] = guesses[0]["id"]
         user = update.effective_user
         if user:
             for stone in guesses:
                 await stone_discover(user.id, stone["id"])
-    color_bits = []
-    for key in hints.get("colors") or []:
-        if key in COLORS:
-            color_bits.append(f"{COLORS[key][0]} {COLORS[key][1]}")
-    if hints.get("metallic"):
-        color_bits.append("lucentezza chiara / metallica")
-    seen = ", ".join(color_bits) if color_bits else "colore incerto, pesco dal catalogo"
-    method = "dal colore che ho letto" if hints.get("ok") and color_bits else "a occhio, anche a caso"
+    color_bits = [f"{COLORS[key][0]} {COLORS[key][1]}" for key in color_keys]
+    if hints.get("metallic") and color_keys:
+        color_bits.append("tono metallico")
+    if not color_keys or not guesses:
+        await reply_html(
+            update,
+            context,
+            "📸 Non ho letto un colore netto al centro della foto "
+            "(sfondo, ombra o foto troppo scura).\n"
+            "Scegli tu il colore: da lì restringo il catalogo. "
+            "Non pesco pietre di un altro colore.",
+            reply_markup=pietre_lab_keyboard("color"),
+        )
+        return
+    seen = ", ".join(color_bits)
     lines = [
         "📸 <b>IPOTESI DA FOTO</b>",
-        f"Nella foto: {e(seen)}.",
-        f"Tre scommesse {method}.",
+        f"Colore letto: <b>{e(seen)}</b>.",
+        "Solo pietre di quel colore. Niente catalogo a caso.",
         "",
     ]
-    if not guesses:
-        guesses = []
     for i, stone in enumerate(guesses, start=1):
         rem, rname = RARITY[stone["rarity"]]
-        lines.append(f"{i}. {stone['emoji']} <b>{e(stone['it'])}</b> · {e(stone['formula'])} · {rem} {rname}")
+        lines.append(f"{i}. {stone['emoji']} <b>{e(stone['it'])}</b> · {e(stone['color'])} · {rem} {rname}")
     lines.extend(
         [
             "",
-            "Non è un'identificazione. Mancano durezza, striscio, densità.",
-            "Tocca una scommessa o continua il laboratorio.",
+            "Il colore è vincolo. Il nome resta un'ipotesi: mancano durezza e striscio.",
         ]
     )
     rows = [[_tarot_btn(f"{s['emoji']} {s['it']}", f"pt:s:{s['id']}")] for s in guesses]
