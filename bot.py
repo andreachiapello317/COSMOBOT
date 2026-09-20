@@ -163,10 +163,11 @@ from services.moon import moon_now, next_quarters
 from services.skycatalog import SkyFrame, visible_stars as catalog_stars
 from services.skychart import (
     SKY_STYLES,
+    draw_atlas_chart,
     draw_figure_chart,
-    draw_horizon_chart,
     draw_sky_chart,
-    format_emoji_sky,
+    format_cielo_terra,
+    format_sun_moon_earth,
     sky_style_label,
 )
 from services.watchevents import snapshot, tonight_picks, upcoming_events
@@ -2351,7 +2352,7 @@ def help_text() -> str:
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città, default Cuneo, niente carte).\n"
-        "🔭 <b>ASTRO</b> — Cielo (luna e alba/tramonto), Meteo, Osservatorio "
+        "🔭 <b>ASTRO</b> — Cielo (luna, sole, terra e schema a emoji), Meteo, Osservatorio "
         "(cielo di adesso in più modi, stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
@@ -7267,6 +7268,12 @@ async def on_sky_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if action in {"sole", "alba", "tramonto"}:
         await send_sole(update, context, name=name, lat=lat, lon=lon)
         return
+    if action == "terra":
+        await send_cielo_terra(update, context, name=name, lat=lat, lon=lon)
+        return
+    if action == "emoji":
+        await send_sun_moon_earth(update, context, name=name, lat=lat, lon=lon)
+        return
     if action in {"stelle", "costell"}:
         await send_sky_stars(update, context, name=name, lat=lat, lon=lon)
         return
@@ -7525,21 +7532,12 @@ async def send_sky_now(
         f"{e(format_day_it(now))} · {now.strftime('%H:%M')} · modo {idx}/{len(SKY_STYLES)} · {e(label)}"
     )
     markup = watch_sky_keyboard(chosen)
-    if chosen == "emoji":
-        try:
-            body = format_emoji_sky(place=name, lat=lat, lon=lon, when=now)
-        except Exception:
-            logger.exception("Cielo emoji non generato")
-            await reply_offline(update, context)
-            return
-        await reply_html(update, context, f"{head}\n\n{body}", reply_markup=markup)
-        return
     await deliver_text(update, context, f"🔭 Disegno il cielo sopra {name} ({label})…")
     try:
-        if chosen == "horizon":
-            png = draw_horizon_chart(place=name, lat=lat, lon=lon, when=now)
-        elif chosen == "figures":
+        if chosen == "figures":
             png = draw_figure_chart(place=name, lat=lat, lon=lon, when=now)
+        elif chosen == "atlas":
+            png = draw_atlas_chart(place=name, lat=lat, lon=lon, when=now)
         else:
             png = draw_sky_chart(place=name, lat=lat, lon=lon, when=now)
     except Exception:
@@ -8150,6 +8148,68 @@ async def send_sky_oracle(
         ]
     )
     await reply_html(update, context, "\n".join(lines), reply_markup=cosmico_keyboard())
+
+
+async def send_cielo_terra(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    name: str,
+    lat: float,
+    lon: float,
+) -> None:
+    _remember_cielo_place(context, name, lat, lon)
+    await send_typing(update)
+    client = _http_client(context)
+    daylight = ""
+    try:
+        tz_name = await api_timezone_name(client, lat, lon)
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = DEFAULT_TZ
+        now = datetime.now(tz)
+        sun = await api_sun_times(client, lat, lon, tz_name)
+        daylight = str(sun.get("daylight") or sun.get("day_length") or "")
+    except StelleOfflineError:
+        tz, now = await _watch_clock(context, lat, lon)
+    try:
+        text = format_cielo_terra(place=name, lat=lat, lon=lon, when=now, daylight=daylight)
+    except Exception:
+        logger.exception("Terra non calcolata")
+        await reply_offline(update, context)
+        return
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=sky_result_keyboard([_tarot_btn("🔄 Aggiorna", "sky:terra")]),
+    )
+
+
+async def send_sun_moon_earth(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    name: str,
+    lat: float,
+    lon: float,
+) -> None:
+    _remember_cielo_place(context, name, lat, lon)
+    await send_typing(update)
+    tz, now = await _watch_clock(context, lat, lon)
+    try:
+        body = format_sun_moon_earth(place=name, lat=lat, lon=lon, when=now)
+    except Exception:
+        logger.exception("Schema Sole Luna Terra non generato")
+        await reply_offline(update, context)
+        return
+    await reply_html(
+        update,
+        context,
+        body,
+        reply_markup=sky_result_keyboard([_tarot_btn("🔄 Aggiorna", "sky:emoji")]),
+    )
 
 
 async def send_luna_here(

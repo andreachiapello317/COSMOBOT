@@ -384,8 +384,9 @@ def oracoli_mazzi_keyboard() -> InlineKeyboardMarkup:
 def world_sky_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🌙 Luna", "sky:luna")],
-            [kb_btn("🌅 Alba e tramonto", "sky:sole")],
+            [kb_btn("🌙 Luna", "sky:luna"), kb_btn("🌅 Alba e tramonto", "sky:sole")],
+            [kb_btn("🌍 Terra", "sky:terra")],
+            [kb_btn("☀️🌙🌍 Sole, Luna, Terra", "sky:emoji")],
             [kb_btn("📍 Cambia città", "sky:city")],
             nav_row(),
         ]

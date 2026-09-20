@@ -45,7 +45,7 @@ def astro_hub_text() -> str:
     return _card(
         "🔭 <b>ASTRO</b>",
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
-        "☀️ <b>CIELO</b> — luna (fasi) e alba/tramonto da un luogo\n"
+        "☀️ <b>CIELO</b> — luna, sole, terra e uno schema a emoji\n"
         "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
         "🔭 <b>OSSERVATORIO</b> — cielo di adesso (più modi), stelle, Horizons, stasera\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
@@ -157,10 +157,10 @@ def world_sky_text(place: str = "") -> str:
     )
     return _card(
         "☀️ <b>CIELO</b>",
-        "Orari del Sole e della Luna da questo luogo. Niente stelle, niente eventi, niente enciclopedia.",
+        "Sole, Luna e Terra da questo luogo. Niente stelle, niente eventi, niente enciclopedia.",
         f"{where}\n"
-        "🌙 Luna (fase, illuminazione, prossimi quarti) · 🌅 Alba e tramonto.\n"
-        "Stelle, eventi e corpi Horizons stanno in 🔭 Osservatorio.",
+        "🌙 Luna · 🌅 Alba e tramonto · 🌍 Terra · ☀️🌙🌍 schema a emoji.\n"
+        "Stelle, eventi e carte PNG stanno in 🔭 Osservatorio.",
     )
 
 
@@ -174,7 +174,7 @@ def world_watch_text(place: str = "") -> str:
         "🔭 <b>OSSERVATORIO</b>",
         "Cosa sta sopra di te, adesso. Stelle da Hipparcos; Sole, Luna, pianeti e comete da JPL Horizons.",
         f"{where}\n"
-        "🔭 Cielo di adesso (più modi, scorri) · ⭐ Stelle · 🪐 Pianeti · 🌙 Luna\n"
+        "🔭 Cielo di adesso (classica, figure, atlante) · ⭐ Stelle · 🪐 Pianeti · 🌙 Luna\n"
         "☄️ Comete · 🛰️ Satelliti (ISS live) · 🌠 Eventi · 🔭 Stasera · 📅 Prossimi\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
     )

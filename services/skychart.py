@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import html as _html
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any
 
@@ -184,12 +185,11 @@ def draw_sky_chart(
     return buf.getvalue()
 
 
-SKY_STYLES = ("classic", "horizon", "figures", "emoji")
+SKY_STYLES = ("classic", "figures", "atlas")
 SKY_STYLE_LABELS = {
     "classic": "Classica",
-    "horizon": "Panorama",
     "figures": "Figure",
-    "emoji": "Emoji",
+    "atlas": "Atlante",
 }
 
 
@@ -197,74 +197,143 @@ def sky_style_label(style: str) -> str:
     return SKY_STYLE_LABELS.get(style, "Classica")
 
 
-def draw_horizon_chart(
+def _wrap_ra(ra_deg: float, center: float) -> float:
+    return ((float(ra_deg) - float(center) + 540.0) % 360.0) - 180.0
+
+
+def draw_atlas_chart(
     *,
     place: str,
     lat: float,
     lon: float,
     when: datetime,
 ) -> bytes:
-    """Stessi oggetti della carta classica, visti come striscia azimut × altezza."""
-    frame = SkyFrame(lat, lon, when)
-    stars = visible_stars(frame)
-    figures = constellation_segments(frame)
-    width, height = 1100, 520
-    ground = 70
-    img = Image.new("RGB", (width, height + 64), (6, 10, 20))
-    draw = ImageDraw.Draw(img)
-    sky_h = height - ground
-    title_font = _font(20)
-    tiny = _font(13)
+    """Carta equatoriale da atlante: RA cresce a sinistra, griglia in ore e gradi."""
+    from services.skycatalog import constellation_name, load_catalog
 
-    def xy(alt: float, az: float) -> tuple[int, int]:
-        x = int((az % 360.0) / 360.0 * width)
-        y = int(sky_h - max(0.0, min(alt, 90.0)) / 90.0 * sky_h)
+    frame = SkyFrame(lat, lon, when)
+    center = (frame.lst * 15.0) % 360.0
+    ra_half = 90.0
+    dec_lo = max(-80.0, lat - 88.0)
+    dec_hi = min(88.0, lat + 88.0)
+    width, height, footer = 1180, 720, 68
+    left, right, top, bottom = 58, 24, 28, 28
+    img = Image.new("RGB", (width, height + footer), (7, 9, 14))
+    draw = ImageDraw.Draw(img)
+    title_font = _font(20)
+    small = _font(14)
+    tiny = _font(12)
+    plot_w = width - left - right
+    plot_h = height - top - bottom
+
+    def xy(ra_deg: float, dec_deg: float) -> tuple[float, float] | None:
+        wrapped = _wrap_ra(ra_deg, center)
+        if abs(wrapped) > ra_half + 2 or dec_deg < dec_lo - 2 or dec_deg > dec_hi + 2:
+            return None
+        x = left + (0.5 - wrapped / (2 * ra_half)) * plot_w
+        y = top + (dec_hi - dec_deg) / (dec_hi - dec_lo) * plot_h
         return x, y
 
-    draw.rectangle((0, 0, width, sky_h), fill=(8, 14, 28))
-    draw.rectangle((0, sky_h, width, height), fill=(28, 24, 18))
-    for alt in (0, 30, 60):
-        y = int(sky_h - alt / 90.0 * sky_h)
-        draw.line((0, y, width, y), fill=(40, 55, 80))
-    for az, name in ((0, "N"), (90, "E"), (180, "S"), (270, "O")):
-        x = int(az / 360.0 * width)
-        draw.line((x, 0, x, height), fill=(36, 48, 70))
-        draw.text((x + 6, sky_h + 8), name, fill=(220, 220, 230), font=title_font)
-
-    for fig in figures:
-        for seg in fig["segs"]:
-            pts = [xy(alt, az) for alt, az in seg if alt > -1]
-            if len(pts) >= 2:
-                draw.line(pts, fill=(80, 105, 150), width=2)
-
-    for star in stars:
-        if star["alt"] <= 0:
+    draw.rectangle((left, top, left + plot_w, top + plot_h), fill=(9, 12, 20), outline=(70, 88, 118))
+    for dec in range(int(math.floor(dec_lo / 10.0) * 10), int(dec_hi) + 1, 10):
+        a = xy(center - ra_half, dec)
+        b = xy(center + ra_half, dec)
+        if not a or not b:
             continue
-        x, y = xy(star["alt"], star["az"])
-        rad = max(1.0, 5.2 - float(star["mag"]))
-        draw.ellipse((x - rad, y - rad, x + rad, y + rad), fill=_star_color(star.get("bv")))
+        color = (90, 110, 145) if dec == 0 else (32, 42, 62)
+        draw.line((a[0], a[1], b[0], b[1]), fill=color, width=2 if dec == 0 else 1)
+        draw.text((10, a[1] - 7), f"{dec:+d}°", fill=(150, 165, 190), font=tiny)
+    for hour in range(-6, 7):
+        ra = (center + hour * 15.0) % 360.0
+        a = xy(ra, dec_lo)
+        b = xy(ra, dec_hi)
+        if not a or not b:
+            continue
+        draw.line((a[0], top, b[0], top + plot_h), fill=(32, 42, 62))
+        label = f"{int((ra / 15.0) % 24):02d}h"
+        draw.text((b[0] - 12, 8), label, fill=(150, 165, 190), font=tiny)
 
-    sun_alt, sun_az, _ra, _dec = frame.body_altaz(astronomy.Body.Sun)
-    if sun_alt > -0.5:
-        x, y = xy(sun_alt, sun_az)
-        draw.ellipse((x - 9, y - 9, x + 9, y + 9), fill=(255, 210, 70))
-    moon_alt, moon_az, _ra, _dec = frame.body_altaz(astronomy.Body.Moon)
-    if moon_alt > -0.5:
-        x, y = xy(moon_alt, moon_az)
-        draw.ellipse((x - 7, y - 7, x + 7, y + 7), fill=(230, 230, 210))
-    for body, label, color in PLANETS:
-        alt, az, _ra, _dec = frame.body_altaz(body)
+    rot = astronomy.Rotation_ECL_EQJ()
+    ecl: list[tuple[float, float]] = []
+    for lon_deg in range(0, 361, 2):
+        vec = astronomy.VectorFromSphere(astronomy.Spherical(0.0, float(lon_deg), 1.0), frame.moment)
+        eq = astronomy.EquatorFromVector(astronomy.RotateVector(rot, vec))
+        point = xy(float(eq.ra) * 15.0, float(eq.dec))
+        if point:
+            ecl.append(point)
+        elif len(ecl) >= 2:
+            draw.line(ecl, fill=(150, 120, 60), width=2)
+            ecl = []
+    if len(ecl) >= 2:
+        draw.line(ecl, fill=(150, 120, 60), width=2)
+
+    catalog = load_catalog()
+    for fig in catalog.get("lines") or []:
+        name = constellation_name(str(fig.get("id") or ""))
+        named = False
+        for seg in fig.get("s") or []:
+            pts: list[tuple[float, float]] = []
+            for point in seg:
+                if len(point) < 2:
+                    continue
+                ra, dec = float(point[0]), float(point[1])
+                alt, _az = frame.altaz(ra, dec)
+                mapped = xy(ra, dec)
+                if mapped and alt > -2:
+                    pts.append(mapped)
+            if len(pts) >= 2:
+                chunk = [pts[0]]
+                for prev, cur in zip(pts, pts[1:]):
+                    if abs(cur[0] - prev[0]) > plot_w * 0.45:
+                        if len(chunk) >= 2:
+                            draw.line(chunk, fill=(72, 96, 132), width=1)
+                        chunk = [cur]
+                    else:
+                        chunk.append(cur)
+                if len(chunk) >= 2:
+                    draw.line(chunk, fill=(72, 96, 132), width=1)
+                if not named:
+                    mid = pts[len(pts) // 2]
+                    draw.text((mid[0] + 3, mid[1] + 2), name, fill=(140, 160, 190), font=tiny)
+                    named = True
+
+    for item in catalog["stars"]:
+        ra, dec, mag = float(item[0]), float(item[1]), float(item[2])
+        extra = item[3] if len(item) > 3 and isinstance(item[3], dict) else {}
+        alt, _az = frame.altaz(ra, dec)
         if alt <= 0:
             continue
-        x, y = xy(alt, az)
-        draw.ellipse((x - 5, y - 5, x + 5, y + 5), fill=color, outline=(255, 255, 255))
-        draw.text((x + 7, y - 8), label, fill=color, font=tiny)
+        pos = xy(ra, dec)
+        if not pos:
+            continue
+        rad = 3.4 if mag < 0.2 else 2.6 if mag < 1.2 else 1.8 if mag < 2.4 else 1.2 if mag < 3.6 else 0.8
+        x, y = pos
+        draw.ellipse((x - rad, y - rad, x + rad, y + rad), fill=_star_color(extra.get("bv")))
+        name = str(extra.get("n") or "")
+        if name and mag <= 1.5:
+            draw.text((x + 5, y - 7), name, fill=(220, 226, 236), font=tiny)
 
-    draw.rectangle((0, height, width, height + 64), fill=(6, 10, 20))
-    draw.text((20, height + 10), f"Cielo di adesso · panorama · {place}", fill=(235, 238, 245), font=title_font)
+    for body, label, color in (
+        (astronomy.Body.Sun, "Sole", (255, 214, 90)),
+        (astronomy.Body.Moon, "Luna", (230, 230, 214)),
+        *PLANETS,
+    ):
+        alt, _az, ra_h, dec = frame.body_altaz(body)
+        if alt <= -0.5:
+            continue
+        pos = xy(float(ra_h) * 15.0, float(dec))
+        if not pos:
+            continue
+        x, y = pos
+        rad = 8 if body == astronomy.Body.Sun else 6 if body == astronomy.Body.Moon else 4
+        draw.ellipse((x - rad, y - rad, x + rad, y + rad), fill=color, outline=(240, 240, 245))
+        draw.text((x + rad + 3, y - 8), label, fill=color, font=small)
+
+    draw.rectangle((0, height, width, height + footer), fill=(7, 9, 14))
+    draw.text((20, height + 8), f"Cielo di adesso · atlante equatoriale · {place}", fill=(235, 238, 245), font=title_font)
     draw.text(
         (20, height + 36),
-        f"{when.strftime('%d/%m/%Y %H:%M')} · azimut da N verso E · Hipparcos + Astronomy Engine",
+        f"{when.strftime('%d/%m/%Y %H:%M')} · RA a sinistra · equatore e eclittica · Hipparcos + Astronomy Engine",
         fill=(150, 165, 190),
         font=tiny,
     )
@@ -370,15 +439,139 @@ def draw_figure_chart(
     return buf.getvalue()
 
 
-_PLANET_EMOJI = (
-    (astronomy.Body.Mercury, "Mercurio", "⚪"),
-    (astronomy.Body.Venus, "Venere", "🟡"),
-    (astronomy.Body.Mars, "Marte", "🔴"),
-    (astronomy.Body.Jupiter, "Giove", "🟠"),
-    (astronomy.Body.Saturn, "Saturno", "🪐"),
-    (astronomy.Body.Uranus, "Urano", "🟢"),
-    (astronomy.Body.Neptune, "Nettuno", "🔵"),
-)
+def _season_it(when: datetime, lat: float) -> tuple[str, str]:
+    north = lat >= 0
+    names = (
+        ("primavera", "estate", "autunno", "inverno")
+        if north
+        else ("autunno", "inverno", "primavera", "estate")
+    )
+    info = astronomy.Seasons(when.year)
+    marks = (
+        (info.mar_equinox, names[0], "equinozio di marzo"),
+        (info.jun_solstice, names[1], "solstizio di giugno"),
+        (info.sep_equinox, names[2], "equinozio di settembre"),
+        (info.dec_solstice, names[3], "solstizio di dicembre"),
+    )
+    now = when.astimezone(timezone.utc)
+    current = names[3]
+    nxt_name = marks[0][2]
+    nxt_when = marks[0][0]
+    for idx, (stamp, season, label) in enumerate(marks):
+        utc = stamp.Utc()
+        if utc.tzinfo is None:
+            utc = utc.replace(tzinfo=timezone.utc)
+        if now >= utc:
+            current = season
+            nxt = marks[(idx + 1) % 4]
+            nxt_name, nxt_when = nxt[2], nxt[0]
+    nxt_utc = nxt_when.Utc()
+    if nxt_utc.tzinfo is None:
+        nxt_utc = nxt_utc.replace(tzinfo=timezone.utc)
+    if nxt_utc < now:
+        nxt = astronomy.Seasons(when.year + 1).mar_equinox
+        nxt_utc = nxt.Utc()
+        if nxt_utc.tzinfo is None:
+            nxt_utc = nxt_utc.replace(tzinfo=timezone.utc)
+        nxt_name = "equinozio di marzo"
+    return current, f"{nxt_name} il {nxt_utc.day:02d}/{nxt_utc.month:02d}"
+
+
+def format_cielo_terra(
+    *,
+    place: str,
+    lat: float,
+    lon: float,
+    when: datetime,
+    daylight: str = "",
+) -> str:
+    """Il pianeta sotto i piedi: numeri, non l'enciclopedia di NATURA."""
+    place = _html.escape(place)
+    frame = SkyFrame(lat, lon, when)
+    sun_alt, _az, _ra, _dec = frame.body_altaz(astronomy.Body.Sun)
+    moon = moon_now(when)
+    au = float(astronomy.HelioDistance(astronomy.Body.Earth, frame.moment))
+    moon_vec = astronomy.GeoVector(astronomy.Body.Moon, frame.moment, True)
+    moon_km = math.sqrt(moon_vec.x**2 + moon_vec.y**2 + moon_vec.z**2) * float(astronomy.KM_PER_AU)
+    season, nxt = _season_it(when, lat)
+    hemi = "boreale" if lat >= 0 else "australe"
+    sky = "giorno" if sun_alt > 0 else "notte"
+    day_bit = f" · luce {daylight}" if daylight else ""
+    return "\n".join(
+        [
+            f"🌍 <b>TERRA — {place.upper()}</b>",
+            f"{when.strftime('%d/%m/%Y %H:%M')}",
+            "",
+            f"📍 {lat:.4f}°, {lon:.4f}° · emisfero {hemi}",
+            f"{'☀️' if sun_alt > 0 else '🌌'} Adesso è <b>{sky}</b>{day_bit}",
+            f"☀️ Sole a {sun_alt:+.0f}° sull'orizzonte",
+            f"🌿 Stagione astronomica: <b>{season}</b> · prossimo {nxt}",
+            f"☀️ Distanza dal Sole: <b>{au:.4f} au</b>",
+            f"{moon.get('emoji') or '🌙'} Distanza dalla Luna: <b>{int(round(moon_km)):,}".replace(",", ".") + " km</b>",
+            "",
+            "<i>Astronomy Engine. Non è l'enciclopedia di 🌿 NATURA e non è un GPS.</i>",
+        ]
+    )
+
+
+def format_sun_moon_earth(
+    *,
+    place: str,
+    lat: float,
+    lon: float,
+    when: datetime,
+) -> str:
+    """Schema Sole–Terra–Luna con emoji Telegram. Niente griglia di stelle."""
+    place = _html.escape(place)
+    frame = SkyFrame(lat, lon, when)
+    moon = moon_now(when)
+    sun_alt, _sun_az, _ra, _dec = frame.body_altaz(astronomy.Body.Sun)
+    moon_alt, _moon_az, _mra, _mdec = frame.body_altaz(astronomy.Body.Moon)
+    moon_emoji = str(moon.get("emoji") or "🌙")
+    cols, rows = 11, 7
+    grid = [[" " for _ in range(cols)] for _ in range(rows)]
+    earth = (2, 3)
+    sun = (0, 3)
+    angle = math.radians(180.0 + float(moon.get("angle") or 0.0))
+    mx = int(round(earth[0] + 3 * math.cos(angle)))
+    my = int(round(earth[1] - 3 * math.sin(angle)))
+    mx = max(0, min(cols - 1, mx))
+    my = max(0, min(rows - 1, my))
+    if (mx, my) == sun:
+        mx, my = earth[0] - 1, earth[1]
+    if (mx, my) == earth:
+        mx = min(cols - 1, earth[0] + 1)
+    grid[sun[1]][sun[0]] = "☀️"
+    grid[earth[1]][earth[0]] = "🌍"
+    grid[my][mx] = moon_emoji
+    for x in range(sun[0] + 1, earth[0]):
+        if grid[3][x] == " ":
+            grid[3][x] = "·"
+    pre = ["<pre>"]
+    for row in grid:
+        text = "".join(row).rstrip()
+        if text.strip():
+            pre.append(text)
+    pre.append("</pre>")
+    sun_side = "sopra l'orizzonte" if sun_alt > 0 else "sotto l'orizzonte"
+    moon_side = "sopra l'orizzonte" if moon_alt > 0 else "sotto l'orizzonte"
+    illum = moon.get("illum")
+    illum_s = f"{illum:.0f}%" if isinstance(illum, (int, float)) else "—"
+    return "\n".join(
+        [
+            f"☀️🌙🌍 <b>SOLE, LUNA, TERRA — {place.upper()}</b>",
+            f"{when.strftime('%d/%m/%Y %H:%M')}",
+            "",
+            *pre,
+            "",
+            f"☀️ Sole · {sun_side} · altezza {sun_alt:+.0f}°",
+            f"🌍 Terra · {place} · {'giorno' if sun_alt > 0 else 'notte'}",
+            f"{moon_emoji} Luna · {moon.get('name') or 'fase'} · illuminata {illum_s} · {moon_side}",
+            "",
+            "<i>Vista dal nord dell'eclittica: il Sole sta a sinistra, la Luna gira intorno alla Terra. "
+            "Fase e altezze da Astronomy Engine. Solo emoji di Telegram.</i>",
+        ]
+    )
 
 
 def format_emoji_sky(
@@ -388,84 +581,4 @@ def format_emoji_sky(
     lon: float,
     when: datetime,
 ) -> str:
-    """Carta in emoji native di Telegram: stessi oggetti, niente PNG."""
-    frame = SkyFrame(lat, lon, when)
-    stars = visible_stars(frame)
-    cols, rows = 11, 9
-    grid = [["·" for _ in range(cols)] for _ in range(rows)]
-    mid_x, mid_y = cols // 2, rows // 2
-    radius = min(mid_x, mid_y) - 0.15
-
-    def cell(alt: float, az: float) -> tuple[int, int] | None:
-        if alt <= 0:
-            return None
-        r = ((90.0 - alt) / 90.0) * radius
-        theta = math.radians(az)
-        x = int(round(mid_x + r * math.sin(theta)))
-        y = int(round(mid_y - r * math.cos(theta)))
-        if 0 <= x < cols and 0 <= y < rows:
-            return x, y
-        return None
-
-    for star in reversed(stars):
-        pos = cell(star["alt"], star["az"])
-        if not pos:
-            continue
-        mag = float(star["mag"])
-        if mag <= 0.4:
-            glyph = "🌟"
-        elif mag <= 1.5:
-            glyph = "⭐"
-        elif mag <= 2.8:
-            glyph = "✨"
-        else:
-            glyph = "💫"
-        grid[pos[1]][pos[0]] = glyph
-
-    above: list[str] = []
-    for body, name, emoji in _PLANET_EMOJI:
-        alt, az, _ra, _dec = frame.body_altaz(body)
-        pos = cell(alt, az)
-        if pos:
-            grid[pos[1]][pos[0]] = emoji
-            above.append(f"{emoji} {name}")
-
-    moon = moon_now(when)
-    moon_alt, moon_az, _ra, _dec = frame.body_altaz(astronomy.Body.Moon)
-    moon_emoji = str(moon.get("emoji") or "🌙")
-    pos = cell(moon_alt, moon_az)
-    if pos:
-        grid[pos[1]][pos[0]] = moon_emoji
-        above.insert(0, f"{moon_emoji} Luna")
-    sun_alt, sun_az, _ra, _dec = frame.body_altaz(astronomy.Body.Sun)
-    pos = cell(sun_alt, sun_az)
-    if pos:
-        grid[pos[1]][pos[0]] = "☀️"
-        above.insert(0, "☀️ Sole")
-
-    named = [star for star in stars if star.get("name") and float(star["mag"]) <= 1.8]
-    named.sort(key=lambda row: float(row["mag"]))
-    star_bits = [f"⭐ {row['name']}" for row in named[:6]]
-
-    lines = ["<pre>      N"]
-    for y, row in enumerate(grid):
-        prefix = "O " if y == mid_y else "  "
-        suffix = " E" if y == mid_y else ""
-        lines.append(prefix + "".join(row) + suffix)
-    lines.append("      S</pre>")
-    lines.extend(
-        [
-            "",
-            "🌟 più luminosa · ⭐ · ✨ · 💫 più debole",
-            "☀️ Sole · Luna in fase · ⚪🟡🔴🟠🪐🟢🔵 pianeti",
-        ]
-    )
-    if above:
-        lines.append("Sopra l'orizzonte: " + " · ".join(above))
-    if star_bits:
-        lines.append("Stelle: " + " · ".join(star_bits))
-    lines.append(
-        f"<i>N in alto, orizzonte sul bordo. Stessi numeri della classica, "
-        f"disegnati con le emoji di Telegram sopra {place}.</i>"
-    )
-    return "\n".join(lines)
+    return format_sun_moon_earth(place=place, lat=lat, lon=lon, when=when)
