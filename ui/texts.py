@@ -48,7 +48,7 @@ def astro_hub_text() -> str:
         "☀️ <b>CIELO</b> — luna (fasi) e alba/tramonto da un luogo\n"
         "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
         "🔭 <b>OSSERVATORIO</b> — stelle, eventi, pianeti e asteroidi JPL Horizons\n"
-        "🚀 <b>ESPLORA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
+        "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
     )
@@ -176,7 +176,7 @@ def world_watch_text(place: str = "") -> str:
         f"{where}\n"
         "⭐ Stelle · 🌠 Eventi (solo se osservabili da qui)\n"
         "🪐 Pianeti · 🪨 Asteroidi · 📏 Distanze · ⬆️ Alba/tramonto dei pianeti\n\n"
-        "Horizons è l'efemeride JPL, non Wikipedia. L'enciclopedia sta in Esplora lo spazio.",
+        "Horizons è l'efemeride JPL, non Wikipedia. L'enciclopedia sta in Studia lo spazio.",
     )
 
 
@@ -246,7 +246,7 @@ def compass_hub_text() -> str:
 
 def world_mondi_text() -> str:
     return _card(
-        "🚀 <b>ESPLORA LO SPAZIO</b>",
+        "🚀 <b>STUDIA LO SPAZIO</b>",
         "Enciclopedia: Wikipedia e Wikidata. Niente oracoli, niente salvati, niente casuale.",
         "☀️ Sistema Solare · 🌑 Lune · 🧊 Nani · ☄️ Comete · 🪨 Asteroidi\n"
         "⭐ Stelle · ✨ Costellazioni · 🌌 Galassie · 🌀 Nebulose\n"
@@ -259,7 +259,7 @@ def world_mondi_text() -> str:
 def world_orbit_text() -> str:
     return _card(
         "🛰️ <b>IN ORBITA</b>",
-        "Solo posizioni live. Schede e cataloghi dei satelliti stanno in Esplora lo spazio.",
+        "Solo posizioni live. Schede e cataloghi dei satelliti stanno in Studia lo spazio.",
         "🛰️ ISS adesso — Where the ISS at? (NORAD 25544)\n"
         "👥 Chi è in orbita — Open Notify\n\n"
         "Il passaggio sopra la tua città non lo invento. "

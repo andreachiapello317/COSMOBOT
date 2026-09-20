@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import astronomy
 import httpx
 
 HORIZONS_URL = "https://ssd.jpl.nasa.gov/api/horizons.api"
@@ -91,8 +92,18 @@ ROCKS: dict[str, dict[str, str]] = {
 
 BODIES: dict[str, dict[str, str]] = {**PLANETS, **ROCKS}
 
+ENGINE_BODY: dict[str, astronomy.Body] = {
+    "199": astronomy.Body.Mercury,
+    "299": astronomy.Body.Venus,
+    "499": astronomy.Body.Mars,
+    "599": astronomy.Body.Jupiter,
+    "699": astronomy.Body.Saturn,
+    "799": astronomy.Body.Uranus,
+    "899": astronomy.Body.Neptune,
+}
+
 _cache: dict[str, tuple[float, Any]] = {}
-_gate = asyncio.Semaphore(3)
+_gate = asyncio.Semaphore(2)
 
 
 class HorizonsError(RuntimeError):
@@ -256,6 +267,78 @@ def _side(alt: float | None) -> str:
     return "↑ sopra" if alt > 0 else "↓ sotto"
 
 
+def _astro_time(when: datetime) -> astronomy.Time:
+    utc = when.astimezone(timezone.utc)
+    return astronomy.Time.Make(
+        utc.year,
+        utc.month,
+        utc.day,
+        utc.hour,
+        utc.minute,
+        utc.second + utc.microsecond / 1_000_000,
+    )
+
+
+def _round_when(when: datetime) -> datetime:
+    utc = when.astimezone(timezone.utc)
+    return utc.replace(minute=(utc.minute // 5) * 5, second=0, microsecond=0)
+
+
+def observer_from_engine(command: str, lat: float, lon: float, when: datetime, *, elev_km: float = 0.05) -> dict[str, Any]:
+    body = ENGINE_BODY.get(command)
+    if body is None:
+        raise HorizonsError("niente calcolo locale per questo corpo")
+    moment = _astro_time(when)
+    site = astronomy.Observer(lat, lon, elev_km)
+    eq = astronomy.Equator(body, moment, site, True, True)
+    hor = astronomy.Horizon(moment, site, eq.ra, eq.dec, astronomy.Refraction.Normal)
+    ill = astronomy.Illumination(body, moment)
+    elong = astronomy.Elongation(body, moment)
+    cnst = astronomy.Constellation(eq.ra, eq.dec)
+    vis = str(getattr(elong, "visibility", "") or "")
+    lead = "/L" if "Morning" in vis else "/T" if "Evening" in vis else ""
+    fraction = getattr(ill, "phase_fraction", None)
+    return {
+        "when": when.astimezone(timezone.utc),
+        "az": float(hor.azimuth),
+        "alt": float(hor.altitude),
+        "mag": float(ill.mag) if ill.mag is not None else None,
+        "illum": float(fraction) * 100.0 if isinstance(fraction, (int, float)) else None,
+        "delta_au": float(eq.dist),
+        "elong": float(elong.elongation),
+        "phase": float(getattr(ill, "phase_angle", 0.0) or 0.0),
+        "lead": lead,
+        "cnst": str(getattr(cnst, "symbol", "") or ""),
+        "target": body.name,
+        "command": command,
+        "source": "engine",
+    }
+
+
+def rts_from_engine(command: str, lat: float, lon: float, day: datetime, *, elev_km: float = 0.05) -> list[dict[str, Any]]:
+    body = ENGINE_BODY.get(command)
+    if body is None:
+        raise HorizonsError("niente orari locali per questo corpo")
+    start = day.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    moment = _astro_time(start)
+    site = astronomy.Observer(lat, lon, elev_km)
+    rows: list[dict[str, Any]] = []
+    rise = astronomy.SearchRiseSet(body, site, astronomy.Direction.Rise, moment, 1.2)
+    sett = astronomy.SearchRiseSet(body, site, astronomy.Direction.Set, moment, 1.2)
+    cul = astronomy.SearchHourAngle(body, site, 0.0, moment)
+    if rise is not None:
+        stamp = rise.Utc().replace(tzinfo=timezone.utc)
+        rows.append({"when": stamp, "event": "r", "source": "engine"})
+    if cul is not None and getattr(cul, "time", None) is not None:
+        stamp = cul.time.Utc().replace(tzinfo=timezone.utc)
+        rows.append({"when": stamp, "event": "t", "alt": float(cul.hor.altitude), "source": "engine"})
+    if sett is not None:
+        stamp = sett.Utc().replace(tzinfo=timezone.utc)
+        rows.append({"when": stamp, "event": "s", "source": "engine"})
+    rows.sort(key=lambda row: row["when"])
+    return rows
+
+
 async def fetch_horizons(
     client: httpx.AsyncClient,
     *,
@@ -269,20 +352,25 @@ async def fetch_horizons(
         "MAKE_EPHEM": "YES",
         **params,
     }
-    try:
-        response = await client.get(HORIZONS_URL, params=payload)
-        response.raise_for_status()
-        data = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        raise HorizonsError(str(exc)) from exc
-    if not isinstance(data, dict):
-        raise HorizonsError("risposta Horizons non valida")
-    if data.get("error"):
-        raise HorizonsError(str(data.get("error")))
-    result = str(data.get("result") or "")
-    if "$$SOE" not in result:
-        raise HorizonsError(result.strip()[:180] or "Horizons senza tabella")
-    return result
+    last: Exception | None = None
+    for attempt in range(2):
+        try:
+            response = await client.get(HORIZONS_URL, params=payload)
+            response.raise_for_status()
+            data = response.json()
+            if not isinstance(data, dict):
+                raise HorizonsError("risposta Horizons non valida")
+            if data.get("error"):
+                raise HorizonsError(str(data.get("error")))
+            result = str(data.get("result") or "")
+            if "$$SOE" not in result:
+                raise HorizonsError(result.strip()[:180] or "Horizons senza tabella")
+            return result
+        except (httpx.HTTPError, ValueError, HorizonsError) as exc:
+            last = exc
+            if attempt == 0:
+                await asyncio.sleep(0.6)
+    raise HorizonsError(str(last) if last else "Horizons offline")
 
 
 async def fetch_observer(
@@ -294,34 +382,40 @@ async def fetch_observer(
     *,
     elev_km: float = 0.05,
 ) -> dict[str, Any]:
-    stamp = when.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    rounded = _round_when(when)
+    stamp = rounded.strftime("%Y-%m-%d %H:%M")
     cache_key = f"obs:{command}:{round(lat, 3)}:{round(lon, 3)}:{stamp}"
     cached = _cache_get(cache_key)
     if isinstance(cached, dict):
         return cached
-    end = when.astimezone(timezone.utc) + timedelta(minutes=1)
-    async with _gate:
-        result = await fetch_horizons(
-            client,
-            command=command,
-            params={
-                "EPHEM_TYPE": "OBSERVER",
-                "CENTER": "'coord@399'",
-                "COORD_TYPE": "GEODETIC",
-                "SITE_COORD": f"'{lon:.4f},{lat:.4f},{elev_km:.3f}'",
-                "START_TIME": f"'{stamp}'",
-                "STOP_TIME": f"'{end.strftime('%Y-%m-%d %H:%M')}'",
-                "STEP_SIZE": "1m",
-                "QUANTITIES": "'4,9,10,13,20,23,24,29'",
-                "ANG_FORMAT": "DEG",
-                "CSV_FORMAT": "YES",
-                "CAL_FORMAT": "CAL",
-            },
-        )
-    row = parse_observer_rows(result)[0]
-    row["target"] = target_name(result)
-    row["command"] = command
-    return _cache_set(cache_key, row)
+    end = rounded + timedelta(minutes=1)
+    try:
+        async with _gate:
+            result = await fetch_horizons(
+                client,
+                command=command,
+                params={
+                    "EPHEM_TYPE": "OBSERVER",
+                    "CENTER": "'coord@399'",
+                    "COORD_TYPE": "GEODETIC",
+                    "SITE_COORD": f"'{lon:.4f},{lat:.4f},{elev_km:.3f}'",
+                    "START_TIME": f"'{stamp}'",
+                    "STOP_TIME": f"'{end.strftime('%Y-%m-%d %H:%M')}'",
+                    "STEP_SIZE": "1m",
+                    "QUANTITIES": "'4,9,10,13,20,23,24,29'",
+                    "ANG_FORMAT": "DEG",
+                    "CSV_FORMAT": "YES",
+                    "CAL_FORMAT": "CAL",
+                },
+            )
+        row = parse_observer_rows(result)[0]
+        row["target"] = target_name(result)
+        row["command"] = command
+        row["source"] = "horizons"
+        return _cache_set(cache_key, row)
+    except HorizonsError:
+        row = observer_from_engine(command, lat, lon, rounded, elev_km=elev_km)
+        return _cache_set(cache_key, row)
 
 
 async def fetch_rts(
@@ -339,26 +433,32 @@ async def fetch_rts(
     cached = _cache_get(cache_key)
     if isinstance(cached, list):
         return cached
-    async with _gate:
-        result = await fetch_horizons(
-            client,
-            command=command,
-            params={
-                "EPHEM_TYPE": "OBSERVER",
-                "CENTER": "'coord@399'",
-                "COORD_TYPE": "GEODETIC",
-                "SITE_COORD": f"'{lon:.4f},{lat:.4f},{elev_km:.3f}'",
-                "START_TIME": f"'{start}'",
-                "STOP_TIME": f"'{stop}'",
-                "STEP_SIZE": "'1m'",
-                "QUANTITIES": "'4'",
-                "ANG_FORMAT": "DEG",
-                "CSV_FORMAT": "YES",
-                "R_T_S_ONLY": "YES",
-            },
-        )
-    rows = parse_observer_rows(result)
-    return _cache_set(cache_key, rows)
+    try:
+        async with _gate:
+            result = await fetch_horizons(
+                client,
+                command=command,
+                params={
+                    "EPHEM_TYPE": "OBSERVER",
+                    "CENTER": "'coord@399'",
+                    "COORD_TYPE": "GEODETIC",
+                    "SITE_COORD": f"'{lon:.4f},{lat:.4f},{elev_km:.3f}'",
+                    "START_TIME": f"'{start}'",
+                    "STOP_TIME": f"'{stop}'",
+                    "STEP_SIZE": "'1m'",
+                    "QUANTITIES": "'4'",
+                    "ANG_FORMAT": "DEG",
+                    "CSV_FORMAT": "YES",
+                    "R_T_S_ONLY": "YES",
+                },
+            )
+        rows = parse_observer_rows(result)
+        for row in rows:
+            row["source"] = "horizons"
+        return _cache_set(cache_key, rows)
+    except HorizonsError:
+        rows = rts_from_engine(command, lat, lon, day, elev_km=elev_km)
+        return _cache_set(cache_key, rows)
 
 
 async def fetch_group(
@@ -396,24 +496,29 @@ def format_observer_list(
         f"{title} — {_e(place.upper())}",
         f"📅 {_e(local.strftime('%d/%m/%Y'))} · {local.strftime('%H:%M')} ora locale",
         "",
-        "JPL Horizons, dal luogo che hai dato. Non è un calendario da planetario.",
+        "Posizioni dal luogo che hai dato. Horizons se risponde, altrimenti calcolo locale.",
         "",
     ]
     up = 0
+    used_engine = False
     for key, row in items:
         meta = catalog[key]
         if row is None:
-            lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b>  <i>Horizons non ha risposto</i>")
+            lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b>  <i>niente dati adesso</i>")
             continue
+        if row.get("source") == "engine":
+            used_engine = True
         alt = row.get("alt")
         if isinstance(alt, (int, float)) and alt > 0:
             up += 1
         lines.append(_pretty_row(meta, row))
         lines.append("")
     if not any(row for _key, row in items):
-        lines.append("Nessun corpo è arrivato da Horizons. Riprova tra un minuto.")
+        lines.append("Nessun corpo è arrivato. Riprova tra un minuto.")
     else:
         lines.append(f"Sopra l'orizzonte adesso: {up}.")
+    if used_engine:
+        note = note + " Qualche riga è calcolata in locale (Astronomy Engine)."
     lines.extend(["", f"<i>{_e(note)}</i>"])
     return "\n".join(lines)
 
@@ -466,7 +571,7 @@ def format_distances(
     for key, row in items:
         meta = catalog[key]
         if row is None or not isinstance(row.get("delta_au"), (int, float)):
-            lines.append(f"{meta['emoji']} {meta['it']} — Horizons non ha dato il delta")
+            lines.append(f"{meta['emoji']} {meta['it']} — niente distanza adesso")
             continue
         delta = float(row["delta_au"])
         minutes = delta * LIGHT_MIN_PER_AU
@@ -504,7 +609,7 @@ def format_rts_list(
     for key, rows in items:
         meta = catalog[key]
         if not rows:
-            lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b>  <i>niente orari da Horizons</i>")
+            lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b>  <i>niente orari adesso</i>")
             continue
         any_ok = True
         bits: list[str] = []
@@ -515,7 +620,7 @@ def format_rts_list(
             bits.append(f"{labels[ev]} {_local(row.get('when'), tz)}")
         lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b>  " + (" · ".join(bits) if bits else "nessun evento RTS in 24 h"))
     if not any_ok:
-        lines.append("Horizons non ha dato rise/transit/set per questo giorno.")
+        lines.append("Niente alba/tramonto dei pianeti per questo giorno.")
     lines.extend(
         [
             "",

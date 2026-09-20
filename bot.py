@@ -2233,7 +2233,7 @@ def help_text() -> str:
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città o la tua posizione, niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (luna e alba/tramonto), Meteo, Osservatorio "
-        "(stelle, eventi, JPL Horizons), Esplora lo spazio (enciclopedia), "
+        "(stelle, eventi, JPL Horizons), Studia lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"

@@ -235,7 +235,7 @@ def astro_hub_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("☀️ Cielo", "world:sky"), kb_btn("🌤️ Meteo", "loc:go:meteo")],
             [kb_btn("🔭 Osservatorio", "world:watch")],
-            [kb_btn("🚀 Esplora lo spazio", "world:mondi")],
+            [kb_btn("🚀 Studia lo spazio", "world:mondi")],
             [kb_btn("🛰️ In orbita", "world:orbit")],
             nav_row(),
         ]
@@ -596,7 +596,7 @@ def pianeti_now_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔄 Aggiorna", "home:pianeti"), kb_btn("🪐 Schede", "home:pianeta")],
-            [kb_btn("🚀 Esplora lo spazio", "world:mondi")],
+            [kb_btn("🚀 Studia lo spazio", "world:mondi")],
             nav_row(),
         ]
     )
@@ -856,7 +856,7 @@ def sheet_after_keyboard(kind: str) -> InlineKeyboardMarkup:
         "v": ("👽 Vita", "home:vita"),
         "s": ("🛰️ Satelliti", "home:satelliti"),
         "d": ("📡 Sonde", "home:sonde"),
-        "r": ("🚀 Esplora lo spazio", "world:mondi"),
+        "r": ("🚀 Studia lo spazio", "world:mondi"),
         "f": ("🧊 Nani", "home:nani"),
         "c": ("☄️ Comete", "home:comete"),
         "z": ("🪨 Asteroidi", "home:asteroidi"),
