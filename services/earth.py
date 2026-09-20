@@ -1,9 +1,10 @@
-"""Dati sulla Terra per GEO: cataloghi + feed live. Niente geologia inventata."""
+"""Dati sulla Terra per NATURA: cataloghi Wikipedia + feed live. Niente geologia inventata."""
 
 from __future__ import annotations
 
 import html
-from datetime import datetime, timezone
+import math
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -20,6 +21,10 @@ EARTH_TOPICS: tuple[dict[str, str], ...] = (
     {"id": "atm", "it": "Atmosfera", "wiki_it": "Atmosfera_terrestre", "wiki": "Atmosphere_of_Earth", "emoji": "💨", "qid": "Q3230"},
     {"id": "tect", "it": "Tettonica", "wiki_it": "Tettonica_delle_placche", "wiki": "Plate_tectonics", "emoji": "🧭", "qid": "Q83267"},
     {"id": "cycle", "it": "Ciclo delle rocce", "wiki_it": "Ciclo_litologico", "wiki": "Rock_cycle", "emoji": "🔄", "qid": "Q207066"},
+    {"id": "lith", "it": "Litosfera", "wiki_it": "Litosfera", "wiki": "Lithosphere", "emoji": "🪨", "qid": "Q83270"},
+    {"id": "hydros", "it": "Idrosfera", "wiki_it": "Idrosfera", "wiki": "Hydrosphere", "emoji": "💧", "qid": "Q48190"},
+    {"id": "cont", "it": "Continenti", "wiki_it": "Continente", "wiki": "Continent", "emoji": "🗺️", "qid": "Q5107"},
+    {"id": "surf", "it": "Superficie", "wiki_it": "Superficie_terrestre", "wiki": "Earth's_surface", "emoji": "🌐", "qid": "Q1349417"},
 )
 
 VOLCANOES: tuple[dict[str, str], ...] = (
@@ -35,6 +40,8 @@ VOLCANOES: tuple[dict[str, str], ...] = (
     {"id": "tamb", "it": "Tambora", "wiki_it": "Tambora", "wiki": "Mount_Tambora", "emoji": "🌋", "qid": "Q202478"},
     {"id": "eyja", "it": "Eyjafjallajökull", "wiki_it": "Eyjafjöll", "wiki": "Eyjafjallajökull", "emoji": "🌋", "qid": "Q202765"},
     {"id": "nyir", "it": "Nyiragongo", "wiki_it": "Nyiragongo", "wiki": "Mount_Nyiragongo", "emoji": "🌋", "qid": "Q844890"},
+    {"id": "mauna", "it": "Mauna Loa", "wiki_it": "Mauna_Loa", "wiki": "Mauna_Loa", "emoji": "🌋", "qid": "Q201147"},
+    {"id": "pina", "it": "Pinatubo", "wiki_it": "Pinatubo", "wiki": "Mount_Pinatubo", "emoji": "🌋", "qid": "Q201158"},
 )
 
 WATER: tuple[dict[str, str], ...] = (
@@ -48,6 +55,48 @@ WATER: tuple[dict[str, str], ...] = (
     {"id": "gulf", "it": "Corrente del Golfo", "wiki_it": "Corrente_del_Golfo", "wiki": "Gulf_Stream", "emoji": "🌀", "qid": "Q81935"},
     {"id": "hydro", "it": "Ciclo dell'acqua", "wiki_it": "Ciclo_dell'acqua", "wiki": "Water_cycle", "emoji": "💧", "qid": "Q7902"},
     {"id": "ice", "it": "Criostera", "wiki_it": "Criosfera", "wiki": "Cryosphere", "emoji": "❄️", "qid": "Q104834"},
+)
+
+OCEANS: tuple[dict[str, str], ...] = (
+    {"id": "oce", "it": "Oceano", "wiki_it": "Oceano", "wiki": "Ocean", "emoji": "🌊", "qid": "Q9430"},
+    {"id": "pac", "it": "Pacifico", "wiki_it": "Oceano_Pacifico", "wiki": "Pacific_Ocean", "emoji": "🌊", "qid": "Q98"},
+    {"id": "atl", "it": "Atlantico", "wiki_it": "Oceano_Atlantico", "wiki": "Atlantic_Ocean", "emoji": "🌊", "qid": "Q97"},
+    {"id": "ind", "it": "Indiano", "wiki_it": "Oceano_Indiano", "wiki": "Indian_Ocean", "emoji": "🌊", "qid": "Q1239"},
+    {"id": "arc", "it": "Artico", "wiki_it": "Oceano_Artico", "wiki": "Arctic_Ocean", "emoji": "🧊", "qid": "Q788"},
+    {"id": "so", "it": "Australe", "wiki_it": "Oceano_Australe", "wiki": "Southern_Ocean", "emoji": "🧊", "qid": "Q7354"},
+    {"id": "mar", "it": "Fossa delle Marianne", "wiki_it": "Fossa_delle_Marianne", "wiki": "Mariana_Trench", "emoji": "⬇️", "qid": "Q180847"},
+    {"id": "gulf", "it": "Corrente del Golfo", "wiki_it": "Corrente_del_Golfo", "wiki": "Gulf_Stream", "emoji": "🌀", "qid": "Q81935"},
+    {"id": "hydro", "it": "Ciclo dell'acqua", "wiki_it": "Ciclo_dell'acqua", "wiki": "Water_cycle", "emoji": "💧", "qid": "Q7902"},
+    {"id": "ridge", "it": "Dorsale medio-oceanica", "wiki_it": "Dorsale_oceanica", "wiki": "Mid-ocean_ridge", "emoji": "〰️", "qid": "Q190163"},
+)
+
+SEAS: tuple[dict[str, str], ...] = (
+    {"id": "med", "it": "Mediterraneo", "wiki_it": "Mar_Mediterraneo", "wiki": "Mediterranean_Sea", "emoji": "🌊", "qid": "Q4918"},
+    {"id": "adr", "it": "Adriatico", "wiki_it": "Mar_Adriatico", "wiki": "Adriatic_Sea", "emoji": "🌊", "qid": "Q13924"},
+    {"id": "tir", "it": "Tirreno", "wiki_it": "Mar_Tirreno", "wiki": "Tyrrhenian_Sea", "emoji": "🌊", "qid": "Q38882"},
+    {"id": "nero", "it": "Mar Nero", "wiki_it": "Mar_Nero", "wiki": "Black_Sea", "emoji": "🌊", "qid": "Q166"},
+    {"id": "rosso", "it": "Mar Rosso", "wiki_it": "Mar_Rosso", "wiki": "Red_Sea", "emoji": "🌊", "qid": "Q23406"},
+    {"id": "bal", "it": "Baltico", "wiki_it": "Mar_Baltico", "wiki": "Baltic_Sea", "emoji": "🌊", "qid": "Q545"},
+    {"id": "nord", "it": "Mare del Nord", "wiki_it": "Mare_del_Nord", "wiki": "North_Sea", "emoji": "🌊", "qid": "Q1693"},
+    {"id": "car", "it": "Caraibi", "wiki_it": "Mar_dei_Caraibi", "wiki": "Caribbean_Sea", "emoji": "🌊", "qid": "Q1247"},
+    {"id": "casp", "it": "Caspio", "wiki_it": "Mar_Caspio", "wiki": "Caspian_Sea", "emoji": "🌊", "qid": "Q5484"},
+    {"id": "scs", "it": "Cinese meridionale", "wiki_it": "Mar_Cinese_Meridionale", "wiki": "South_China_Sea", "emoji": "🌊", "qid": "Q37660"},
+)
+
+GLACIERS: tuple[dict[str, str], ...] = (
+    {"id": "glac", "it": "Ghiacciaio", "wiki_it": "Ghiacciaio", "wiki": "Glacier", "emoji": "🧊", "qid": "Q35666"},
+    {"id": "sheet", "it": "Calotta glaciale", "wiki_it": "Calotta_glaciale", "wiki": "Ice_sheet", "emoji": "🧊", "qid": "Q1135137"},
+    {"id": "cryo", "it": "Criosfera", "wiki_it": "Criosfera", "wiki": "Cryosphere", "emoji": "❄️", "qid": "Q104834"},
+    {"id": "ant", "it": "Antartide", "wiki_it": "Antartide", "wiki": "Antarctica", "emoji": "🧊", "qid": "Q51"},
+    {"id": "grl", "it": "Calotta groenlandese", "wiki_it": "Calotta_glaciale_della_Groenlandia", "wiki": "Greenland_ice_sheet", "emoji": "🧊", "qid": "Q673517"},
+    {"id": "perito", "it": "Perito Moreno", "wiki_it": "Ghiacciaio_Perito_Moreno", "wiki": "Perito_Moreno_Glacier", "emoji": "🧊", "qid": "Q506447"},
+    {"id": "alet", "it": "Aletsch", "wiki_it": "Ghiacciaio_dell'Aletsch", "wiki": "Aletsch_Glacier", "emoji": "🧊", "qid": "Q688742"},
+    {"id": "vatna", "it": "Vatnajökull", "wiki_it": "Vatnajökull", "wiki": "Vatnajökull", "emoji": "🧊", "qid": "Q207325"},
+    {"id": "khumbu", "it": "Khumbu", "wiki_it": "Ghiacciaio_del_Khumbu", "wiki": "Khumbu_Glacier", "emoji": "🧊", "qid": "Q1740544"},
+    {"id": "hubb", "it": "Hubbard", "wiki_it": "Ghiacciaio_Hubbard", "wiki": "Hubbard_Glacier", "emoji": "🧊", "qid": "Q1630684"},
+    {"id": "forni", "it": "Dei Forni", "wiki_it": "Ghiacciaio_dei_Forni", "wiki": "Forni_Glacier", "emoji": "🧊", "qid": "Q3768133"},
+    {"id": "perm", "it": "Permafrost", "wiki_it": "Permafrost", "wiki": "Permafrost", "emoji": "❄️", "qid": "Q179918"},
+    {"id": "berg", "it": "Iceberg", "wiki_it": "Iceberg", "wiki": "Iceberg", "emoji": "🧊", "qid": "Q47568"},
 )
 
 PLATES: tuple[dict[str, str], ...] = (
@@ -68,6 +117,9 @@ GEO_CATALOGS: dict[str, tuple[dict[str, str], ...]] = {
     "volc": VOLCANOES,
     "water": WATER,
     "plate": PLATES,
+    "ocean": OCEANS,
+    "sea": SEAS,
+    "ice": GLACIERS,
 }
 
 QUAKE_FEEDS = {
@@ -261,4 +313,233 @@ def format_earth_topic(
             lines.append(f'\n<a href="{html.escape(url, quote=True)}">Apri la voce</a>')
     else:
         lines.append("La voce Wikipedia non è arrivata. Riprova tra poco.")
+    return "\n".join(lines)
+
+
+NEAR_QUAKE_KM = 500.0
+NEAR_EONET_KM = 800.0
+
+
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    radius = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lon2 - lon1)
+    chord = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
+    return 2 * radius * math.asin(min(1.0, math.sqrt(chord)))
+
+
+def _coord_pairs(node: Any) -> list[tuple[float, float]]:
+    if isinstance(node, list):
+        if (
+            len(node) >= 2
+            and isinstance(node[0], (int, float))
+            and isinstance(node[1], (int, float))
+            and not isinstance(node[0], list)
+        ):
+            return [(float(node[1]), float(node[0]))]
+        pairs: list[tuple[float, float]] = []
+        for item in node:
+            pairs.extend(_coord_pairs(item))
+        return pairs
+    return []
+
+
+def eonet_nearest(
+    event: dict[str, Any], lat: float, lon: float
+) -> tuple[float, float, float] | None:
+    geometries = event.get("geometry") if isinstance(event.get("geometry"), list) else []
+    best: tuple[float, float, float] | None = None
+    for geom in geometries:
+        if not isinstance(geom, dict):
+            continue
+        for ev_lat, ev_lon in _coord_pairs(geom.get("coordinates")):
+            dist = haversine_km(lat, lon, ev_lat, ev_lon)
+            if best is None or dist < best[2]:
+                best = (ev_lat, ev_lon, dist)
+    return best
+
+
+async def fetch_quakes_near(
+    client: httpx.AsyncClient,
+    lat: float,
+    lon: float,
+    *,
+    radius_km: float = NEAR_QUAKE_KM,
+    minmagnitude: float = 2.5,
+    days: int = 14,
+    limit: int = 20,
+) -> dict[str, Any]:
+    start = datetime.now(timezone.utc) - timedelta(days=days)
+    response = await client.get(
+        "https://earthquake.usgs.gov/fdsnws/event/1/query",
+        params={
+            "format": "geojson",
+            "latitude": f"{lat:.4f}",
+            "longitude": f"{lon:.4f}",
+            "maxradiuskm": f"{radius_km:.0f}",
+            "minmagnitude": f"{minmagnitude:.1f}",
+            "orderby": "time",
+            "limit": limit,
+            "starttime": start.strftime("%Y-%m-%dT%H:%M:%S"),
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, dict):
+        raise ValueError("terremoti vicini vuoti")
+    return data
+
+
+def _quake_line(item: dict[str, Any], *, dist_km: float | None = None) -> str:
+    props = item.get("properties") if isinstance(item.get("properties"), dict) else {}
+    geom = item.get("geometry") if isinstance(item.get("geometry"), dict) else {}
+    coords = geom.get("coordinates") if isinstance(geom.get("coordinates"), list) else []
+    mag = props.get("mag")
+    place = props.get("place") or "luogo non indicato"
+    depth = coords[2] if len(coords) > 2 else None
+    try:
+        mag_s = f"{float(mag):.1f}"
+    except (TypeError, ValueError):
+        mag_s = "—"
+    try:
+        depth_s = f"{float(depth):.0f} km" if depth is not None else "—"
+    except (TypeError, ValueError):
+        depth_s = "—"
+    extra = f" · {dist_km:.0f} km" if dist_km is not None else ""
+    return (
+        f"• <b>M {mag_s}</b> — {html.escape(str(place), quote=False)}\n"
+        f"  {_when_it(props.get('time'))} · profondità {depth_s}{extra}"
+    )
+
+
+def _eonet_line(event: dict[str, Any], *, dist_km: float | None = None) -> str:
+    title = str(event.get("title") or "Evento")
+    cats = event.get("categories") if isinstance(event.get("categories"), list) else []
+    labels = []
+    for cat in cats:
+        if isinstance(cat, dict):
+            key = str(cat.get("id") or "")
+            labels.append(EONET_CAT_IT.get(key, str(cat.get("title") or key)))
+    geometries = event.get("geometry") if isinstance(event.get("geometry"), list) else []
+    when = ""
+    if geometries and isinstance(geometries[0], dict):
+        when = _iso_it(str(geometries[0].get("date") or ""))
+    cat_line = ", ".join(labels) if labels else "—"
+    extra = f" · {dist_km:.0f} km" if dist_km is not None else ""
+    return (
+        f"• <b>{html.escape(title, quote=False)}</b>\n"
+        f"  {html.escape(cat_line, quote=False)} · {when or '—'}{extra}"
+    )
+
+
+def format_nearby_events(
+    *,
+    place: str,
+    lat: float,
+    lon: float,
+    quakes: dict[str, Any] | None,
+    eonet: dict[str, Any] | None,
+    quake_km: float = NEAR_QUAKE_KM,
+    eonet_km: float = NEAR_EONET_KM,
+) -> str:
+    where = html.escape(place, quote=False)
+    lines = [
+        f"📍 <b>EVENTI QUI — {where.upper()}</b>",
+        f"<i>USGS e NASA EONET entro circa {quake_km:.0f}–{eonet_km:.0f} km. "
+        "Se non è vicino a questa città, non lo elenco.</i>",
+        "",
+    ]
+    rows: list[tuple[float, str]] = []
+    features = (
+        quakes.get("features")
+        if isinstance(quakes, dict) and isinstance(quakes.get("features"), list)
+        else []
+    )
+    for item in features:
+        if not isinstance(item, dict):
+            continue
+        geom = item.get("geometry") if isinstance(item.get("geometry"), dict) else {}
+        coords = geom.get("coordinates") if isinstance(geom.get("coordinates"), list) else []
+        if len(coords) < 2:
+            continue
+        try:
+            ev_lon, ev_lat = float(coords[0]), float(coords[1])
+        except (TypeError, ValueError):
+            continue
+        dist = haversine_km(lat, lon, ev_lat, ev_lon)
+        if dist > quake_km:
+            continue
+        rows.append((dist, _quake_line(item, dist_km=dist)))
+    events = (
+        eonet.get("events")
+        if isinstance(eonet, dict) and isinstance(eonet.get("events"), list)
+        else []
+    )
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        nearest = eonet_nearest(event, lat, lon)
+        if nearest is None or nearest[2] > eonet_km:
+            continue
+        rows.append((nearest[2], _eonet_line(event, dist_km=nearest[2])))
+    rows.sort(key=lambda row: row[0])
+    if not rows:
+        lines.append(f"Entro il raggio da {where} i feed non hanno eventi aperti.")
+        lines.append("Non invento fenomeni: se non è vicino, non c'è.")
+        lines.append("")
+        lines.append("<i>USGS FDSN + NASA EONET. Non è un'allerta della protezione civile.</i>")
+        return "\n".join(lines)
+    for _dist, line in rows[:14]:
+        lines.append(line)
+    lines.extend(
+        [
+            "",
+            "<i>Cataloghi pubblici USGS e NASA EONET. Distanza in linea d'aria. "
+            "Non sostituisce le allerte locali.</i>",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def format_world_events(
+    *,
+    quakes: dict[str, Any] | None,
+    eonet: dict[str, Any] | None,
+) -> str:
+    lines = [
+        "🌍 <b>EVENTI NEL MONDO</b>",
+        "<i>Catastrofi e fenomeni aperti: USGS significativi + NASA EONET. Live, non un oracolo.</i>",
+        "",
+    ]
+    features = (
+        quakes.get("features")
+        if isinstance(quakes, dict) and isinstance(quakes.get("features"), list)
+        else []
+    )
+    events = (
+        eonet.get("events")
+        if isinstance(eonet, dict) and isinstance(eonet.get("events"), list)
+        else []
+    )
+    if features:
+        lines.append("⚠️ <b>Terremoti significativi</b> <i>(USGS, settimana)</i>")
+        for item in features[:10]:
+            if isinstance(item, dict):
+                lines.append(_quake_line(item))
+        lines.append("")
+    if events:
+        lines.append("🌪️ <b>Fenomeni aperti</b> <i>(NASA EONET)</i>")
+        for event in events[:12]:
+            if isinstance(event, dict):
+                lines.append(_eonet_line(event))
+        lines.append("")
+    if not features and not events:
+        lines.append("In questo momento i feed non segnalano eventi aperti.")
+        lines.append("Non invento catastrofi.")
+        lines.append("")
+    lines.append(
+        "<i>United States Geological Survey e NASA Earth Observatory Natural Event Tracker. "
+        "Non è un bollettino di allerta.</i>"
+    )
     return "\n".join(lines)

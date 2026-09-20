@@ -132,9 +132,12 @@ from services.weather import fetch_forecast, format_forecast, parse_forecast_req
 from services.earth import (
     fetch_eonet,
     fetch_quakes,
+    fetch_quakes_near,
     format_earth_topic,
     format_eonet,
+    format_nearby_events,
     format_quakes,
+    format_world_events,
     geo_item,
 )
 from services.lenormand import (
@@ -206,6 +209,13 @@ from ui.keyboards import (
     geo_events_keyboard,
     geo_hub_keyboard,
     geo_quakes_keyboard,
+    natura_here_keyboard,
+    natura_world_keyboard,
+    world_ice_keyboard,
+    world_live_keyboard,
+    world_natura_keyboard,
+    world_ocean_keyboard,
+    world_sea_keyboard,
     cosmo_hub_keyboard,
     home_keyboard as section_home_keyboard,
     oracolo_hub_keyboard,
@@ -301,8 +311,13 @@ from ui.texts import (
     rune_intro_text,
     world_asksky_text,
     world_div_text,
+    world_ice_text,
+    world_live_text,
+    world_natura_text,
+    world_ocean_text,
     world_plates_text,
     world_quake_text,
+    world_sea_text,
     world_terra_text,
     world_volc_text,
     world_water_text,
@@ -365,6 +380,7 @@ TELEGRAM_CAPTION_MAX = 1024
 # In chat_data: ultimo messaggio del bot, da sostituire al comando successivo.
 LAST_BOT_MSG_KEY = "last_bot_msg"
 CIELO_LAST_KEY = "cielo_last"
+NATURA_LAST_KEY = "natura_last"
 MONDI_LIST_KEY = "mondi_list"
 MONDI_SYS_KEY = "mondi_sys"
 MONDI_LAST_KEY = "mondi_last"
@@ -2145,8 +2161,8 @@ def help_text() -> str:
         "pianeti sopra la tua città: niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (prima la città), Meteo, Esplora lo spazio "
         "(enciclopedia), In orbita (ISS e dati live). Niente divinazione.\n"
-        "🌍 <b>GEO</b> — la Terra: pietre, terremoti USGS, vulcani, oceani, "
-        "placche, eventi NASA EONET.\n"
+        "🌿 <b>NATURA</b> — eventi live sulla città e nel mondo, feed USGS/EONET, "
+        "enciclopedia (mari, oceani, terra, vulcani, placche, ghiacciai), pietre.\n"
         "🧮 <b>CALC</b> — calcolatrice a pulsanti.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
@@ -5590,6 +5606,11 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         "volc": (world_volc_text, world_volc_keyboard),
         "water": (world_water_text, world_water_keyboard),
         "plates": (world_plates_text, world_plates_keyboard),
+        "natura": (world_natura_text, world_natura_keyboard),
+        "live": (world_live_text, world_live_keyboard),
+        "ocean": (world_ocean_text, world_ocean_keyboard),
+        "sea": (world_sea_text, world_sea_keyboard),
+        "ice": (world_ice_text, world_ice_keyboard),
     }
     if prefix == "bot":
         if action in {"oracolo", "cosmo"}:
@@ -6630,6 +6651,11 @@ async def on_world_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "volc": (world_volc_text, world_volc_keyboard),
         "water": (world_water_text, world_water_keyboard),
         "plates": (world_plates_text, world_plates_keyboard),
+        "natura": (world_natura_text, world_natura_keyboard),
+        "live": (world_live_text, world_live_keyboard),
+        "ocean": (world_ocean_text, world_ocean_keyboard),
+        "sea": (world_sea_text, world_sea_keyboard),
+        "ice": (world_ice_text, world_ice_keyboard),
     }
     page = pages.get(action)
     if page is None:
@@ -6847,6 +6873,26 @@ def _has_cielo_place(context: ContextTypes.DEFAULT_TYPE) -> bool:
     return isinstance(last, dict) and last.get("lat") is not None
 
 
+def _remember_natura_place(context: ContextTypes.DEFAULT_TYPE, name: str, lat: float, lon: float) -> None:
+    context.user_data[NATURA_LAST_KEY] = {"name": name, "lat": lat, "lon": lon}
+
+
+def _has_natura_place(context: ContextTypes.DEFAULT_TYPE) -> bool:
+    last = context.user_data.get(NATURA_LAST_KEY)
+    return isinstance(last, dict) and last.get("lat") is not None
+
+
+def _natura_place(context: ContextTypes.DEFAULT_TYPE) -> tuple[str, float, float]:
+    last = context.user_data.get(NATURA_LAST_KEY)
+    if isinstance(last, dict) and last.get("lat") is not None:
+        return (
+            str(last.get("name") or DEFAULT_PLACE_NAME),
+            float(last["lat"]),
+            float(last["lon"]),
+        )
+    return DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON
+
+
 async def show_cielo_hub(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -6917,6 +6963,7 @@ async def show_place_picker(
         "osserva": "Da dove osservi i pianeti?",
         "skyq": "Da dove interroghi il cielo?",
         "luna": "Da dove calcolare alba e tramonto della Luna?",
+        "natev": "Da quale città cerco eventi naturali vicini? La salvo per questa sezione.",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
     if step == "it":
@@ -6944,8 +6991,12 @@ async def apply_place(
 ) -> None:
     context.user_data[LOC_ASK_KEY] = False
     context.user_data["cielo_ask"] = False
-    _remember_cielo_place(context, name, lat, lon)
     purpose = _loc_purpose(context)
+    if purpose == "natev":
+        _remember_natura_place(context, name, lat, lon)
+        await send_natura_here(update, context)
+        return
+    _remember_cielo_place(context, name, lat, lon)
     if purpose == "cielo":
         await show_cielo_hub(update, context)
         return
@@ -10864,7 +10915,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale.\n"
         "Scrivi un segno (es. <i>vergine</i>) per l'oroscopo, "
-        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌍 GEO o 🧮 CALC.",
+        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA o 🧮 CALC.",
         reply_markup=all_hub_keyboard(),
     )
 
@@ -10874,7 +10925,7 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update,
         context,
         "I comandi scritti non ci sono più: qui si va a pulsanti.\n"
-        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌍 GEO o 🧮 CALC, oppure 📚 Aiuto.",
+        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA o 🧮 CALC, oppure 📚 Aiuto.",
         reply_markup=all_hub_keyboard(),
     )
     await delete_user_command(update)
@@ -10919,6 +10970,138 @@ async def post_shutdown(application: Application) -> None:
         logger.info("Client HTTP chiuso")
 
 
+async def _translate_named_list(
+    client: httpx.AsyncClient, names: list[str]
+) -> list[str]:
+    if not names:
+        return []
+    try:
+        blob = await translate_to_italian(client, " || ".join(names))
+    except StelleOfflineError:
+        return names
+    parts = [part.strip() for part in blob.split("||")]
+    out: list[str] = []
+    for idx, original in enumerate(names):
+        out.append(parts[idx] if idx < len(parts) and parts[idx] else original)
+    return out
+
+
+async def show_natura_here(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    force_pick: bool = False,
+) -> None:
+    nav_mark(context, "geo:here")
+    if force_pick or not _has_natura_place(context):
+        await show_place_picker(update, context, "natev")
+        return
+    await send_natura_here(update, context)
+
+
+async def send_natura_here(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_natura_place(context):
+        await show_place_picker(update, context, "natev")
+        return
+    name, lat, lon = _natura_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"📍 Cerco eventi naturali vicino a {name}…")
+    client = _http_client(context)
+    quakes: dict[str, Any] | None = None
+    eonet: dict[str, Any] | None = None
+    try:
+        quakes = await fetch_quakes_near(client, lat, lon)
+    except Exception:
+        logger.exception("USGS vicini non disponibile")
+    try:
+        eonet = await fetch_eonet(client, limit=40)
+    except Exception:
+        logger.exception("EONET vicini non disponibile")
+    if quakes is None and eonet is None:
+        await reply_offline(update, context)
+        return
+    events = eonet.get("events") if isinstance(eonet, dict) and isinstance(eonet.get("events"), list) else []
+    titles = [str(ev.get("title") or "") for ev in events[:16] if isinstance(ev, dict) and ev.get("title")]
+    translated = await _translate_named_list(client, titles)
+    idx = 0
+    for ev in events[:16]:
+        if not isinstance(ev, dict) or not ev.get("title"):
+            continue
+        if idx < len(translated) and translated[idx]:
+            ev["title"] = translated[idx]
+        idx += 1
+    features = quakes.get("features") if isinstance(quakes, dict) and isinstance(quakes.get("features"), list) else []
+    places = []
+    for item in features[:16]:
+        if not isinstance(item, dict):
+            continue
+        props = item.get("properties") if isinstance(item.get("properties"), dict) else {}
+        places.append(str(props.get("place") or ""))
+    translated_places = await _translate_named_list(client, [p for p in places if p])
+    pidx = 0
+    for item in features[:16]:
+        if not isinstance(item, dict):
+            continue
+        props = item.get("properties") if isinstance(item.get("properties"), dict) else {}
+        if not props.get("place"):
+            continue
+        if pidx < len(translated_places) and translated_places[pidx]:
+            props["place"] = translated_places[pidx]
+        pidx += 1
+    text = format_nearby_events(place=name, lat=lat, lon=lon, quakes=quakes, eonet=eonet)
+    await reply_html(update, context, text, reply_markup=natura_here_keyboard())
+
+
+async def send_natura_world(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "geo:world")
+    await send_typing(update)
+    await deliver_text(update, context, "🌍 Scarico catastrofi e fenomeni aperti…")
+    client = _http_client(context)
+    quakes: dict[str, Any] | None = None
+    eonet: dict[str, Any] | None = None
+    try:
+        quakes = await fetch_quakes(client, "sig")
+    except Exception:
+        logger.exception("USGS significativi non disponibile")
+    try:
+        eonet = await fetch_eonet(client, limit=16)
+    except Exception:
+        logger.exception("EONET mondo non disponibile")
+    if quakes is None and eonet is None:
+        await reply_offline(update, context)
+        return
+    events = eonet.get("events") if isinstance(eonet, dict) and isinstance(eonet.get("events"), list) else []
+    titles = [str(ev.get("title") or "") for ev in events[:12] if isinstance(ev, dict) and ev.get("title")]
+    translated = await _translate_named_list(client, titles)
+    idx = 0
+    for ev in events[:12]:
+        if not isinstance(ev, dict) or not ev.get("title"):
+            continue
+        if idx < len(translated) and translated[idx]:
+            ev["title"] = translated[idx]
+        idx += 1
+    features = quakes.get("features") if isinstance(quakes, dict) and isinstance(quakes.get("features"), list) else []
+    places = []
+    for item in features[:10]:
+        if not isinstance(item, dict):
+            continue
+        props = item.get("properties") if isinstance(item.get("properties"), dict) else {}
+        places.append(str(props.get("place") or ""))
+    translated_places = await _translate_named_list(client, [p for p in places if p])
+    pidx = 0
+    for item in features[:10]:
+        if not isinstance(item, dict):
+            continue
+        props = item.get("properties") if isinstance(item.get("properties"), dict) else {}
+        if not props.get("place"):
+            continue
+        if pidx < len(translated_places) and translated_places[pidx]:
+            props["place"] = translated_places[pidx]
+        pidx += 1
+    text = format_world_events(quakes=quakes, eonet=eonet)
+    await reply_html(update, context, text, reply_markup=natura_world_keyboard())
+
+
 async def send_geo_quakes(update: Update, context: ContextTypes.DEFAULT_TYPE, feed: str) -> None:
     if feed not in {"day", "week", "sig"}:
         feed = "day"
@@ -10930,7 +11113,7 @@ async def send_geo_quakes(update: Update, context: ContextTypes.DEFAULT_TYPE, fe
         logger.exception("USGS terremoti non disponibile")
         await reply_offline(update, context)
         return
-    await reply_html(update, context, format_quakes(data, feed=feed), reply_markup=geo_quakes_keyboard())
+    await reply_html(update, context, format_quakes(data, feed=feed), reply_markup=world_live_keyboard())
 
 
 async def send_geo_events(update: Update, context: ContextTypes.DEFAULT_TYPE, category: str | None = None) -> None:
@@ -10958,13 +11141,13 @@ async def send_geo_events(update: Update, context: ContextTypes.DEFAULT_TYPE, ca
                 idx += 1
         except StelleOfflineError:
             pass
-    await reply_html(update, context, format_eonet(data, category=category), reply_markup=geo_events_keyboard())
+    await reply_html(update, context, format_eonet(data, category=category), reply_markup=world_live_keyboard())
 
 
 async def send_earth_topic(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str, sid: str) -> None:
     item = geo_item(kind, sid)
     if item is None:
-        await reply_html(update, context, "Questa scheda non è in catalogo GEO.", reply_markup=geo_hub_keyboard())
+        await reply_html(update, context, "Questa scheda non è in catalogo NATURA.", reply_markup=geo_hub_keyboard())
         return
     await send_typing(update)
     await deliver_text(update, context, f"{item.get('emoji') or '🌍'} Apro la voce di {item['it']}…")
@@ -11003,6 +11186,15 @@ async def dispatch_geo(update: Update, context: ContextTypes.DEFAULT_TYPE, token
     extra2 = parts[3] if len(parts) > 3 else ""
     if action in {"hub", ""}:
         await show_geo_hub(update, context)
+        return
+    if action == "here":
+        await show_natura_here(update, context)
+        return
+    if action == "city":
+        await show_place_picker(update, context, "natev")
+        return
+    if action == "world":
+        await send_natura_world(update, context)
         return
     if action == "quake":
         await send_geo_quakes(update, context, extra or "day")

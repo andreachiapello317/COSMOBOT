@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from services.earth import EARTH_TOPICS, PLATES, VOLCANOES, WATER
+from services.earth import EARTH_TOPICS, GLACIERS, OCEANS, PLATES, SEAS, VOLCANOES, WATER
 from services.stones import CATS, COLORS, ENVS, MUSEUM, RARITY, STONES
 from services.catalog import (
     ASTRONAUTS,
@@ -53,7 +53,7 @@ def all_hub_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🔮 ORACOLO", "bot:oracolo")],
             [kb_btn("🔭 ASTRO", "bot:astro")],
-            [kb_btn("🌍 GEO", "bot:geo")],
+            [kb_btn("🌿 NATURA", "bot:geo")],
             [kb_btn("🧮 CALC", "bot:calc")],
             [kb_btn("📚 Aiuto", "home:aiuto")],
         ]
@@ -82,10 +82,56 @@ def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
 def geo_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🌍 Terra", "world:terra"), kb_btn("💎 Pietre", "world:pietre")],
-            [kb_btn("🌋 Terremoti", "world:quake"), kb_btn("🔥 Vulcani", "world:volc")],
-            [kb_btn("🌊 Acqua", "world:water"), kb_btn("🧭 Placche", "world:plates")],
-            [kb_btn("🌪️ Eventi Terra", "geo:events")],
+            [kb_btn("📍 Eventi qui", "geo:here")],
+            [kb_btn("🌍 Eventi nel mondo", "geo:world")],
+            [kb_btn("📡 Live", "world:live")],
+            [kb_btn("📖 Esplora la natura", "world:natura")],
+            [kb_btn("💎 Pietre", "world:pietre")],
+            nav_row(),
+        ]
+    )
+
+
+def world_live_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("📅 Terremoti 24h", "geo:quake:day"), kb_btn("📆 Terremoti 7g", "geo:quake:week")],
+            [kb_btn("⚠️ Terremoti significativi", "geo:quake:sig")],
+            [kb_btn("🔄 Eventi aperti", "geo:events")],
+            [kb_btn("🔥 Vulcani live", "geo:ev:volcanoes"), kb_btn("🌪️ Tempeste", "geo:ev:severeStorms")],
+            [kb_btn("🔥 Incendi", "geo:ev:wildfires"), kb_btn("🧊 Ghiaccio", "geo:ev:seaLakeIce")],
+            [kb_btn("🌊 Alluvioni", "geo:ev:floods"), kb_btn("🪨 Frane", "geo:ev:landslides")],
+            [kb_btn("🌵 Siccità", "geo:ev:drought")],
+            nav_row(),
+        ]
+    )
+
+
+def world_natura_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌍 Terra", "world:terra"), kb_btn("🌊 Oceani", "world:ocean")],
+            [kb_btn("🌊 Mari", "world:sea"), kb_btn("🔥 Vulcani", "world:volc")],
+            [kb_btn("🧭 Placche", "world:plates"), kb_btn("🧊 Ghiacciai", "world:ice")],
+            nav_row(),
+        ]
+    )
+
+
+def natura_here_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔄 Aggiorna", "geo:here")],
+            [kb_btn("📍 Cambia città", "geo:city")],
+            nav_row(),
+        ]
+    )
+
+
+def natura_world_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔄 Aggiorna", "geo:world")],
             nav_row(),
         ]
     )
@@ -139,13 +185,28 @@ def world_plates_keyboard() -> InlineKeyboardMarkup:
     return geo_list_keyboard("plate", PLATES)
 
 
+def world_ocean_keyboard() -> InlineKeyboardMarkup:
+    return geo_list_keyboard("ocean", OCEANS)
+
+
+def world_sea_keyboard() -> InlineKeyboardMarkup:
+    return geo_list_keyboard("sea", SEAS)
+
+
+def world_ice_keyboard() -> InlineKeyboardMarkup:
+    return geo_list_keyboard("ice", GLACIERS)
+
+
 def geo_after_keyboard(kind: str) -> InlineKeyboardMarkup:
     back = {
         "terra": ("🌍 Terra", "world:terra"),
         "volc": ("🔥 Vulcani", "world:volc"),
         "water": ("🌊 Acqua", "world:water"),
         "plate": ("🧭 Placche", "world:plates"),
-    }.get(kind, ("🌍 GEO", "bot:geo"))
+        "ocean": ("🌊 Oceani", "world:ocean"),
+        "sea": ("🌊 Mari", "world:sea"),
+        "ice": ("🧊 Ghiacciai", "world:ice"),
+    }.get(kind, ("🌿 NATURA", "bot:geo"))
     return InlineKeyboardMarkup([[kb_btn(back[0], back[1])], nav_row()])
 
 

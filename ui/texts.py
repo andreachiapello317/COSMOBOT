@@ -18,7 +18,7 @@ def all_hub_text() -> str:
         "Quattro bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
-        "🌍 <b>GEO</b> — la Terra: pietre, terremoti, vulcani, oceani.\n"
+        "🌿 <b>NATURA</b> — eventi live, enciclopedia della Terra, pietre.\n"
         "🧮 <b>CALC</b> — calcolatrice a pulsanti.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
@@ -35,7 +35,7 @@ def oracolo_hub_text() -> str:
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
         "🃏 <b>CONSULTAZIONI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n"
         "🌌 <b>INTERROGA IL CIELO</b> — luna, stelle e pianeti sopra la tua città\n\n"
-        "Il cielo misurato sta in 🔭 ASTRO. Le pietre e la Terra stanno in 🌍 GEO.",
+        "Il cielo misurato sta in 🔭 ASTRO. La Terra e le pietre stanno in 🌿 NATURA.",
     )
 
 
@@ -47,7 +47,7 @@ def astro_hub_text() -> str:
         "🌤️ <b>METEO</b> — scegli città e giorni (se non dici nulla: oggi e domani)\n"
         "🚀 <b>ESPLORA LO SPAZIO</b> — enciclopedia Wikipedia\n"
         "🛰️ <b>IN ORBITA</b> — ISS, equipaggio, satelliti, attività solare\n\n"
-        "Le pietre e i dati sulla Terra stanno in 🌍 GEO."
+        "La Terra e le pietre stanno in 🌿 NATURA."
     )
 
 
@@ -255,15 +255,62 @@ def world_vita_text() -> str:
 
 def geo_hub_text() -> str:
     return _card(
-        "🌍 <b>GEO</b>",
-        "Bot di BOTSQUAD per la Terra. Misure e cataloghi, niente oracoli.",
-        "🌍 <b>TERRA</b> — crosta, mantello, nucleo, atmosfera\n"
-        "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione\n"
-        "🌋 <b>TERREMOTI</b> — feed USGS live\n"
-        "🔥 <b>VULCANI</b> — schede Wikipedia\n"
-        "🌊 <b>ACQUA</b> — oceani, fosse, ciclo idrologico\n"
-        "🧭 <b>PLACCHE</b> — tettonica\n"
-        "🌪️ <b>EVENTI</b> — NASA EONET",
+        "🌿 <b>NATURA</b>",
+        "Bot di BOTSQUAD per la Terra. Eventi live e voci Wikipedia. Niente animali, per ora.",
+        "📍 <b>EVENTI QUI</b> — prima la città, poi solo ciò che è vicino\n"
+        "🌍 <b>EVENTI NEL MONDO</b> — catastrofi e fenomeni aperti, live\n"
+        "📡 <b>LIVE</b> — cartella di feed USGS e NASA EONET\n"
+        "📖 <b>ESPLORA LA NATURA</b> — mari, oceani, terra, vulcani, placche, ghiacciai\n"
+        "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione\n\n"
+        "Un giorno qui ci saranno anche gli animali. Oggi solo terra, acqua, fuoco e ghiaccio.",
+    )
+
+
+def world_natura_text() -> str:
+    return _card(
+        "📖 <b>ESPLORA LA NATURA</b>",
+        "Enciclopedia Wikipedia / Wikidata. Mari, oceani, terra, vulcani, placche, ghiacciai. Niente animali.",
+        "🌍 Terra — crosta, mantello, nucleo, atmosfera, tettonica\n"
+        "🌊 Oceani — i cinque oceani, fosse, correnti\n"
+        "🌊 Mari — Mediterraneo e gli altri mari\n"
+        "🔥 Vulcani — schede di edifici noti, non un bollettino eruttivo\n"
+        "🧭 Placche — tettonica\n"
+        "🧊 Ghiacciai — calotte, criosfera, ghiacciai con voce\n\n"
+        "Apro la voce, non la riscrivo. Le pietre stanno a parte.",
+    )
+
+
+def world_live_text() -> str:
+    return _card(
+        "📡 <b>LIVE</b>",
+        "Solo chiamate API. Feed USGS e NASA EONET, niente schede Wikipedia.",
+        "🌋 Terremoti: 24 ore, 7 giorni, significativi\n"
+        "🌪️ Eventi aperti, poi filtri: vulcani, tempeste, incendi, ghiaccio, alluvioni, frane, siccità\n\n"
+        "Non è un'allerta della protezione civile.",
+    )
+
+
+def world_ocean_text() -> str:
+    return _card(
+        "🌊 <b>OCEANI</b>",
+        "I grandi bacini e le correnti. Voci Wikipedia, non un atlante inventato.",
+        "Pacifico, Atlantico, Indiano, Artico, Australe, Fossa delle Marianne, Corrente del Golfo.",
+    )
+
+
+def world_sea_text() -> str:
+    return _card(
+        "🌊 <b>MARI</b>",
+        "Mari con voce. Wikipedia / Wikidata, niente carte nautiche inventate.",
+        "Mediterraneo, Adriatico, Tirreno, Nero, Rosso, Baltico, del Nord, Caraibi, Caspio.",
+    )
+
+
+def world_ice_text() -> str:
+    return _card(
+        "🧊 <b>GHIACCIAI</b>",
+        "Calotte, criosfera, ghiacciai noti. Voci, non un bollettino sul disgelo.",
+        "Antartide, Groenlandia, Perito Moreno, Aletsch, Vatnajökull, Khumbu, Forni.",
     )
 
 
@@ -290,7 +337,7 @@ def world_volc_text() -> str:
     return _card(
         "🔥 <b>VULCANI</b>",
         "Schede di vulcani noti. Wikipedia, non un bollettino eruttivo.",
-        "Tocca un nome. Per gli eventi aperti in questo momento: 🌪️ Eventi Terra.",
+        "Tocca un nome. Per gli eventi aperti in questo momento: 📡 Live.",
     )
 
 
@@ -317,7 +364,7 @@ def world_pietre_text() -> str:
 def pietre_hub_text() -> str:
     return _card(
         "💎 <b>PIETRE</b>",
-        "Mineralogia da catalogo, nel bot GEO. Il folklore sta in ORACOLO, a parte.",
+        "Mineralogia da catalogo, nel bot NATURA. Il folklore sta in ORACOLO, a parte.",
         "Foto: pietra al centro, tavolo uniforme. Non è un'analisi.\n\n"
         "🧭 Esplora · 🔬 Laboratorio · 🎒 Collezione · 🧠 Giochi",
     )
