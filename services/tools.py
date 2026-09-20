@@ -143,21 +143,24 @@ def shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
     return idx // 12, idx % 12 + 1
 
 
+_CAL_HEAD = ("lu", "ma", "me", "gi", "ve", "sa", "do")
+
+
 def format_month_calendar(year: int, month: int, today: date) -> str:
-    cal = calendar.Calendar(firstweekday=0)
+    cal = calendar.Calendar(firstweekday=calendar.MONDAY)
     weeks = cal.monthdayscalendar(year, month)
-    lines = ["lun mar mer gio ven sab dom"]
+    lines = [" ".join(f"{head:>2} " for head in _CAL_HEAD)]
     for week in weeks:
         cells: list[str] = []
         for day in week:
             if day == 0:
-                cells.append("  .")
+                cells.append("   ")
                 continue
-            mark = "*" if today.year == year and today.month == month and today.day == day else " "
-            cells.append(f"{day:2d}{mark}")
+            here = today.year == year and today.month == month and today.day == day
+            cells.append(f"{day:2d}·" if here else f"{day:2d} ")
         lines.append(" ".join(cells))
     title = f"{_MONTHS_IT[month - 1]} {year}"
-    return f"<b>{_html.escape(title)}</b>\n<code>{_html.escape(chr(10).join(lines))}</code>"
+    return f"<b>{_html.escape(title)}</b>\n<pre>{_html.escape(chr(10).join(lines))}</pre>"
 
 
 def weekday_it(stamp: date) -> str:

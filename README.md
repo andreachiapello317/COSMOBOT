@@ -25,7 +25,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🧰 STRUMENTI → Conversioni | Lunghezza, massa, temperatura, velocità, volume, angoli, cielo, tempo | calcolo locale |
 | 🧰 STRUMENTI → Bussola | Posizione, coordinate, nord, verso un luogo. Via e numero o numeri scritti | Open-Meteo + BGS WMM + Nominatim |
 | 🧰 STRUMENTI → Giorno giuliano | Cos'è il JD, più MJD e J2000 | Astronomy Engine |
-| 🧰 STRUMENTI → Ora e calendario | Ora locale + mese civile | Open-Meteo timezone |
+| 🧰 STRUMENTI → Ora e calendario | Ora locale + mese civile, frecce per mese e anno | Open-Meteo timezone |
 | 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, natura, strumenti | cataloghi locali; ASTRO ha anche Wikipedia live |
 | 🌿 NATURA → Flora → Eventi | Catastrofi e fenomeni importanti nel mondo (senza il mare di incendi) | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
 | 🌿 NATURA → Flora → Live | Scosse USGS e fenomeni NASA aperti; ogni evento ha cosa/dove e un link alla fonte | USGS + NASA EONET |

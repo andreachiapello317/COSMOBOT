@@ -546,7 +546,6 @@ def tool_result_keyboard(view: str, *extra: list[InlineKeyboardButton]) -> Inlin
     rows.append([kb_btn("🔄 Aggiorna", f"tool:{view}")])
     if view == "coord":
         rows.append([kb_btn("🧭 Bussola", "cmp:hub")])
-    rows.append([kb_btn("🧰 Strumenti", "bot:tool")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
@@ -555,13 +554,16 @@ def clock_calendar_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
-                kb_btn("◀ mese", "tool:cal:prev"),
+                kb_btn("◀ anno", "tool:cal:yprev"),
                 kb_btn("oggi", "tool:cal:now"),
+                kb_btn("anno ▶", "tool:cal:ynext"),
+            ],
+            [
+                kb_btn("◀ mese", "tool:cal:prev"),
                 kb_btn("mese ▶", "tool:cal:next"),
             ],
             [kb_btn("📍 Cambia città", "loc:go:clock")],
             [kb_btn("🔄 Aggiorna", "tool:clock")],
-            [kb_btn("🧰 Strumenti", "bot:tool")],
             nav_row(),
         ]
     )
@@ -581,7 +583,6 @@ def calc_keyboard(pad: str = "bas", *, deg: bool = True) -> InlineKeyboardMarkup
                     kb_btn("atan", "calc:atan"),
                 ],
                 [kb_btn("123", "calc:bas"), kb_btn("=", "calc:eq"), kb_btn("C", "calc:c"), kb_btn("⌫", "calc:bs")],
-                [kb_btn("🧰 Strumenti", "calc:hub")],
                 nav_row(),
             ]
         )
@@ -593,7 +594,6 @@ def calc_keyboard(pad: str = "bas", *, deg: bool = True) -> InlineKeyboardMarkup
             [kb_btn("0", "calc:0"), kb_btn(".", "calc:dot"), kb_btn("=", "calc:eq"), kb_btn("+", "calc:add")],
             [kb_btn("C", "calc:c"), kb_btn("⌫", "calc:bs"), kb_btn("(", "calc:lp"), kb_btn(")", "calc:rp")],
             [kb_btn("sci", "calc:sci"), kb_btn("π", "calc:pi"), kb_btn("√", "calc:sqrt"), kb_btn("xʸ", "calc:pow")],
-            [kb_btn("🧰 Strumenti", "calc:hub")],
             nav_row(),
         ]
     )
@@ -610,12 +610,9 @@ def math_convert_keyboard(group: str = "") -> InlineKeyboardMarkup:
         _title, keys = CONV_GROUPS[group]
         buttons = [kb_btn(conversion_label(key), f"calc:cv:{key}") for key in keys]
         grid = _pairs(buttons)
-        grid.append([kb_btn("📂 Categorie", "calc:conv")])
-        grid.append([kb_btn("🧰 Strumenti", "calc:hub")])
         grid.append(nav_row())
         return InlineKeyboardMarkup(grid)
     rows = [[kb_btn(title, f"calc:cg:{key}")] for key, (title, _keys) in CONV_GROUPS.items()]
-    rows.append([kb_btn("🧰 Strumenti", "calc:hub")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
@@ -627,7 +624,6 @@ def compass_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("📐 Coordinate", "cmp:coord")],
             [kb_btn("🧭 Bussola", "cmp:needle")],
             [kb_btn("🎯 Verso un luogo", "cmp:to")],
-            [kb_btn("🧰 Strumenti", "bot:tool")],
             nav_row(),
         ]
     )
@@ -647,7 +643,6 @@ def quiz_world_keyboard(wid: str) -> InlineKeyboardMarkup:
 
     buttons = [kb_btn(label, f"sq:t:{wid}:{tid}") for tid, label in topics_of(wid)]
     grid = _pairs(buttons)
-    grid.append([kb_btn("🧩 Quiz", "bot:quiz")])
     grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
@@ -658,7 +653,7 @@ def quiz_squad_options_keyboard(n: int, wid: str, tid: str) -> InlineKeyboardMar
     return InlineKeyboardMarkup(
         [
             buttons,
-            [kb_btn("🧩 Altra", f"sq:t:{wid}:{tid}"), kb_btn("📂 Argomenti", f"sq:w:{wid}")],
+            [kb_btn("🧩 Altra", f"sq:t:{wid}:{tid}")],
             nav_row(),
         ]
     )
@@ -668,7 +663,6 @@ def quiz_squad_after_keyboard(wid: str, tid: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🧩 Altra domanda", f"sq:t:{wid}:{tid}")],
-            [kb_btn("📂 Argomenti", f"sq:w:{wid}"), kb_btn("🧩 Quiz", "bot:quiz")],
             nav_row(),
         ]
     )
@@ -680,7 +674,6 @@ def compass_result_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("📍 Posizione", "cmp:gps"), kb_btn("📐 Coordinate", "cmp:coord")],
             [kb_btn("🧭 Bussola", "cmp:needle"), kb_btn("🎯 Verso un luogo", "cmp:to")],
             [kb_btn("📍 Cambia luogo", "cmp:city")],
-            [kb_btn("🧰 Strumenti", "bot:tool")],
             nav_row(),
         ]
     )

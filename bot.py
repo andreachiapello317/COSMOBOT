@@ -566,6 +566,35 @@ NAV_SKIP_EXACT = frozenset(
         "md:save",
         "home:menu",
         "loc:here",
+        "calc:eq",
+        "calc:c",
+        "calc:bs",
+        "calc:deg",
+        "calc:sci",
+        "calc:bas",
+        "calc:add",
+        "calc:sub",
+        "calc:mul",
+        "calc:div",
+        "calc:dot",
+        "calc:lp",
+        "calc:rp",
+        "calc:pow",
+        "calc:pi",
+        "calc:e",
+        "calc:sin",
+        "calc:cos",
+        "calc:tan",
+        "calc:asin",
+        "calc:acos",
+        "calc:atan",
+        "calc:sqrt",
+        "calc:ln",
+        "calc:log",
+        "calc:exp",
+        "calc:fact",
+        "calc:inv",
+        *(f"calc:{digit}" for digit in "0123456789"),
     }
 )
 NAV_SKIP_PREFIXES = (
@@ -582,11 +611,12 @@ NAV_SKIP_PREFIXES = (
     "cp:loc:",
     "cp:p:",
     "cp:el:",
-    "cp:src:",
-    "calc:",
-    "wx:d:",
-    "loc:city:",
-    "sq:ans:",
+        "cp:src:",
+        "calc:cv:",
+        "tool:cal:",
+        "wx:d:",
+        "loc:city:",
+        "sq:ans:",
 )
 NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
 
@@ -2500,12 +2530,12 @@ async def show_math_convert(
     group: str = "",
     result: str = "",
 ) -> None:
-    nav_mark(context, "calc:conv")
     if kind and kind in CONVERSIONS and not group:
         for key, (_title, keys) in CONV_GROUPS.items():
             if kind in keys:
                 group = key
                 break
+    nav_mark(context, f"calc:cg:{group}" if group else "calc:conv")
     context.user_data[MATH_ASK_KEY] = {"mode": "conv", "kind": kind, "group": group}
     label = conversion_label(kind) if kind else ""
     await reply_html(
@@ -2534,7 +2564,7 @@ async def dispatch_tool(
     if action in {"clock", "cal"}:
         _ensure_cielo_place(context)
         name, lat, lon = _cielo_place(context)
-        delta = {"prev": -1, "next": 1, "now": 0}.get(extra)
+        delta = {"prev": -1, "next": 1, "now": 0, "yprev": -12, "ynext": 12}.get(extra)
         await send_tool_clock(update, context, name=name, lat=lat, lon=lon, month_delta=delta)
         return
     await show_tool_hub(update, context)
@@ -2626,7 +2656,7 @@ async def send_tool_clock(
         f"Fuso: <code>{e(tz_name)}</code> · UTC{sign}{abs(off_h):.0f}h\n"
         f"Oggi: {phase.get('emoji') or '🌙'} {e(str(phase.get('name') or 'Luna'))}\n\n"
         f"{cal}\n"
-        "<i>* = oggi. Le settimane partono da lunedì.</i>"
+        "<i>· = oggi. Lunedì in testa. Anno e mese dalle frecce.</i>"
     )
     await reply_html(update, context, text, reply_markup=clock_calendar_keyboard())
 
@@ -6129,6 +6159,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         await show_math_hub(update, context)
         return
     if prefix == "tool":
+        if action == "cal":
+            await dispatch_tool(update, context, "clock")
+            return
         await dispatch_tool(update, context, action, extra)
         return
     if prefix == "geo":
@@ -10161,6 +10194,7 @@ async def send_squad_question(update: Update, context: ContextTypes.DEFAULT_TYPE
             reply_markup=quiz_world_keyboard(wid),
         )
         return
+    nav_mark(context, f"sq:t:{wid}:{tid}")
     _squad_quiz_state(context).clear()
     _squad_quiz_state(context).update(item)
     labels = ("A", "B", "C", "D")
