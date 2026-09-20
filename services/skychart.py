@@ -26,16 +26,21 @@ PLANETS = (
     (astronomy.Body.Neptune, "Nettuno", (90, 130, 210)),
 )
 EYE_LEVELS: dict[str, dict[str, Any]] = {
+    "full": {"star": 99.0, "planet": 99.0, "alt": 0.0, "it": "Tutto", "btn": "Tutto", "emoji": "🌌"},
     "easy": {"star": 3.0, "planet": 4.0, "alt": 15.0, "it": "Facile", "btn": "Facile", "emoji": "✨"},
     "eye": {"star": 4.5, "planet": 5.5, "alt": 10.0, "it": "Occhio nudo", "btn": "Nudo", "emoji": "👁️"},
     "bino": {"star": 8.0, "planet": 8.0, "alt": 5.0, "it": "Binocolo", "btn": "Bino", "emoji": "🔭"},
 }
-EYE_ORDER = ("easy", "eye", "bino")
-DEFAULT_EYE_LEVEL = "easy"
+EYE_ORDER = ("full", "easy", "eye", "bino")
+DEFAULT_EYE_LEVEL = "full"
 
 
 def eye_level(key: str | None = None) -> dict[str, Any]:
     return EYE_LEVELS.get(str(key or ""), EYE_LEVELS[DEFAULT_EYE_LEVEL])
+
+
+def eye_is_full(key: str | None = None) -> bool:
+    return str(key or DEFAULT_EYE_LEVEL) == "full"
 
 
 def eye_level_label(key: str | None = None) -> str:
@@ -83,7 +88,7 @@ def _keep_body(
 
 def _chart_label(kind: str, place: str, *, naked: bool, eye: str | None = None) -> str:
     if naked:
-        return f"Cielo osservabile · {eye_level(eye)['it']} · {kind} · {place}"
+        return f"Cielo di adesso · {eye_level(eye)['it']} · {kind} · {place}"
     return f"Cielo di adesso · {kind} · {place}"
 
 
@@ -492,23 +497,44 @@ def format_sky_listing(
     lat: float,
     lon: float,
     when: datetime,
+    eye: str | None = None,
 ) -> str:
-    """Elenco numerico degli oggetti sopra l'orizzonte."""
+    """Elenco numerico degli oggetti sopra l'orizzonte, con lo stesso grado della carta."""
     place = _html.escape(place)
+    level = str(eye or DEFAULT_EYE_LEVEL)
+    if level not in EYE_LEVELS:
+        level = DEFAULT_EYE_LEVEL
+    naked = not eye_is_full(level)
+    cfg = eye_level(level)
     frame = SkyFrame(lat, lon, when)
-    stars = visible_stars(frame, limit=12)
-    figures = [fig["name"] for fig in constellation_segments(frame) if fig["alt"] > 20][:8]
+    stars = [
+        star
+        for star in visible_stars(frame, limit=40)
+        if _keep_star(star["alt"], float(star["mag"]), naked=naked, eye=level)
+    ][:12]
+    min_fig = 20.0 if not naked else max(8.0, float(cfg["alt"]))
+    figures = [fig["name"] for fig in constellation_segments(frame) if fig["alt"] > min_fig][:8]
+    grade = f" · {cfg['it'].upper()}" if naked else ""
     lines = [
-        f"📜 <b>OGGETTI SOPRA — {place.upper()}</b>",
-        f"{when.strftime('%d/%m/%Y %H:%M')}",
+        f"📜 <b>OGGETTI SOPRA{grade} — {place.upper()}</b>",
+        f"{when.strftime('%d/%m/%Y %H:%M')} · {cfg['emoji']} {cfg['it']}",
         "",
         "☀️ <b>SOLE, LUNA, PIANETI</b>",
     ]
+    planet_of = {name: body for body, name, _glyph in EMOJI_PLANETS}
     bodies = _visible_bodies(frame)
     bodies.sort(key=lambda row: row["alt"], reverse=True)
     any_up = False
     for row in bodies:
-        if row["alt"] <= 0:
+        if row["kind"] == "sun":
+            body = astronomy.Body.Sun
+        elif row["kind"] == "moon":
+            body = astronomy.Body.Moon
+        else:
+            body = planet_of.get(row["name"])
+            if body is None:
+                continue
+        if not _keep_body(body, row["alt"], frame.moment, naked=naked, eye=level):
             continue
         any_up = True
         extra = ""
@@ -518,7 +544,10 @@ def format_sky_listing(
             f"{row['glyph']} {row['name']}  alt {row['alt']:.0f}° · az {row['az']:.0f}°{extra}"
         )
     if not any_up:
-        lines.append("<i>Sole, Luna e pianeti sono tutti sotto l'orizzonte.</i>")
+        if naked:
+            lines.append("<i>Con questo grado non c'è Sole, Luna o pianeta abbastanza alto.</i>")
+        else:
+            lines.append("<i>Sole, Luna e pianeti sono tutti sotto l'orizzonte.</i>")
     lines.extend(["", "⭐ <b>STELLE PIÙ LUMINOSE</b>"])
     if stars:
         for star in stars:
@@ -527,16 +556,21 @@ def format_sky_listing(
                 f"⭐ {label}  mag {star['mag']:.1f} · alt {star['alt']:.0f}° · az {star['az']:.0f}°"
             )
     else:
-        lines.append("<i>Nessuna stella del catalogo è sopra.</i>")
+        lines.append("<i>Nessuna stella del catalogo entra in questo grado.</i>")
     if figures:
         lines.extend(["", "✨ <b>FIGURE ALTE</b>", " · ".join(_html.escape(n) for n in figures)])
-    lines.extend(
-        [
-            "",
-            "<i>Altezza e azimut da Astronomy Engine. Stelle Hipparcos mag ≤ 5.2. "
-            "Non è Horizons.</i>",
-        ]
-    )
+    if naked:
+        note = (
+            f"Grado {cfg['it']}: stelle mag ≤ {cfg['star']:.1f}, "
+            f"pianeti mag ≤ {cfg['planet']:.1f}, altezza ≥ {cfg['alt']:.0f}°. "
+            "Se è giorno, l'ora è quella delle 22:00. Non è Horizons."
+        )
+    else:
+        note = (
+            "Altezza e azimut da Astronomy Engine. Stelle Hipparcos mag ≤ 5.2. "
+            "Non è Horizons."
+        )
+    lines.extend(["", f"<i>{note}</i>"])
     return "\n".join(lines)
 
 

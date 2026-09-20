@@ -92,8 +92,9 @@ def tonight_picks(
         return "⭐" * pts + "☆" * (5 - pts)
 
     cfg = eye_level(eye)
-    min_alt = float(cfg["alt"])
-    planet_mag = float(cfg["planet"])
+    is_full = str(eye or "") == "full"
+    min_alt = -0.5 if is_full else float(cfg["alt"])
+    planet_mag = 99.0 if is_full else float(cfg["planet"])
     picks: list[dict[str, Any]] = []
     moon = snap["moon"]
     if moon["alt"] > min_alt:
@@ -118,7 +119,11 @@ def tonight_picks(
         if mag is not None and mag > planet_mag:
             continue
         bar = score(row["alt"], mag)
-        if row["name"] in {"Urano", "Nettuno"} and (mag is None or mag > planet_mag or bar.count("⭐") < 2):
+        if (
+            not is_full
+            and row["name"] in {"Urano", "Nettuno"}
+            and (mag is None or mag > planet_mag or bar.count("⭐") < 2)
+        ):
             continue
         picks.append(
             {

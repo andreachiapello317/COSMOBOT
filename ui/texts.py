@@ -47,7 +47,7 @@ def astro_hub_text() -> str:
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
         "☀️ <b>CIELO</b> — luna, sole, terra e uno schema a emoji\n"
         "🌤️ <b>METEO</b> — Cuneo (o l'ultima città), oggi e domani; puoi cambiare giorni\n"
-        "🔭 <b>OSSERVATORIO</b> — cielo di adesso, cielo osservabile, Horizons NASA, ISS\n"
+        "🔭 <b>OSSERVATORIO</b> — cielo di adesso (visibilità sulla carta), Horizons NASA, ISS\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
@@ -174,9 +174,8 @@ def world_watch_text(place: str = "") -> str:
         "🔭 <b>OSSERVATORIO</b>",
         "Cosa sta sopra di te, adesso. Stelle da Hipparcos; Sole, Luna, pianeti e comete da JPL Horizons.",
         f"{where}\n"
-        "🔭 Cielo di adesso — carte complete o elenco\n"
-        "👁️ Cielo osservabile — carte + cosa osservare stasera, con grado sceglibile\n"
-        "📡 Horizons NASA — stelle, luna, pianeti, comete, eventi\n"
+        "🔭 Cielo di adesso — 6 carte, elenco e stasera; il grado sta sulla cartina\n"
+        "📡 Horizons NASA — stelle, luna, pianeti, comete, calcoli, eventi\n"
         "🛰️ Satelliti — solo ISS live\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
     )
@@ -201,31 +200,35 @@ def watch_horizons_text(place: str = "") -> str:
     )
 
 
-def watch_eye_hub_text(place: str = "", level: str = "easy") -> str:
-    from services.skychart import eye_level
+def watch_eye_hub_text(place: str = "", level: str = "full") -> str:
+    return watch_sky_pick_text(place, level)
+
+
+def watch_sky_pick_text(place: str = "", level: str = "full") -> str:
+    from services.skychart import eye_is_full, eye_level
 
     where = _html.escape(place) if place else "Cuneo"
     cfg = eye_level(level)
-    return _card(
-        f"👁️ <b>CIELO OSSERVABILE — {where.upper()}</b>",
-        "Solo ciò che merita da qui, con il grado che scegli. Le carte restano le stesse sei.",
-        f"Grado adesso: <b>{cfg['emoji']} {cfg['it']}</b> — "
-        f"stelle mag ≤ {cfg['star']:.1f}, pianeti mag ≤ {cfg['planet']:.1f}, altezza ≥ {cfg['alt']:.0f}°.\n\n"
-        "✨ <b>FACILE</b> — pochi oggetti, luminosi e alti\n"
-        "👁️ <b>OCCHIO NUDO</b> — cielo buio senza strumenti\n"
-        "🔭 <b>BINOCOLO</b> — fino a magnitudine 8\n\n"
-        "🗺️ Carte · 🔭 Cosa osservare stasera. Se è giorno, le carte usano le 22:00.",
-    )
-
-
-def watch_sky_pick_text(place: str = "") -> str:
-    where = _html.escape(place) if place else "Cuneo"
+    if eye_is_full(level):
+        grade = (
+            f"Grado adesso: <b>{cfg['emoji']} {cfg['it']}</b> — "
+            "tutti gli oggetti sopra l'orizzonte."
+        )
+    else:
+        grade = (
+            f"Grado adesso: <b>{cfg['emoji']} {cfg['it']}</b> — "
+            f"stelle mag ≤ {cfg['star']:.1f}, pianeti mag ≤ {cfg['planet']:.1f}, "
+            f"altezza ≥ {cfg['alt']:.0f}°."
+        )
     return _card(
         f"🔭 <b>CIELO DI ADESSO — {where.upper()}</b>",
-        "Come lo vuoi vedere. Stessi oggetti, due modi.",
+        "Come lo vuoi vedere. Il grado di visibilità sta sulla cartina.",
+        f"{grade}\n\n"
         "🗺️ <b>PROFESSIONALE</b> — sei carte PNG: classica, figure, atlante, polare, eclittica, sfera\n"
-        "📜 <b>ELENCO</b> — altezza, azimut, magnitudine\n\n"
-        "Sulla PNG scorri i sei disegni con ◀ ▶.",
+        "📜 <b>ELENCO</b> — altezza, azimut, magnitudine\n"
+        "🔭 <b>STASERA</b> — cosa merita stanotte, con lo stesso grado\n\n"
+        "🌌 Tutto · ✨ Facile · 👁️ Occhio nudo · 🔭 Binocolo. "
+        "Tutto è il cielo completo. Se non è Tutto e c'è ancora il Sole, uso le 22:00.",
     )
 
 

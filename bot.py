@@ -328,8 +328,6 @@ from ui.keyboards import (
     watch_bodies_keyboard,
     watch_next_keyboard,
     watch_result_keyboard,
-    watch_eye_hub_keyboard,
-    watch_eye_keyboard,
     watch_horizons_keyboard,
     watch_sky_keyboard,
     watch_sky_list_keyboard,
@@ -440,7 +438,6 @@ from ui.texts import (
     compat_hub_text,
     world_sky_text,
     world_watch_text,
-    watch_eye_hub_text,
     watch_horizons_text,
     watch_sky_pick_text,
     world_vita_text,
@@ -2391,7 +2388,7 @@ def help_text() -> str:
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città, default Cuneo, niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (luna, sole, terra e schema a emoji), Meteo (Cuneo, oggi e domani), Osservatorio "
-        "(cielo di adesso, cielo osservabile, Horizons NASA, ISS), Studia lo spazio (enciclopedia), "
+        "(cielo di adesso con grado sulla carta, Horizons NASA, ISS), Studia lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
@@ -5990,7 +5987,7 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         await send_watch_tonight(update, context)
         return
     if prefix == "watch" and action == "eye":
-        await show_eye_hub(update, context)
+        await send_sky_now(update, context)
         return
     if prefix == "watch" and action == "hz":
         await show_horizons_hub(update, context)
@@ -7337,17 +7334,7 @@ async def show_horizons_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 async def show_eye_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    nav_mark(context, "watch:eye")
-    _ensure_cielo_place(context)
-    name, _lat, _lon = _cielo_place(context)
-    level = _eye_limit(context)
-    context.user_data[WATCH_EYE_VIEW_KEY] = "hub"
-    await reply_html(
-        update,
-        context,
-        watch_eye_hub_text(name, level),
-        reply_markup=watch_eye_hub_keyboard(level),
-    )
+    await send_sky_now(update, context, style="pick")
 
 
 async def on_sky_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -7414,20 +7401,30 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if view == "tonight":
             await send_watch_tonight(update, context)
             return
-        if view == "hub":
-            await show_eye_hub(update, context)
+        if view == "list":
+            await send_sky_now(update, context, style="list")
             return
-        await send_sky_eye(update, context)
+        if view == "hub":
+            await send_sky_now(update, context, style="pick")
+            return
+        await send_sky_now(update, context, style="pro")
         return
     if action == "eye":
         if extra in EYE_LEVELS:
             _eye_limit(context, extra)
-            await show_eye_hub(update, context)
+            view = str(context.user_data.get(WATCH_EYE_VIEW_KEY) or "chart")
+            if view == "tonight":
+                await send_watch_tonight(update, context)
+                return
+            if view == "list":
+                await send_sky_now(update, context, style="list")
+                return
+            await send_sky_now(update, context, style="pro")
             return
         if extra in {"", "hub"}:
-            await show_eye_hub(update, context)
+            await send_sky_now(update, context, style="pick")
             return
-        await send_sky_eye(update, context, style=extra or None)
+        await send_sky_now(update, context, style=extra or None)
         return
     if action == "stelle":
         await send_sky_stars(update, context, name=name, lat=lat, lon=lon)
@@ -7684,38 +7681,68 @@ async def send_sky_now(
     _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     asked = style or "pick"
-    if asked in {"pick", "", "emoji"}:
+    level = _eye_limit(context)
+    naked = level != "full"
+    cfg = eye_level(level)
+    nav_mark(context, "watch:now")
+    if asked in {"pick", "", "emoji", "hub"}:
+        context.user_data[WATCH_EYE_VIEW_KEY] = "hub"
         await reply_html(
             update,
             context,
-            watch_sky_pick_text(name),
+            watch_sky_pick_text(name, level),
             reply_markup=watch_sky_pick_keyboard(),
         )
         return
+    if asked == "tonight":
+        await send_watch_tonight(update, context)
+        return
+    tz, now = await _watch_clock(context, lat, lon)
+    when, projected = (now, False) if not naked else _observe_when(lat, lon, now)
     if asked == "list":
+        context.user_data[WATCH_EYE_VIEW_KEY] = "list"
         await send_typing(update)
-        tz, now = await _watch_clock(context, lat, lon)
         try:
-            body = format_sky_listing(place=name, lat=lat, lon=lon, when=now)
+            body = format_sky_listing(place=name, lat=lat, lon=lon, when=when, eye=level)
         except Exception:
             logger.exception("Elenco cielo non generato")
             await reply_offline(update, context)
             return
-        await reply_html(update, context, body, reply_markup=watch_sky_list_keyboard())
+        await reply_html(update, context, body, reply_markup=watch_sky_list_keyboard(level))
         return
     if asked == "pro":
         asked = None
     chosen = _sky_style(context, asked)
+    context.user_data[WATCH_EYE_VIEW_KEY] = "chart"
     await send_typing(update)
-    tz, now = await _watch_clock(context, lat, lon)
     label = sky_style_label(chosen)
     idx = SKY_STYLES.index(chosen) + 1
-    head = (
-        f"🗺️ <b>CARTA PROFESSIONALE — {e(name.upper())}</b>\n"
-        f"{e(format_day_it(now))} · {now.strftime('%H:%M')} · {idx}/{len(SKY_STYLES)} · {e(label)}"
-    )
-    markup = watch_sky_keyboard(chosen)
-    await deliver_text(update, context, f"🗺️ Disegno la carta sopra {name} ({label})…")
+    when_bit = "stasera 22:00" if projected else when.strftime("%H:%M")
+    if naked:
+        head = (
+            f"🔭 <b>CIELO DI ADESSO — {e(name.upper())}</b>\n"
+            f"{e(format_day_it(when))} · {when_bit} · {idx}/{len(SKY_STYLES)} · {e(label)}\n"
+            f"{e(eye_level_label(level))} · stelle mag ≤ {cfg['star']:.1f} · "
+            f"pianeti mag ≤ {cfg['planet']:.1f} · alt ≥ {cfg['alt']:.0f}°"
+        )
+        extra = (
+            "Niente Sole. Urano e Nettuno solo se entrano nel grado scelto. "
+            "Se è giorno, uso le 22:00."
+        )
+        typing = f"🔭 Disegno il cielo {cfg['it'].lower()} sopra {name}…"
+    else:
+        head = (
+            f"🗺️ <b>CARTA PROFESSIONALE — {e(name.upper())}</b>\n"
+            f"{e(format_day_it(when))} · {when.strftime('%H:%M')} · {idx}/{len(SKY_STYLES)} · {e(label)}\n"
+            f"{e(eye_level_label(level))} — tutti gli oggetti sopra l'orizzonte."
+        )
+        extra = (
+            "Stelle Hipparcos; Sole, Luna e pianeti da Astronomy Engine. "
+            f"Scorri le {len(SKY_STYLES)} carte: classica, figure, atlante, polare, eclittica, sfera."
+        )
+        typing = f"🗺️ Disegno la carta sopra {name} ({label})…"
+    markup = watch_sky_keyboard(chosen, level)
+    await deliver_text(update, context, typing)
     try:
         drawers = {
             "figures": draw_figure_chart,
@@ -7725,16 +7752,12 @@ async def send_sky_now(
             "sphere": draw_planisphere,
         }
         drawer = drawers.get(chosen, draw_sky_chart)
-        png = drawer(place=name, lat=lat, lon=lon, when=now)
+        png = drawer(place=name, lat=lat, lon=lon, when=when, naked=naked, eye=level)
     except Exception:
         logger.exception("Carta del cielo non generata")
         await reply_offline(update, context)
         return
-    caption = (
-        f"{head}\n"
-        "Stelle Hipparcos; Sole, Luna e pianeti da Astronomy Engine. "
-        f"Scorri le {len(SKY_STYLES)} carte: classica, figure, atlante, polare, eclittica, sfera."
-    )
+    caption = f"{head}\n{extra}"
     ok = await deliver_photo_bytes(
         update,
         context,
@@ -7768,60 +7791,8 @@ async def send_sky_eye(
     *,
     style: str | None = None,
 ) -> None:
-    _ensure_cielo_place(context)
-    name, lat, lon = _cielo_place(context)
-    chosen = _sky_style(context, style, key=WATCH_EYE_KEY)
-    level = _eye_limit(context)
-    cfg = eye_level(level)
-    context.user_data[WATCH_EYE_VIEW_KEY] = "chart"
-    await send_typing(update)
-    tz, now = await _watch_clock(context, lat, lon)
-    when, projected = _observe_when(lat, lon, now)
-    label = sky_style_label(chosen)
-    idx = SKY_STYLES.index(chosen) + 1
-    when_bit = "stasera 22:00" if projected else now.strftime("%H:%M")
-    head = (
-        f"👁️ <b>CIELO OSSERVABILE — {e(name.upper())}</b>\n"
-        f"{e(format_day_it(when))} · {when_bit} · {idx}/{len(SKY_STYLES)} · {e(label)}\n"
-        f"{e(eye_level_label(level))} · stelle mag ≤ {cfg['star']:.1f} · "
-        f"pianeti mag ≤ {cfg['planet']:.1f} · alt ≥ {cfg['alt']:.0f}°"
-    )
-    markup = watch_eye_keyboard(chosen, level)
-    await deliver_text(update, context, f"👁️ Disegno il cielo {cfg['it'].lower()} sopra {name}…")
-    drawers = {
-        "figures": draw_figure_chart,
-        "atlas": draw_atlas_chart,
-        "polar": draw_polar_chart,
-        "ecliptic": draw_ecliptic_chart,
-        "sphere": draw_planisphere,
-    }
-    try:
-        drawer = drawers.get(chosen, draw_sky_chart)
-        png = drawer(place=name, lat=lat, lon=lon, when=when, naked=True, eye=level)
-    except Exception:
-        logger.exception("Carta occhio nudo non generata")
-        await reply_offline(update, context)
-        return
-    caption = (
-        f"{head}\n"
-        "Niente Sole. Urano e Nettuno solo se entrano nel grado scelto. "
-        "Se è giorno, uso le 22:00."
-    )
-    ok = await deliver_photo_bytes(
-        update,
-        context,
-        png,
-        caption,
-        filename="osservabile.png",
-        reply_markup=markup,
-    )
-    if not ok:
-        await reply_html(
-            update,
-            context,
-            caption + "\n\nLa PNG non è partita. Riprova.",
-            reply_markup=markup,
-        )
+    asked = style if style not in {None, "", "hub"} else "pick"
+    await send_sky_now(update, context, style=asked)
 
 
 async def send_watch_moon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -7925,10 +7896,17 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data[WATCH_EYE_VIEW_KEY] = "tonight"
     nav_mark(context, "watch:tonight")
     picks, w_emoji, w_sky, clouds = tonight_picks(snap, weather=weather, eye=level)
+    if level == "full":
+        grade_line = "🌌 Tutto — senza filtro di visibilità."
+    else:
+        grade_line = (
+            f"Stelle mag ≤ {cfg['star']:.1f} · pianeti mag ≤ {cfg['planet']:.1f} · "
+            f"alt ≥ {cfg['alt']:.0f}°"
+        )
     lines = [
         f"🔭 <b>COSA OSSERVARE STASERA — {e(name.upper())}</b>",
         f"📅 {e(format_day_it(now))} · {now.strftime('%H:%M')} · {e(eye_level_label(level))}",
-        f"Stelle mag ≤ {cfg['star']:.1f} · pianeti mag ≤ {cfg['planet']:.1f} · alt ≥ {cfg['alt']:.0f}°",
+        grade_line,
         "",
     ]
     if snap["night"]:

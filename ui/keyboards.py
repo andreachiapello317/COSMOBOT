@@ -397,7 +397,6 @@ def world_watch_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔭 Cielo di adesso", "watch:now")],
-            [kb_btn("👁️ Cielo osservabile", "watch:eye")],
             [kb_btn("📡 Horizons NASA", "watch:hz")],
             [kb_btn("🛰️ Satelliti", "watch:sats")],
             [kb_btn("📍 Cambia città", "watch:city")],
@@ -430,14 +429,7 @@ def _eye_limit_row(level: str, prefix: str) -> list[InlineKeyboardButton]:
 
 
 def watch_eye_hub_keyboard(level: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("🗺️ Carte", "watch:eye:pro")],
-            [kb_btn("🔭 Cosa osservare stasera", "watch:tonight")],
-            _eye_limit_row(level, "watch:eye"),
-            nav_row(),
-        ]
-    )
+    return watch_sky_pick_keyboard()
 
 
 def sky_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
@@ -458,12 +450,13 @@ def watch_sky_pick_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🗺️ Professionale", "watch:now:pro")],
             [kb_btn("📜 Elenco oggetti", "watch:now:list")],
+            [kb_btn("🔭 Cosa osservare stasera", "watch:tonight")],
             nav_row(),
         ]
     )
 
 
-def watch_sky_keyboard(style: str) -> InlineKeyboardMarkup:
+def watch_sky_keyboard(style: str, level: str = "full") -> InlineKeyboardMarkup:
     from services.skychart import sky_style_label
 
     return InlineKeyboardMarkup(
@@ -473,16 +466,17 @@ def watch_sky_keyboard(style: str) -> InlineKeyboardMarkup:
                 kb_btn(sky_style_label(style), f"watch:now:{style}"),
                 kb_btn("▶", "watch:now:next"),
             ],
-            [kb_btn("📜 Elenco", "watch:now:list"), kb_btn("🔭 Modo", "watch:now:pick")],
+            _eye_limit_row(level, "watch:lim"),
+            [kb_btn("📜 Elenco", "watch:now:list"), kb_btn("🔭 Stasera", "watch:tonight")],
             nav_row(),
         ]
     )
 
 
-def watch_tonight_keyboard(level: str = "easy") -> InlineKeyboardMarkup:
+def watch_tonight_keyboard(level: str = "full") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🗺️ Carte", "watch:eye:pro")],
+            [kb_btn("🗺️ Carte", "watch:now:pro")],
             _eye_limit_row(level, "watch:lim"),
             [kb_btn("🔄 Aggiorna", "watch:tonight")],
             nav_row(),
@@ -490,31 +484,19 @@ def watch_tonight_keyboard(level: str = "easy") -> InlineKeyboardMarkup:
     )
 
 
-def watch_sky_list_keyboard() -> InlineKeyboardMarkup:
+def watch_sky_list_keyboard(level: str = "full") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🗺️ Professionale", "watch:now:pro")],
-            [kb_btn("🔭 Modo", "watch:now:pick")],
-            nav_row(),
-        ]
-    )
-
-
-def watch_eye_keyboard(style: str, level: str = "easy") -> InlineKeyboardMarkup:
-    from services.skychart import sky_style_label
-
-    return InlineKeyboardMarkup(
-        [
-            [
-                kb_btn("◀", "watch:eye:prev"),
-                kb_btn(sky_style_label(style), f"watch:eye:{style}"),
-                kb_btn("▶", "watch:eye:next"),
-            ],
-            [kb_btn("🔭 Stasera", "watch:tonight")],
             _eye_limit_row(level, "watch:lim"),
+            [kb_btn("🔭 Stasera", "watch:tonight")],
             nav_row(),
         ]
     )
+
+
+def watch_eye_keyboard(style: str, level: str = "full") -> InlineKeyboardMarkup:
+    return watch_sky_keyboard(style, level)
 
 
 def watch_bodies_keyboard(kind: str) -> InlineKeyboardMarkup:
