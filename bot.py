@@ -6737,11 +6737,8 @@ async def on_sky_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if action in {"alba", "tramonto"}:
         await send_sole(update, context, name=name, lat=lat, lon=lon)
         return
-    if action == "stelle":
-        await send_stars_now(update, context)
-        return
-    if action == "costell":
-        await send_constellations_now(update, context)
+    if action in {"stelle", "costell"}:
+        await send_sky_stars(update, context, name=name, lat=lat, lon=lon)
         return
     if action == "eventi":
         await send_eventi(update, context)
@@ -6768,7 +6765,7 @@ async def show_place_picker(
     context.user_data[LOC_ASK_KEY] = True
     context.user_data["cielo_ask"] = False
     titles = {
-        "cielo": "Da dove osservi il cielo? La salvo per luna, stelle, alba, tramonto, eventi e costellazioni.",
+        "cielo": "Da dove osservi il cielo? La salvo per luna, stelle, alba, tramonto ed eventi.",
         "sole": "Da dove calcolare alba e tramonto?",
         "meteo": "Di quale città vuoi il meteo?",
         "osserva": "Da dove osservi i pianeti?",
@@ -7316,6 +7313,108 @@ async def receive_cielo_city(update: Update, context: ContextTypes.DEFAULT_TYPE,
         float(place["lon"]),
     )
     await show_cielo_hub(update, context)
+
+
+async def send_sky_stars(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    name: str,
+    lat: float,
+    lon: float,
+) -> None:
+    """Osservatorio: stelle e figure sopra la città salvata. Niente schede enciclopedia."""
+    _remember_cielo_place(context, name, lat, lon)
+    await send_typing(update)
+    await deliver_text(update, context, f"⭐ Guardo le stelle sopra {name}…")
+    client = _http_client(context)
+    now = datetime.now(DEFAULT_TZ)
+    try:
+        tz_name = await api_timezone_name(client, lat, lon)
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = DEFAULT_TZ
+        now = datetime.now(tz)
+        sky = await api_skymap(client, lat, lon)
+    except StelleOfflineError:
+        await reply_offline(update, context)
+        return
+    marks = collect_marks(sky)
+    stars_up = [
+        m
+        for m in marks
+        if m.get("kind") == "star"
+        and isinstance(m.get("alt"), (int, float))
+        and m["alt"] > 0
+    ]
+    stars_up.sort(key=lambda m: float(m.get("alt") or 0), reverse=True)
+    try:
+        sun_alt = float(sky.get("sun_alt")) if sky.get("sun_alt") is not None else None
+    except (TypeError, ValueError):
+        sun_alt = None
+    moon = sky.get("moon") if isinstance(sky.get("moon"), dict) else {}
+    try:
+        moon_alt = float(moon["alt"]) if moon.get("alt") is not None else None
+    except (TypeError, ValueError):
+        moon_alt = None
+    try:
+        moon_illum = float(moon["illum"]) if moon.get("illum") is not None else None
+    except (TypeError, ValueError):
+        moon_illum = None
+    night = sun_alt is None or sun_alt < 0
+    lines = [
+        f"⭐ <b>STELLE — {e(name.upper())}</b>",
+        f"📅 {e(format_day_it(now))} · {now.strftime('%H:%M')}",
+        "",
+    ]
+    if night:
+        lines.append("🌌 È notte: il cielo si può leggere.")
+    else:
+        lines.append(
+            "☀️ È giorno: le stelle ci sono, ma la luce le copre. "
+            "Sotto, la mappa le elenca lo stesso."
+        )
+    if isinstance(sun_alt, (int, float)):
+        lines.append(f"☀️ Sole {sun_alt:.0f}°")
+    if isinstance(moon_alt, (int, float)):
+        illum_bit = f" · {moon_illum:.0f}%" if isinstance(moon_illum, (int, float)) else ""
+        side = "↑" if moon_alt > 0 else "↓"
+        lines.append(f"🌙 Luna {moon_alt:.0f}° {side}{illum_bit}")
+    lines.append("")
+    lines.append("🔭 <b>SOPRA L'ORIZZONTE</b>")
+    if stars_up:
+        for mark in stars_up[:8]:
+            lines.append(visibility_line(mark))
+    else:
+        lines.append("<i>In questa mappa nessuna stella luminosa è sopra l'orizzonte.</i>")
+    raw_ast = [str(a) for a in (sky.get("asterisms") or []) if a]
+    lines.append("")
+    lines.append("✨ <b>COSTELLAZIONI IN MAPPA</b>")
+    if raw_ast:
+        try:
+            names_it = await translate_to_italian(client, ", ".join(raw_ast[:8]))
+        except StelleOfflineError:
+            names_it = ", ".join(raw_ast[:8])
+        lines.append(e(names_it))
+    else:
+        lines.append("<i>Nessuna figura arrivata in questa ora.</i>")
+    lines.append("")
+    lines.append(milky_way_hint(sun_alt=sun_alt, moon_alt=moon_alt, moon_illum=moon_illum))
+    lines.extend(
+        [
+            "",
+            "↑ sopra · 👁 mag ≤ 6 (soglia sul dato live)",
+            "<i>Osservatorio sulla città salvata. Le schede enciclopedia "
+            "staranno in un'altra sezione di ASTRO.</i>",
+        ]
+    )
+    await reply_html(
+        update,
+        context,
+        "\n".join(lines),
+        reply_markup=sky_result_keyboard([_tarot_btn("🔄 Aggiorna", "sky:stelle")]),
+    )
 
 
 async def show_stelle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

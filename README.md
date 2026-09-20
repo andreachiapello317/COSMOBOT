@@ -17,7 +17,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🔮 ORACOLO → Te stesso | Oroscopo (giorno / settimana / mese; senza segno usa **Bilancia**), tema natale guidato, specchio, compatibilità due segni | [freehoroscopeapi.com](https://freehoroscopeapi.com), [CosmyDay](https://cosmyday.com/api-docs) |
 | 🔮 ORACOLO → Consultazioni | Tarocchi, I Ching, rune, Lenormand, sì/no, pietra del giorno. «Fai scegliere all'oracolo» pesca uno strumento e dà subito la lettura | tarot API, Wilhelm 1924, dataset locali |
 | 🔮 ORACOLO → Interroga il cielo | Chiede la città, poi legge luna, stelle e pianeti sopra di te. Niente carte | skymap + sunrisesunset; il testo è folklore |
-| 🔭 ASTRO → Cielo | Chiede la città all'ingresso, la salva, poi luna/stelle/alba/tramonto/eventi/costellazioni usano quella. Cambia città in fondo | skymap.sh, Skytime, CosmyDay |
+| 🔭 ASTRO → Cielo | Chiede la città all'ingresso, la salva, poi luna/stelle/alba/tramonto/eventi usano quella. Stelle = osservatorio (visibili + figure in mappa). Cambia città in fondo | skymap.sh, Skytime, CosmyDay |
 | 🔭 ASTRO → Meteo | Città, poi quanti o quali giorni. Se non dici nulla: oggi e domani | [Open-Meteo](https://open-meteo.com) |
 | 🧮 CALC | Calcolatrice a pulsanti | calcolo locale |
 | 🔭 ASTRO → Mondi | Esopianeti, pianeti (efemeridi), vita, missioni, sistemi, salvataggi | NASA TAP + Wikipedia + CosmyDay |
@@ -41,7 +41,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Pietre in Consultazioni**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
-**Cielo** in ASTRO chiede la città appena entri, la salva, e ogni pulsante (luna, stelle, alba, tramonto, eventi, costellazioni) usa quella. In fondo c'è Cambia città. **Meteo** chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **Mondi** tiene pianeti, vita e missioni. **CALC** è la calcolatrice. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico: solo luna, stelle e pianeti, nessuna carta. **Consultazioni** è carte e strumenti. **Pietre** e i dati sulla Terra stanno in 🌍 GEO. Non si mescolano.
+**Cielo** in ASTRO chiede la città appena entri, la salva, e ogni pulsante (luna, stelle, alba, tramonto, eventi) usa quella. **Stelle** è l'osservatorio di quella città: stelle sopra l'orizzonte e costellazioni in mappa, niente schede enciclopedia. In fondo c'è Cambia città. **Meteo** chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **Mondi** tiene pianeti, vita e missioni. **CALC** è la calcolatrice. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico: solo luna, stelle e pianeti, nessuna carta. **Consultazioni** è carte e strumenti. **Pietre** e i dati sulla Terra stanno in 🌍 GEO. Non si mescolano.
 
 Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 

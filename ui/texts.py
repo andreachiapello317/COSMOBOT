@@ -43,7 +43,7 @@ def astro_hub_text() -> str:
     return _card(
         "🔭 <b>ASTRO</b>",
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
-        "🔭 <b>CIELO</b> — prima la città, poi luna, stelle, alba, tramonto, eventi, costellazioni\n"
+        "🔭 <b>CIELO</b> — prima la città, poi luna, stelle, alba, tramonto, eventi\n"
         "🌤️ <b>METEO</b> — scegli città e giorni (se non dici nulla: oggi e domani)\n"
         "🪐 <b>MONDI</b> — esopianeti, pianeti, vita, missioni\n\n"
         "Le pietre e i dati sulla Terra stanno in 🌍 GEO."
@@ -153,7 +153,7 @@ def world_sky_text(place: str = "") -> str:
     )
     return _card(
         "🔭 <b>CIELO</b>",
-        "Osservatorio: luna, stelle, alba, tramonto, eventi, costellazioni. Numeri live, niente oracoli.",
+        "Osservatorio: luna, stelle, alba, tramonto, eventi. Numeri live, niente enciclopedia e niente oracoli.",
         f"{where}\n"
         "Ogni pulsante usa quella città. In fondo: 📍 Cambia città.\n\n"
         "Il meteo ha la sua sezione. Pianeti, vita e missioni stanno in 🪐 Mondi.",

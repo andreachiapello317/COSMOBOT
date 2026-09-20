@@ -298,7 +298,7 @@ def world_sky_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🌙 Luna", "sky:luna"), kb_btn("⭐ Stelle", "sky:stelle")],
             [kb_btn("🌅 Alba", "sky:alba"), kb_btn("🌇 Tramonto", "sky:tramonto")],
-            [kb_btn("🌠 Eventi", "sky:eventi"), kb_btn("✨ Costellazioni", "sky:costell")],
+            [kb_btn("🌠 Eventi", "sky:eventi")],
             [kb_btn("📍 Cambia città", "sky:city")],
             nav_row(),
         ]
