@@ -47,9 +47,8 @@ def astro_hub_text() -> str:
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
         "☀️ <b>CIELO</b> — luna, sole, terra e uno schema a emoji\n"
         "🌤️ <b>METEO</b> — Cuneo (o l'ultima città), oggi e domani; puoi cambiare giorni\n"
-        "🔭 <b>OSSERVATORIO</b> — cielo di adesso (visibilità sulla carta), Horizons NASA, ISS\n"
-        "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
-        "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
+        "🔭 <b>OSSERVATORIO</b> — cielo di adesso (visibilità sulla carta), Horizons NASA, satelliti live\n"
+        "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
     )
 
@@ -176,7 +175,7 @@ def world_watch_text(place: str = "") -> str:
         f"{where}\n"
         "🔭 Cielo di adesso — 6 carte, elenco e stasera; il grado sta sulla cartina\n"
         "📡 Horizons NASA — stelle, luna, pianeti, comete, calcoli, eventi\n"
-        "🛰️ Satelliti — solo ISS live\n\n"
+        "🛰️ Satelliti — ISS, equipaggio, Tiangong, Hubble, Terra, meteo\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
     )
 
@@ -308,15 +307,29 @@ def world_mondi_text() -> str:
     )
 
 
-def world_orbit_text() -> str:
-    return _card(
-        "🛰️ <b>IN ORBITA</b>",
-        "Solo posizioni live. Schede e cataloghi dei satelliti stanno in Studia lo spazio.",
-        "🛰️ ISS adesso — Where the ISS at? (NORAD 25544)\n"
-        "👥 Chi è in orbita — Open Notify\n\n"
-        "Il passaggio sopra la tua città non lo invento. "
-        "La visibilità ISS «visible / eclipsed» è geometria del satellite, non un avvistamento da terra.",
+def watch_sats_hub_text(place: str = "") -> str:
+    where = (
+        f"Città salvata: <b>{_html.escape(place)}</b>. I passaggi sopra quella città non li calcolo."
+        if place
+        else "I passaggi sopra una città non li calcolo."
     )
+    return _card(
+        "🛰️ <b>SATELLITI</b>",
+        "Posizioni live, adesso. L'enciclopedia Wikipedia sta in Studia lo spazio.",
+        f"{where}\n"
+        "🛰️ <b>ISS</b> — Where the ISS at? (NORAD 25544)\n"
+        "👥 <b>CHI È LASSÙ</b> — Open Notify\n"
+        "🏠 <b>TIANGONG</b> · 🔭 <b>HUBBLE</b> — TLE live + SGP4\n"
+        "🏠 <b>STAZIONI</b> — ISS e Tiangong insieme\n"
+        "🌍 <b>OSSERVAZIONE TERRA</b> — Terra, Aqua, Landsat, Sentinel-2A\n"
+        "🌦️ <b>METEO SAT</b> — NOAA-20, NOAA-21, GOES-16\n\n"
+        "La visibilità ISS «al sole / in ombra» è geometria del satellite, non un avvistamento da terra. "
+        "Non elenco Starlink.",
+    )
+
+
+def world_orbit_text() -> str:
+    return watch_sats_hub_text()
 
 
 def mondi_hub_text() -> str:

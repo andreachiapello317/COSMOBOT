@@ -81,6 +81,8 @@ from services.imagine import format_imaginary, generate_world
 from services.i18n import compass_it, discovery_it, event_name_it, kp_label_it, star_it
 from services.eclipses import fetch_eclipses, kind_it, next_of, parse_peak
 from services.iss import fetch_iss_position, fetch_people_in_space, reverse_iss_place
+from services.sats import GROUPS as SAT_GROUPS
+from services.sats import SATS, format_sat_card, format_sat_group, locate_sat
 from services.neo import near_earth_asteroids
 from services.progress import (
     mission_done,
@@ -305,6 +307,8 @@ from ui.keyboards import (
     home_keyboard as section_home_keyboard,
     oracolo_hub_keyboard,
     iss_keyboard,
+    watch_sats_card_keyboard,
+    watch_sats_hub_keyboard,
     learn_keyboard,
     lenormand_after_keyboard,
     lenormand_menu_keyboard,
@@ -374,7 +378,6 @@ from ui.keyboards import (
     world_water_keyboard,
     world_miss_keyboard,
     world_mondi_keyboard,
-    world_orbit_keyboard,
     world_self_keyboard,
     compat_advanced_keyboard,
     compat_after_keyboard,
@@ -432,7 +435,7 @@ from ui.texts import (
     mondi_hub_text,
     sistemi_text,
     world_mondi_text,
-    world_orbit_text,
+    watch_sats_hub_text,
     world_self_text,
     compat_advanced_text,
     compat_hub_text,
@@ -2388,8 +2391,8 @@ def help_text() -> str:
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città, default Cuneo, niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (luna, sole, terra e schema a emoji), Meteo (Cuneo, oggi e domani), Osservatorio "
-        "(cielo di adesso con grado sulla carta, Horizons NASA, ISS), Studia lo spazio (enciclopedia), "
-        "In orbita (ISS). Niente divinazione.\n"
+        "(cielo di adesso con grado sulla carta, Horizons NASA, satelliti live), Studia lo spazio (enciclopedia). "
+        "Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
         "🧮 <b>MATEMATICA</b> — calcolatrice, percentuali, conversioni.\n"
@@ -5998,6 +6001,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
     if prefix == "watch" and action == "now":
         await send_sky_now(update, context)
         return
+    if prefix == "watch" and action == "sats":
+        await send_watch_sats(update, context, view=extra or "hub")
+        return
     if prefix == "wx":
         _ensure_cielo_place(context)
         name, lat, lon = _cielo_place(context)
@@ -6027,7 +6033,7 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         await reply_html(update, context, world_mondi_text(), reply_markup=world_mondi_keyboard())
         return
     if prefix == "world" and action == "orbit":
-        await reply_html(update, context, world_orbit_text(), reply_markup=world_orbit_keyboard())
+        await show_sats_hub(update, context)
         return
     if prefix == "world" and action in worlds:
         text_fn, kb_fn = worlds[action]
@@ -6652,6 +6658,7 @@ async def cmd_iss(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def send_iss(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "watch:sats:iss")
     await send_typing(update)
     await deliver_text(update, context, "🛰️ Cerco la Stazione Spaziale…")
     client = _http_client(context)
@@ -6701,6 +6708,7 @@ async def send_iss(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def send_orbit_crew(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "watch:sats:crew")
     await send_typing(update)
     await deliver_text(update, context, "👥 Chiedo chi è in orbita…")
     client = _http_client(context)
@@ -6735,13 +6743,7 @@ async def send_orbit_crew(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         update,
         context,
         "\n".join(lines),
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [_tarot_btn("🔄 Aggiorna", "orb:crew"), _tarot_btn("🛰️ ISS", "home:iss")],
-                [_tarot_btn("🛰️ In orbita", "world:orbit")],
-                nav_row(),
-            ]
-        ),
+        reply_markup=watch_sats_card_keyboard("crew"),
     )
 
 
@@ -6755,7 +6757,7 @@ async def on_orb_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if action == "crew":
         await send_orbit_crew(update, context)
         return
-    await reply_html(update, context, world_orbit_text(), reply_markup=world_orbit_keyboard())
+    await show_sats_hub(update, context)
 
 
 async def cmd_cosmico(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -7031,7 +7033,7 @@ async def on_world_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await reply_html(update, context, world_mondi_text(), reply_markup=world_mondi_keyboard())
         return
     if action == "orbit":
-        await reply_html(update, context, world_orbit_text(), reply_markup=world_orbit_keyboard())
+        await show_sats_hub(update, context)
         return
     pages = {
         "self": (world_self_text, world_self_keyboard),
@@ -7151,8 +7153,8 @@ async def show_satelliti_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
         update,
         context,
         "🛰️ <b>SATELLITI</b>\n\n"
-        "Schede Wikipedia. La posizione live della ISS sta in 🛰️ In orbita.\n"
-        "I passaggi osservabili sopra una città non li invento: manca un'API passi gratuita affidabile.",
+        "Schede Wikipedia. Le posizioni live stanno in 🔭 Osservatorio → Satelliti.\n"
+        "I passaggi osservabili sopra una città non li invento.",
         reply_markup=satellites_keyboard(),
     )
 
@@ -7436,7 +7438,7 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await send_horizons_list(update, context, kind="comet")
         return
     if action == "sats":
-        await send_watch_sats(update, context)
+        await send_watch_sats(update, context, view=extra or "hub")
         return
     if action == "tonight":
         await send_watch_tonight(update, context)
@@ -7838,45 +7840,94 @@ async def send_watch_moon(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
-async def send_watch_sats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def show_sats_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "watch:sats")
     _ensure_cielo_place(context)
     name, _lat, _lon = _cielo_place(context)
-    await send_typing(update)
-    await deliver_text(update, context, "🛰️ Chiedo la ISS…")
-    client = _http_client(context)
-    try:
-        data = await fetch_iss_position(client)
-        lat = float(data["latitude"])
-        lon = float(data["longitude"])
-        geo = await reverse_iss_place(client, lat, lon)
-    except Exception:
-        logger.exception("ISS osservatorio")
-        await reply_offline(update, context)
-        return
-    when = datetime.fromtimestamp(int(data.get("timestamp") or 0), tz=timezone.utc).astimezone(DEFAULT_TZ)
-    try:
-        alt = f"{float(data.get('altitude') or 0):.0f} km"
-    except (TypeError, ValueError):
-        alt = "—"
-    lines = [
-        f"🛰️ <b>SATELLITI — {e(name.upper())}</b>",
-        "",
-        "Solo oggetti con posizione live. Horizons non è un catalogo TLE: "
-        "non elenco Starlink né invento il prossimo passaggio sulla città.",
-        "",
-        "🛰️ <b>ISS</b>",
-        f"Adesso sopra: <b>{e(geo['place'])}</b>",
-        f"Lat <code>{lat:.4f}</code> · lon <code>{lon:.4f}</code> · quota {e(alt)}",
-        f"🕐 {when.strftime('%d/%m/%Y %H:%M')} UTC+Roma",
-        "",
-        "<i>Where the ISS at?, NORAD 25544. I passaggi ISS sulla città restano fuori.</i>",
-    ]
     await reply_html(
         update,
         context,
-        "\n".join(lines),
-        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Aggiorna", "watch:sats")]),
+        watch_sats_hub_text(name),
+        reply_markup=watch_sats_hub_keyboard(),
     )
+
+
+async def send_watch_sats(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    view: str = "hub",
+) -> None:
+    asked = view or "hub"
+    if asked in {"hub", ""}:
+        await show_sats_hub(update, context)
+        return
+    if asked == "iss":
+        await send_iss(update, context)
+        return
+    if asked == "crew":
+        await send_orbit_crew(update, context)
+        return
+    if asked in SAT_GROUPS:
+        await send_sat_group(update, context, asked)
+        return
+    if asked in SATS and asked != "iss":
+        await send_sat_card(update, context, asked)
+        return
+    await show_sats_hub(update, context)
+
+
+async def send_sat_card(update: Update, context: ContextTypes.DEFAULT_TYPE, key: str) -> None:
+    nav_mark(context, f"watch:sats:{key}")
+    await send_typing(update)
+    meta = SATS[key]
+    await deliver_text(update, context, f"{meta['emoji']} Cerco {meta['it']}…")
+    client = _http_client(context)
+    now = datetime.now(DEFAULT_TZ)
+    try:
+        pos = await locate_sat(client, key, now)
+        geo = await reverse_iss_place(client, float(pos["lat"]), float(pos["lon"]))
+    except Exception:
+        logger.exception("Satellite %s", key)
+        await reply_offline(update, context)
+        return
+    text = format_sat_card(key=key, when=now, pos=pos, over=str(geo.get("place") or ""))
+    await reply_html(update, context, text, reply_markup=watch_sats_card_keyboard(key))
+
+
+async def send_sat_group(update: Update, context: ContextTypes.DEFAULT_TYPE, group: str) -> None:
+    nav_mark(context, f"watch:sats:{group}")
+    await send_typing(update)
+    meta = SAT_GROUPS[group]
+    await deliver_text(update, context, f"{meta['emoji']} Chiedo i TLE di {meta['it']}…")
+    client = _http_client(context)
+    now = datetime.now(DEFAULT_TZ)
+    keys = tuple(meta["keys"])
+
+    async def one(key: str) -> dict[str, Any]:
+        if key == "iss":
+            data = await fetch_iss_position(client)
+            return {
+                "key": "iss",
+                "lat": float(data["latitude"]),
+                "lon": float(data["longitude"]),
+                "alt_km": float(data.get("altitude") or 0),
+            }
+        return await locate_sat(client, key, now)
+
+    gathered = await asyncio.gather(*[one(key) for key in keys], return_exceptions=True)
+    rows: list[dict[str, Any]] = []
+    for key, item in zip(keys, gathered, strict=True):
+        if isinstance(item, Exception):
+            logger.warning("Gruppo sat %s / %s: %s", group, key, item)
+            rows.append({"key": key, "error": True})
+        else:
+            rows.append(item)
+    if all(row.get("error") for row in rows):
+        await reply_offline(update, context)
+        return
+    text = format_sat_group(group=group, when=now, rows=rows)
+    await reply_html(update, context, text, reply_markup=watch_sats_card_keyboard(group))
 
 
 async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

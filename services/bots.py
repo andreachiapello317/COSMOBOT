@@ -17,9 +17,9 @@ BOTS: tuple[dict[str, Any], ...] = (
         "id": "astro",
         "emoji": "🔭",
         "name": "ASTRO",
-        "tag": "Osservatorio, enciclopedia, orbite",
+        "tag": "Osservatorio, enciclopedia, satelliti",
         "ready": True,
-        "worlds": ("sky", "watch", "mondi", "orbit"),
+        "worlds": ("sky", "watch", "mondi"),
     },
     {
         "id": "geo",

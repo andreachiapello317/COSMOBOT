@@ -236,7 +236,6 @@ def astro_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("☀️ Cielo", "world:sky"), kb_btn("🌤️ Meteo", "wx:hub")],
             [kb_btn("🔭 Osservatorio", "world:watch")],
             [kb_btn("🚀 Studia lo spazio", "world:mondi")],
-            [kb_btn("🛰️ In orbita", "world:orbit")],
             nav_row(),
         ]
     )
@@ -676,13 +675,31 @@ def world_mondi_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def world_orbit_keyboard() -> InlineKeyboardMarkup:
+def watch_sats_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🛰️ ISS adesso", "home:iss"), kb_btn("👥 Chi è in orbita", "orb:crew")],
+            [kb_btn("🛰️ ISS adesso", "watch:sats:iss"), kb_btn("👥 Chi è lassù", "watch:sats:crew")],
+            [kb_btn("🏠 Tiangong", "watch:sats:css"), kb_btn("🔭 Hubble", "watch:sats:hst")],
+            [kb_btn("🏠 Stazioni", "watch:sats:sta")],
+            [kb_btn("🌍 Osservazione Terra", "watch:sats:earth")],
+            [kb_btn("🌦️ Meteo sat", "watch:sats:meteo")],
             nav_row(),
         ]
     )
+
+
+def watch_sats_card_keyboard(view: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔄 Aggiorna", f"watch:sats:{view}")],
+            [kb_btn("🛰️ Satelliti", "watch:sats")],
+            nav_row(),
+        ]
+    )
+
+
+def world_orbit_keyboard() -> InlineKeyboardMarkup:
+    return watch_sats_hub_keyboard()
 
 
 def pianeti_now_keyboard() -> InlineKeyboardMarkup:
@@ -854,7 +871,7 @@ def iss_keyboard(map_url: str | None = None) -> InlineKeyboardMarkup:
     rows = []
     if map_url:
         rows.append([InlineKeyboardButton("🗺️ Vedi posizione", url=map_url)])
-    rows.append([kb_btn("🔄 Aggiorna", "home:iss"), kb_btn("🛰️ In orbita", "world:orbit")])
+    rows.append([kb_btn("🔄 Aggiorna", "watch:sats:iss"), kb_btn("🛰️ Satelliti", "watch:sats")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
@@ -929,7 +946,7 @@ def life_keyboard() -> InlineKeyboardMarkup:
 
 
 def satellites_keyboard() -> InlineKeyboardMarkup:
-    extra = [[kb_btn("🛰️ ISS adesso", "home:iss")]]
+    extra = [[kb_btn("🛰️ Posizioni live", "watch:sats")]]
     return catalog_keyboard("s", SATELLITES, extra)
 
 
