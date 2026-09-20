@@ -69,11 +69,15 @@ def snapshot(lat: float, lon: float, when: datetime) -> dict[str, Any]:
     }
 
 
+_STAR_CAP = {"easy": 4, "eye": 6, "bino": 7, "full": 8}
+
+
 def tonight_picks(
     snap: dict[str, Any],
     *,
     weather: dict[str, Any] | None = None,
     eye: str | None = None,
+    frame: SkyFrame | None = None,
 ) -> tuple[list[dict[str, Any]], str, str, float | None]:
     current = weather.get("current") if isinstance(weather, dict) and isinstance(weather.get("current"), dict) else {}
     emoji, sky = wmo_label(current.get("weather_code"))
@@ -92,9 +96,12 @@ def tonight_picks(
         return "⭐" * pts + "☆" * (5 - pts)
 
     cfg = eye_level(eye)
-    is_full = str(eye or "") == "full"
+    key = str(eye or "")
+    is_full = key == "full"
     min_alt = -0.5 if is_full else float(cfg["alt"])
     planet_mag = 99.0 if is_full else float(cfg["planet"])
+    star_mag = 5.2 if is_full else min(5.2, float(cfg["star"]))
+    star_cap = _STAR_CAP.get(key, 6)
     picks: list[dict[str, Any]] = []
     moon = snap["moon"]
     if moon["alt"] > min_alt:
@@ -104,10 +111,13 @@ def tonight_picks(
             detail = f"{detail} · illum. {illum:.0f}%"
         picks.append(
             {
+                "kind": "moon",
                 "title": "Luna",
                 "emoji": moon.get("phase_emoji") or "🌙",
                 "alt": moon["alt"],
                 "az": moon["az"],
+                "mag": None,
+                "con": "",
                 "stars": score(moon["alt"], None),
                 "detail": detail,
             }
@@ -125,31 +135,58 @@ def tonight_picks(
             and (mag is None or mag > planet_mag or bar.count("⭐") < 2)
         ):
             continue
+        if key == "easy" and mag is not None and mag > 1.5 and row["alt"] < 25:
+            continue
         picks.append(
             {
+                "kind": "planet",
                 "title": row["name"],
                 "emoji": row["emoji"],
                 "alt": row["alt"],
                 "az": row["az"],
+                "mag": mag,
+                "con": "",
                 "stars": bar,
                 "detail": f"mag {mag:.1f}" if mag is not None else "",
             }
         )
-    for fig in snap["figures"][:3]:
-        if float(fig["alt"]) <= min_alt:
+    if frame is not None:
+        pool = [star for star in visible_stars(frame) if str(star.get("name") or "").strip()]
+    else:
+        pool = [star for star in snap.get("stars") or [] if str(star.get("name") or "").strip()]
+    named = 0
+    for star in pool:
+        if named >= star_cap:
+            break
+        mag = float(star["mag"])
+        alt = float(star["alt"])
+        if alt <= min_alt or mag > star_mag:
+            continue
+        if key == "easy" and alt < 20:
             continue
         picks.append(
             {
-                "title": fig["name"],
+                "kind": "star",
+                "title": str(star["name"]),
                 "emoji": "⭐",
-                "alt": fig["alt"],
-                "az": None,
-                "stars": score(fig["alt"], 2.0),
-                "detail": "figura sopra l'orizzonte",
+                "alt": alt,
+                "az": float(star["az"]),
+                "mag": mag,
+                "con": str(star.get("con") or ""),
+                "bv": star.get("bv"),
+                "stars": score(alt, mag),
+                "detail": f"mag {mag:.1f}",
             }
         )
-    picks.sort(key=lambda row: (-str(row["stars"]).count("⭐"), -float(row["alt"])))
-    return picks[:8], emoji, sky, cloud_f
+        named += 1
+    picks.sort(
+        key=lambda row: (
+            0 if row["kind"] in {"moon", "planet"} else 1,
+            float(row["mag"]) if isinstance(row.get("mag"), (int, float)) else 9.0,
+            -float(row["alt"]),
+        )
+    )
+    return picks[: 3 + star_cap], emoji, sky, cloud_f
 
 
 WEEKDAY_IT = ("lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica")

@@ -484,8 +484,7 @@ def watch_sky_keyboard(style: str, level: str = "full") -> InlineKeyboardMarkup:
 def watch_tonight_keyboard(level: str = "full") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🗺️ Carte", "watch:now:pro")],
-            _eye_limit_row(level, "watch:lim"),
+            _eye_limit_arrows(level),
             [kb_btn("🔄 Aggiorna", "watch:tonight")],
             nav_row(),
         ]

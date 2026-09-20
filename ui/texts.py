@@ -225,7 +225,7 @@ def watch_sky_pick_text(place: str = "", level: str = "full") -> str:
         f"{grade}\n\n"
         "🗺️ <b>PROFESSIONALE</b> — sei carte PNG: classica, figure, atlante, polare, eclittica, sfera. "
         "Frecce sopra per il disegno, frecce sotto per il grado.\n"
-        "🔭 <b>COSA OSSERVARE STASERA</b> — l'elenco di stanotte, a parte\n\n"
+        "🔭 <b>COSA OSSERVARE STASERA</b> — elenco e mappa solo di quegli oggetti, a parte\n\n"
         "🌌 Tutto · ✨ Facile · 👁️ Occhio nudo · 🔭 Binocolo. "
         "Tutto è il cielo completo. Se non è Tutto e c'è ancora il Sole, uso le 22:00.",
     )

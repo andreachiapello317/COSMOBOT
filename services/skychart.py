@@ -256,6 +256,91 @@ def draw_sky_chart(
     return buf.getvalue()
 
 
+def draw_tonight_chart(
+    *,
+    place: str,
+    lat: float,
+    lon: float,
+    when: datetime,
+    picks: list[dict[str, Any]],
+    eye: str | None = None,
+) -> bytes:
+    """Zenit con solo gli oggetti dell'elenco stasera. Non è la carta professionale."""
+    frame = SkyFrame(lat, lon, when)
+    img = Image.new("RGB", (SIZE, SIZE + 70), (6, 8, 16))
+    draw = ImageDraw.Draw(img)
+    cx = cy = SIZE / 2
+    radius = SIZE / 2 - MARGIN
+    title_font = _font(22)
+    small = _font(16)
+    tiny = _font(13)
+    draw.ellipse(
+        (cx - radius, cy - radius, cx + radius, cy + radius),
+        fill=(8, 12, 26),
+        outline=(80, 110, 160),
+        width=2,
+    )
+    for alt in (0, 30, 60):
+        r = ((90.0 - alt) / 90.0) * radius
+        draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(36, 50, 78))
+    for az in range(0, 360, 90):
+        x, y = _xy(0, az, cx, cy, radius)
+        draw.line((cx, cy, x, y), fill=(28, 40, 64), width=1)
+    for text, az in (("N", 0), ("E", 90), ("S", 180), ("O", 270)):
+        x, y = _xy(-8, az, cx, cy, radius)
+        box = draw.textbbox((0, 0), text, font=title_font)
+        draw.text((x - (box[2] - box[0]) / 2, y - (box[3] - box[1]) / 2), text, fill=(210, 220, 235), font=title_font)
+
+    wanted = {str(row.get("con") or "") for row in picks if row.get("kind") == "star" and row.get("con")}
+    if wanted:
+        for fig in constellation_segments(frame):
+            if fig["id"] not in wanted:
+                continue
+            for seg in fig["segs"]:
+                pts = [pt for pt in (_clip(alt, az, cx, cy, radius) for alt, az in seg) if pt]
+                if len(pts) >= 2:
+                    draw.line(pts, fill=(70, 100, 150), width=2)
+
+    planet_color = {name: color for _body, name, color in PLANETS}
+    for row in picks:
+        alt = row.get("alt")
+        az = row.get("az")
+        if not isinstance(alt, (int, float)) or not isinstance(az, (int, float)):
+            continue
+        pos = _clip(float(alt), float(az), cx, cy, radius)
+        if not pos:
+            continue
+        kind = str(row.get("kind") or "")
+        title = str(row.get("title") or "")
+        if kind == "moon":
+            draw.ellipse((pos[0] - 9, pos[1] - 9, pos[0] + 9, pos[1] + 9), fill=(230, 230, 210))
+            draw.text((pos[0] + 12, pos[1] - 9), "Luna", fill=(230, 230, 200), font=small)
+            continue
+        if kind == "planet":
+            color = planet_color.get(title, (200, 200, 210))
+            draw.ellipse((pos[0] - 6, pos[1] - 6, pos[0] + 6, pos[1] + 6), fill=color, outline=(255, 255, 255))
+            draw.text((pos[0] + 9, pos[1] - 9), title, fill=color, font=small)
+            continue
+        mag = float(row["mag"]) if isinstance(row.get("mag"), (int, float)) else 2.0
+        rad = max(2.2, 6.2 - mag)
+        color = _star_color(row.get("bv"))
+        draw.ellipse((pos[0] - rad, pos[1] - rad, pos[0] + rad, pos[1] + rad), fill=color)
+        draw.text((pos[0] + 7, pos[1] - 8), title, fill=(230, 235, 245), font=small)
+
+    grade = eye_level(eye)["it"]
+    draw.rectangle((0, SIZE, SIZE, SIZE + 70), fill=(6, 8, 16))
+    draw.text((24, SIZE + 10), f"Stasera · {grade} · {place}", fill=(235, 238, 245), font=title_font)
+    draw.text(
+        (24, SIZE + 38),
+        f"{when.strftime('%d/%m/%Y %H:%M')} · solo gli oggetti dell'elenco · N in alto",
+        fill=(150, 165, 190),
+        font=tiny,
+    )
+    buf = BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
 SKY_STYLES = ("classic", "figures", "atlas", "polar", "ecliptic", "sphere")
 SKY_STYLE_LABELS = {
     "classic": "Classica",

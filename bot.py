@@ -180,6 +180,7 @@ from services.skychart import (
     draw_planisphere,
     draw_polar_chart,
     draw_sky_chart,
+    draw_tonight_chart,
     eye_level,
     eye_level_label,
     format_cielo_terra,
@@ -7930,19 +7931,22 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await send_typing(update)
     await deliver_text(update, context, f"🔭 Scelgo cosa merita da {name}…")
     tz, now = await _watch_clock(context, lat, lon)
+    when, projected = _observe_when(lat, lon, now)
     weather = None
     try:
         weather = await fetch_now_conditions(_http_client(context), lat, lon)
     except Exception:
         weather = None
-    snap = snapshot(lat, lon, now)
+    snap = snapshot(lat, lon, when)
+    frame = SkyFrame(lat, lon, when)
     level = _eye_limit(context)
     cfg = eye_level(level)
     context.user_data[WATCH_EYE_VIEW_KEY] = "tonight"
     nav_mark(context, "watch:tonight")
-    picks, w_emoji, w_sky, clouds = tonight_picks(snap, weather=weather, eye=level)
+    picks, w_emoji, w_sky, clouds = tonight_picks(snap, weather=weather, eye=level, frame=frame)
+    when_bit = "stasera 22:00" if projected else when.strftime("%H:%M")
     if level == "full":
-        grade_line = "🌌 Tutto — senza filtro di visibilità."
+        grade_line = "🌌 Tutto — le stelle più luminose sopra, senza filtro stretto."
     else:
         grade_line = (
             f"Stelle mag ≤ {cfg['star']:.1f} · pianeti mag ≤ {cfg['planet']:.1f} · "
@@ -7950,31 +7954,47 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
     lines = [
         f"🔭 <b>COSA OSSERVARE STASERA — {e(name.upper())}</b>",
-        f"📅 {e(format_day_it(now))} · {now.strftime('%H:%M')} · {e(eye_level_label(level))}",
+        f"📅 {e(format_day_it(when))} · {when_bit} · {e(eye_level_label(level))}",
         grade_line,
+        f"{w_emoji} {e(w_sky)}" + (f" · nubi {clouds:.0f}%" if isinstance(clouds, (int, float)) else ""),
         "",
     ]
-    if snap["night"]:
-        lines.append("🌌 È notte: il cielo si può leggere.")
-    else:
-        lines.append("☀️ È ancora giorno: elenco chi è già sopra, ma la luce copre le stelle.")
-    lines.append(f"{w_emoji} {e(w_sky)}" + (f" · nubi {clouds:.0f}%" if isinstance(clouds, (int, float)) else ""))
-    lines.append("")
+    if projected:
+        lines.append("☀️ È ancora giorno: la mappa è quella delle 22:00.")
+        lines.append("")
     if not picks:
         lines.append("Da qui, in quest'ora, non c'è un oggetto abbastanza alto da consigliare.")
     for row in picks:
         card = cardinal_from_az(row["az"]) if isinstance(row.get("az"), (int, float)) else ""
-        az_bit = f" · az {row['az']:.0f}° {card}" if isinstance(row.get("az"), (int, float)) else ""
-        lines.append(f"{row['emoji']} <b>{e(row['title'])}</b>  {row['stars']}")
-        lines.append(f"Alt {row['alt']:.0f}°{az_bit}" + (f" · {e(row['detail'])}" if row.get("detail") else ""))
-        lines.append("")
-    lines.append("<i>Pianeti e Luna: Astronomy Engine. Stelle: Hipparcos. Nubi: Open-Meteo. Non è un oracolo.</i>")
-    await reply_html(
+        look = f" {card}" if card else ""
+        mag = f" · {e(str(row['detail']))}" if row.get("detail") else ""
+        lines.append(
+            f"{row['emoji']} <b>{e(row['title'])}</b>  alt {row['alt']:.0f}°{look}{mag}"
+        )
+    lines.extend(
+        [
+            "",
+            "<i>Mappa: solo questi oggetti. Stelle Hipparcos, pianeti Astronomy Engine, nubi Open-Meteo.</i>",
+        ]
+    )
+    caption = "\n".join(lines)
+    markup = watch_tonight_keyboard(level)
+    try:
+        png = draw_tonight_chart(place=name, lat=lat, lon=lon, when=when, picks=picks, eye=level)
+    except Exception:
+        logger.exception("Mappa stasera non generata")
+        await reply_html(update, context, caption, reply_markup=markup)
+        return
+    ok = await deliver_photo_bytes(
         update,
         context,
-        "\n".join(lines),
-        reply_markup=watch_tonight_keyboard(level),
+        png,
+        caption,
+        filename="stasera.png",
+        reply_markup=markup,
     )
+    if not ok:
+        await reply_html(update, context, caption, reply_markup=markup)
 
 
 async def send_watch_next(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
