@@ -45,6 +45,14 @@ BOTS: tuple[dict[str, Any], ...] = (
         "ready": True,
         "worlds": (),
     },
+    {
+        "id": "quiz",
+        "emoji": "🧩",
+        "name": "QUIZ",
+        "tag": "Una prova per ogni bot",
+        "ready": True,
+        "worlds": (),
+    },
 )
 
 # Vecchi token: COSMO → ORACOLO, slot vuoto → ASTRO.
@@ -134,4 +142,6 @@ def parent_bot_token(token: str) -> str:
         return "bot:calc"
     if raw.startswith("cmp:"):
         return "bot:bussola"
+    if raw.startswith("sq:"):
+        return "bot:quiz"
     return "bot:astro"

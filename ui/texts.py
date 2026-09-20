@@ -15,12 +15,13 @@ def _card(title: str, intro: str, body: str = "") -> str:
 def all_hub_text() -> str:
     return _card(
         "🪐 <b>BOTSQUAD</b>",
-        "Cinque bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
+        "Sei bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
         "🌿 <b>NATURA</b> — flora, fauna, pietre.\n"
         "🧮 <b>MATEMATICA</b> — calcolatrice, percentuali, conversioni.\n"
-        "🧭 <b>BUSSOLA</b> — posizione GPS, nord, direzione.\n\n"
+        "🧭 <b>BUSSOLA</b> — posizione GPS, nord, direzione.\n"
+        "🧩 <b>QUIZ</b> — una prova per ogni bot.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
 
@@ -438,4 +439,30 @@ def world_miss_text() -> str:
         "🚀 <b>MISSIONI</b>",
         "Voli veri, sonde, lezioni e una sfida al giorno.",
         "Schede delle missioni, astronauti, quiz a quattro livelli.",
+    )
+
+
+def quiz_hub_text() -> str:
+    return _card(
+        "🧩 <b>QUIZ</b>",
+        "Un bot a parte. Scegli il mondo, poi l'argomento. Le domande restano nel recinto di quel bot.",
+        "🔮 ORACOLO — segni, rune, Lenormand (niente letture)\n"
+        "🔭 ASTRO — sistema solare, lune, enciclopedia live\n"
+        "🌿 NATURA — pietre, terra, vulcani, oceani\n"
+        "🧮 MATEMATICA — calcoli, percentuali, conversioni\n"
+        "🧭 BUSSOLA — cardinali e come funziona il bot\n\n"
+        "La classifica è solo tua. I mondi non si mescolano.",
+    )
+
+
+def quiz_world_text(wid: str) -> str:
+    from services.squadquiz import WORLD_META, topics_of
+
+    meta = WORLD_META.get(wid) or {"emoji": "🧩", "name": wid.upper(), "blurb": ""}
+    lines = [f"{label}" for _tid, label in topics_of(wid)]
+    body = "\n".join(lines) if lines else "Questo mondo non ha ancora argomenti."
+    return _card(
+        f"{meta['emoji']} <b>QUIZ · {meta['name']}</b>",
+        str(meta.get("blurb") or "Scegli un argomento."),
+        body,
     )

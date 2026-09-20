@@ -10,7 +10,7 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 
 Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/aiuto`. Qualunque altro `/comando` viene ignorato e rimanda ai pulsanti. **📚 Aiuto** sta anche sul portale.
 
-`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO** ha Te stesso, Consultazioni e Interroga il cielo. **🔭 ASTRO** è un osservatorio: Cielo, Meteo, Esplora lo spazio, In orbita. **🌿 NATURA** ha Flora, Fauna e Pietre. **🧮 MATEMATICA** ha calcolatrice, percentuali e conversioni. **🧭 BUSSOLA** dà GPS, nord e direzione. Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
+`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO**, **🔭 ASTRO**, **🌿 NATURA**, **🧮 MATEMATICA**, **🧭 BUSSOLA** e **🧩 QUIZ**. Il quiz è un bot a parte: scegli il mondo, poi l'argomento. Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
 
 | Pulsante / mondo | Effetto | Fonte live |
 | --- | --- | --- |
@@ -27,6 +27,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🧭 BUSSOLA → Posizione GPS | Coordinate, quota terreno, declinazione, mappa | Open-Meteo + BGS WMM + Nominatim |
 | 🧭 BUSSOLA → Bussola | Nord geografico e magnetico in un punto | BGS WMM 2025 |
 | 🧭 BUSSOLA → Verso un luogo | Distanza in linea d'aria e azimut | calcolo locale + WMM |
+| 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, natura, matematica, bussola | cataloghi locali; ASTRO ha anche Wikipedia live |
 | 🌿 NATURA → Flora → Eventi | Catastrofi e fenomeni importanti nel mondo (senza il mare di incendi) | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
 | 🌿 NATURA → Flora → Live | Scosse USGS e fenomeni NASA aperti; ogni evento ha cosa/dove e un link alla fonte | USGS + NASA EONET |
 | 🌿 NATURA → Flora → Esplora | Enciclopedia: terra, oceani, mari, vulcani, placche, ghiacciai | Wikipedia / Wikidata |
@@ -47,7 +48,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Pietre in Consultazioni**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
-**Cielo** in ASTRO chiede la città appena entri. **Eventi** elenca solo ciò che la mappa dice osservabile da quella città; se non lo è, non lo mostra. **Esplora lo spazio** è l'enciclopedia, anche satelliti e sonde. **In orbita** è solo posizioni live (ISS e equipaggio). **Meteo** chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **MATEMATICA** ha la calcolatrice come una funzione, più percentuali e conversioni. **BUSSOLA** chiede una città o la posizione Telegram e dà GPS, nord e direzione. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Non si mescolano.
+**Cielo** in ASTRO chiede la città appena entri. **Eventi** elenca solo ciò che la mappa dice osservabile da quella città; se non lo è, non lo mostra. **Esplora lo spazio** è l'enciclopedia, anche satelliti e sonde. **In orbita** è solo posizioni live (ISS e equipaggio). **Meteo** chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **MATEMATICA** ha la calcolatrice come una funzione, più percentuali e conversioni. **BUSSOLA** chiede una città o la posizione Telegram e dà GPS, nord e direzione. **QUIZ** è il sesto bot: una porta per ogni mondo, domande nel recinto di quel bot. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Non si mescolano.
 
 Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 

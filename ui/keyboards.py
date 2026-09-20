@@ -56,6 +56,7 @@ def all_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌿 NATURA", "bot:geo")],
             [kb_btn("🧮 MATEMATICA", "bot:calc")],
             [kb_btn("🧭 BUSSOLA", "bot:bussola")],
+            [kb_btn("🧩 QUIZ", "bot:quiz")],
             [kb_btn("📚 Aiuto", "home:aiuto")],
         ]
     )
@@ -446,6 +447,47 @@ def compass_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("📍 Posizione GPS", "cmp:gps")],
             [kb_btn("🧭 Bussola", "cmp:needle")],
             [kb_btn("🎯 Verso un luogo", "cmp:to")],
+            nav_row(),
+        ]
+    )
+
+
+def quiz_hub_keyboard() -> InlineKeyboardMarkup:
+    from services.squadquiz import worlds
+
+    rows = [[kb_btn(f"{row['emoji']} {row['name']}", f"sq:w:{row['id']}")] for row in worlds()]
+    rows.append([kb_btn("🏆 La mia classifica", "sq:board")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
+
+
+def quiz_world_keyboard(wid: str) -> InlineKeyboardMarkup:
+    from services.squadquiz import topics_of
+
+    buttons = [kb_btn(label, f"sq:t:{wid}:{tid}") for tid, label in topics_of(wid)]
+    grid = _pairs(buttons)
+    grid.append([kb_btn("🧩 Quiz", "bot:quiz")])
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def quiz_squad_options_keyboard(n: int, wid: str, tid: str) -> InlineKeyboardMarkup:
+    labels = ("A", "B", "C", "D")
+    buttons = [kb_btn(labels[i], f"sq:ans:{i}") for i in range(n)]
+    return InlineKeyboardMarkup(
+        [
+            buttons,
+            [kb_btn("🧩 Altra", f"sq:t:{wid}:{tid}"), kb_btn("📂 Argomenti", f"sq:w:{wid}")],
+            nav_row(),
+        ]
+    )
+
+
+def quiz_squad_after_keyboard(wid: str, tid: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🧩 Altra domanda", f"sq:t:{wid}:{tid}")],
+            [kb_btn("📂 Argomenti", f"sq:w:{wid}"), kb_btn("🧩 Quiz", "bot:quiz")],
             nav_row(),
         ]
     )

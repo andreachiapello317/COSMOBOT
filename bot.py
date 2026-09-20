@@ -146,6 +146,7 @@ from services.calc import (
     percent_of,
     percent_ratio,
 )
+from services.squadquiz import pick_local_question, topic_label, worlds as quiz_worlds
 from services.compass import (
     fetch_declination,
     fetch_elevation,
@@ -259,6 +260,10 @@ from ui.keyboards import (
     calc_keyboard,
     compass_hub_keyboard,
     compass_result_keyboard,
+    quiz_hub_keyboard,
+    quiz_squad_after_keyboard,
+    quiz_squad_options_keyboard,
+    quiz_world_keyboard,
     math_convert_keyboard,
     math_hub_keyboard,
     math_percent_keyboard,
@@ -373,6 +378,8 @@ from ui.texts import (
     pietre_hub_text,
     calc_hub_text,
     compass_hub_text,
+    quiz_hub_text,
+    quiz_world_text,
     math_convert_text,
     math_hub_text,
     math_percent_text,
@@ -477,6 +484,7 @@ NAV_SKIP_PREFIXES = (
     "cp:src:",
     "calc:",
     "wx:d:",
+    "sq:ans:",
 )
 NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
 
@@ -1174,6 +1182,7 @@ ICHING_STATE_KEY = "iching_flow"
 OSSERVA_STATE_KEY = "osserva_flow"
 RUNE_STATE_KEY = "rune_flow"
 QUIZ_STATE_KEY = "quiz_flow"
+SQUAD_QUIZ_KEY = "squad_quiz"
 MIRROR_STATE_KEY = "mirror_flow"
 LENO_STATE_KEY = "leno_flow"
 LETTURA_STATE_KEY = "lettura_flow"
@@ -1489,7 +1498,7 @@ def nav_pop(context: ContextTypes.DEFAULT_TYPE) -> str | None:
 
 def _cmd_begin(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     _flows_reset(context)
-    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:calc", "bot:bussola", "bot:cosmo", "bot:next"}:
+    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:calc", "bot:bussola", "bot:quiz", "bot:cosmo", "bot:next"}:
         here = context.user_data.get(NAV_HERE_KEY)
         if here in {None, "home:menu"}:
             context.user_data[NAV_STACK_KEY] = ["home:menu"]
@@ -2199,7 +2208,7 @@ def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
         "🪐 <b>BOTSQUAD</b>\n"
-        "<i>Cinque bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
+        "<i>Sei bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
@@ -2209,7 +2218,8 @@ def help_text() -> str:
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
         "🧮 <b>MATEMATICA</b> — calcolatrice, percentuali, conversioni.\n"
-        "🧭 <b>BUSSOLA</b> — posizione GPS, nord magnetico, direzione verso un luogo.\n\n"
+        "🧭 <b>BUSSOLA</b> — posizione GPS, nord magnetico, direzione verso un luogo.\n"
+        "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, natura, matematica, bussola.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
         "nome del segno in chat.\n\n"
@@ -2391,6 +2401,9 @@ async def on_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     if action == "bussola":
         await show_bussola_hub(update, context)
+        return
+    if action == "quiz":
+        await show_quiz_bot_hub(update, context)
         return
     await show_all_hub(update, context)
 
@@ -5760,7 +5773,13 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         if action == "bussola":
             await show_bussola_hub(update, context)
             return
+        if action == "quiz":
+            await show_quiz_bot_hub(update, context)
+            return
         await show_all_hub(update, context)
+        return
+    if prefix == "sq":
+        await dispatch_squad_quiz(update, context, token)
         return
     if prefix == "cmp":
         await dispatch_compass(update, context, token)
@@ -8778,6 +8797,141 @@ async def show_famous_asteroids(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
 
+def _squad_quiz_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(SQUAD_QUIZ_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[SQUAD_QUIZ_KEY] = state
+    return state
+
+
+async def show_quiz_bot_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "bot:quiz")
+    context.user_data.pop(SQUAD_QUIZ_KEY, None)
+    await reply_html(update, context, quiz_hub_text(), reply_markup=quiz_hub_keyboard())
+
+
+async def show_quiz_world(update: Update, context: ContextTypes.DEFAULT_TYPE, wid: str) -> None:
+    nav_mark(context, f"sq:w:{wid}")
+    await reply_html(update, context, quiz_world_text(wid), reply_markup=quiz_world_keyboard(wid))
+
+
+async def send_squad_question(update: Update, context: ContextTypes.DEFAULT_TYPE, wid: str, tid: str) -> None:
+    await send_typing(update)
+    item: dict[str, Any] | None = None
+    if wid == "astro" and tid == "live":
+        await deliver_text(update, context, "🧩 Costruisco la domanda da Wikipedia / Wikidata…")
+        item = await build_quiz(_http_client(context), random.choice(("easy", "medium", "hard")))
+        if item:
+            item = {
+                **item,
+                "bot": "astro",
+                "topic": "live",
+                "explain": "Domanda costruita al volo dalle fonti live, come il vecchio quiz di ASTRO.",
+                "level": "astro",
+            }
+    else:
+        await deliver_text(update, context, "🧩 Pesco una domanda dal catalogo di questo bot…")
+        item = pick_local_question(wid, tid)
+    if item is None:
+        await reply_html(
+            update,
+            context,
+            "Non ho una domanda pronta per questo argomento. Riprova, o cambia sezione.",
+            reply_markup=quiz_world_keyboard(wid),
+        )
+        return
+    _squad_quiz_state(context).clear()
+    _squad_quiz_state(context).update(item)
+    labels = ("A", "B", "C", "D")
+    title = topic_label(wid, tid)
+    lines = [f"🧩 <b>QUIZ · {e(title)}</b>", "", str(item["question"]), ""]
+    for idx, option in enumerate(item["options"]):
+        lines.append(f"{labels[idx]}) {e(str(option))}")
+    lines.extend(["", f"<i>Fonte: {e(str(item.get('source') or 'catalogo'))}</i>"])
+    await reply_html(
+        update,
+        context,
+        "\n".join(lines),
+        reply_markup=quiz_squad_options_keyboard(len(item["options"]), wid, tid),
+    )
+
+
+async def send_squad_board(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if user is None:
+        return
+    board = await quiz_board(user.id)
+    quiz = board.get("quiz") if isinstance(board.get("quiz"), dict) else {}
+    lines = ["🏆 <b>CLASSIFICA QUIZ</b>", "", "Solo tua. Un conteggio per bot.", ""]
+    for row in quiz_worlds():
+        bucket = quiz.get(row["id"]) if isinstance(quiz.get(row["id"]), dict) else {}
+        ok = int(bucket.get("ok") or 0)
+        tot = int(bucket.get("tot") or 0)
+        lines.append(f"{row['emoji']} {row['name']}  {ok}/{tot}")
+    lines.extend(["", f"Punti: <b>{int(board.get('points') or 0)}</b>"])
+    await reply_html(update, context, "\n".join(lines), reply_markup=quiz_hub_keyboard())
+
+
+async def dispatch_squad_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    parts = token.split(":")
+    action = parts[1] if len(parts) > 1 else "hub"
+    extra = parts[2] if len(parts) > 2 else ""
+    extra2 = parts[3] if len(parts) > 3 else ""
+    if action in {"hub", ""}:
+        await show_quiz_bot_hub(update, context)
+        return
+    if action == "w" and extra:
+        await show_quiz_world(update, context, extra)
+        return
+    if action == "t" and extra and extra2:
+        await send_squad_question(update, context, extra, extra2)
+        return
+    if action == "board":
+        await send_squad_board(update, context)
+        return
+    if action == "ans":
+        state = _squad_quiz_state(context)
+        options = state.get("options")
+        wid = str(state.get("bot") or "oracolo")
+        tid = str(state.get("topic") or "")
+        if not isinstance(options, list) or state.get("correct") is None:
+            await show_quiz_bot_hub(update, context)
+            return
+        try:
+            chosen = int(extra)
+        except ValueError:
+            return
+        correct = int(state["correct"])
+        ok = chosen == correct
+        user = update.effective_user
+        if user:
+            await quiz_record(user.id, wid, ok=ok)
+        mark = "✅ Giusto." if ok else f"❌ Era {e(str(options[correct]))}."
+        explain = str(state.get("explain") or "")
+        text = (
+            f"🧩 <b>QUIZ</b>\n\n{mark}\n"
+            f"{e(explain)}\n\n"
+            f"<i>Fonte: {e(str(state.get('source') or 'catalogo'))}</i>"
+        )
+        context.user_data.pop(SQUAD_QUIZ_KEY, None)
+        await reply_html(update, context, text, reply_markup=quiz_squad_after_keyboard(wid, tid))
+        return
+    await show_quiz_bot_hub(update, context)
+
+
+async def on_sq_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    if query.data.startswith("sq:ans:"):
+        await query.answer()
+    else:
+        await query.answer()
+    await dispatch_squad_quiz(update, context, query.data)
+
+
 async def show_quiz_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _quiz_reset(context)
     user = update.effective_user
@@ -11077,7 +11231,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale.\n"
         "Scrivi un segno (es. <i>vergine</i>) per l'oroscopo, "
-        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧮 MATEMATICA o 🧭 BUSSOLA.",
+        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧮 MATEMATICA, 🧭 BUSSOLA o 🧩 QUIZ.",
         reply_markup=all_hub_keyboard(),
     )
 
@@ -11087,7 +11241,7 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update,
         context,
         "I comandi scritti non ci sono più: qui si va a pulsanti.\n"
-        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧮 MATEMATICA o 🧭 BUSSOLA, oppure 📚 Aiuto.",
+        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧮 MATEMATICA, 🧭 BUSSOLA o 🧩 QUIZ, oppure 📚 Aiuto.",
         reply_markup=all_hub_keyboard(),
     )
     await delete_user_command(update)
@@ -11735,6 +11889,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_bot_action, pattern=r"^bot:"))
     application.add_handler(CallbackQueryHandler(on_calc_action, pattern=r"^calc:"))
     application.add_handler(CallbackQueryHandler(on_cmp_action, pattern=r"^cmp:"))
+    application.add_handler(CallbackQueryHandler(on_sq_action, pattern=r"^sq:"))
     application.add_handler(CallbackQueryHandler(on_sky_action, pattern=r"^sky:"))
     application.add_handler(CallbackQueryHandler(on_orb_action, pattern=r"^orb:"))
     application.add_handler(CallbackQueryHandler(on_geo_action, pattern=r"^geo:"))
