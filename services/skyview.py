@@ -178,6 +178,21 @@ def text_sky_map(marks: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def angular_sep_deg(
+    alt1: float,
+    az1: float,
+    alt2: float,
+    az2: float,
+) -> float:
+    """Separazione angolare in gradi da altezza e azimut. Geometria, non un oracolo."""
+    from math import acos, cos, radians, sin
+
+    a1, z1, a2, z2 = (radians(float(v)) for v in (alt1, az1, alt2, az2))
+    cos_c = sin(a1) * sin(a2) + cos(a1) * cos(a2) * cos(z1 - z2)
+    cos_c = max(-1.0, min(1.0, cos_c))
+    return float(acos(cos_c) * 180.0 / 3.141592653589793)
+
+
 def milky_way_hint(*, sun_alt: float | None, moon_alt: float | None, moon_illum: float | None) -> str:
     """Stima da Sole/Luna live, non un indice Bortle."""
     if sun_alt is None:

@@ -13,6 +13,23 @@ ISS_NORAD_ID = 25544
 WTIA_URL = f"https://api.wheretheiss.at/v1/satellites/{ISS_NORAD_ID}"
 
 
+OPEN_NOTIFY_ASTROS = "http://api.open-notify.org/astros.json"
+
+
+async def fetch_people_in_space(client: httpx.AsyncClient) -> dict[str, Any]:
+    """Equipaggio in orbita da Open Notify. Solleva se il payload non è usabile."""
+    response = await client.get(OPEN_NOTIFY_ASTROS)
+    response.raise_for_status()
+    data = response.json()
+    people = data.get("people") if isinstance(data, dict) else None
+    if not isinstance(people, list):
+        raise ValueError("equipaggio vuoto")
+    clean = [p for p in people if isinstance(p, dict) and p.get("name")]
+    if not clean:
+        raise ValueError("equipaggio vuoto")
+    return {"people": clean, "number": data.get("number", len(clean))}
+
+
 async def fetch_iss_position(client: httpx.AsyncClient) -> dict[str, Any]:
     """Posizione, velocità e timestamp. Solleva httpx.HTTPError / ValueError."""
     response = await client.get(WTIA_URL)

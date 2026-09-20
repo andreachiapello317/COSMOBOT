@@ -91,10 +91,16 @@ LEARN_TOPICS: tuple[dict[str, str], ...] = (
 
 SATELLITES: tuple[dict[str, str], ...] = (
     {"id": "iss", "it": "Stazione Spaziale", "wiki": "International_Space_Station", "emoji": "🛰️"},
+    {"id": "css", "it": "Stazione Tiangong", "wiki": "Tiangong_space_station", "emoji": "🛰️"},
     {"id": "hubble", "it": "Hubble", "wiki": "Hubble_Space_Telescope", "emoji": "👁️"},
     {"id": "jwst", "it": "James Webb", "wiki": "James_Webb_Space_Telescope", "emoji": "🔭"},
     {"id": "chandra", "it": "Chandra", "wiki": "Chandra_X-ray_Observatory", "emoji": "📡"},
     {"id": "terra", "it": "Terra (EOS)", "wiki": "Terra_(satellite)", "emoji": "🌍"},
+    {"id": "goes", "it": "GOES", "wiki": "Geostationary_Operational_Environmental_Satellite", "emoji": "🌎"},
+    {"id": "sentinel", "it": "Sentinel", "wiki": "Copernicus_Programme", "emoji": "🛰️"},
+    {"id": "gps", "it": "GPS", "wiki": "Global_Positioning_System", "emoji": "📍"},
+    {"id": "starlink", "it": "Starlink", "wiki": "Starlink", "emoji": "📡"},
+    {"id": "sputnik", "it": "Sputnik 1", "wiki": "Sputnik_1", "emoji": "📡"},
 )
 
 PROBES: tuple[dict[str, str], ...] = (

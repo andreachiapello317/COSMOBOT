@@ -45,7 +45,8 @@ def astro_hub_text() -> str:
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
         "🔭 <b>CIELO</b> — prima la città, poi luna, stelle, alba, tramonto, eventi\n"
         "🌤️ <b>METEO</b> — scegli città e giorni (se non dici nulla: oggi e domani)\n"
-        "🪐 <b>MONDI</b> — esopianeti, pianeti, vita, missioni\n\n"
+        "🚀 <b>ESPLORA LO SPAZIO</b> — enciclopedia Wikipedia\n"
+        "🛰️ <b>IN ORBITA</b> — ISS, equipaggio, satelliti, attività solare\n\n"
         "Le pietre e i dati sulla Terra stanno in 🌍 GEO."
     )
 
@@ -156,7 +157,8 @@ def world_sky_text(place: str = "") -> str:
         "Osservatorio: luna, stelle, alba, tramonto, eventi. Numeri live, niente enciclopedia e niente oracoli.",
         f"{where}\n"
         "Ogni pulsante usa quella città. In fondo: 📍 Cambia città.\n\n"
-        "Il meteo ha la sua sezione. Pianeti, vita e missioni stanno in 🪐 Mondi.",
+        "Eventi = solo ciò che è osservabile da questa città, adesso.\n"
+        "Enciclopedia e orbite live stanno nelle altre sezioni di ASTRO.",
     )
 
 
@@ -182,12 +184,25 @@ def calc_hub_text(expr: str = "", error: str = "") -> str:
 
 def world_mondi_text() -> str:
     return _card(
-        "🪐 <b>MONDI</b>",
-        "Un esploratore NASA e Wikipedia. Non un oracolo.",
-        "🌍 Filtri · ⭐ Sistemi · ☀️ Sistema Solare\n"
-        "🪐 Pianeti · 🌑 Lune · 🪨 Asteroidi · 📌 Salvati\n"
-        "👽 Vita · 🚀 Missioni\n\n"
-        "Oceanici e abitabili = modelli, non oceani e non vita.",
+        "🚀 <b>ESPLORA LO SPAZIO</b>",
+        "Enciclopedia: Wikipedia e Wikidata. Niente oracoli, niente salvati, niente casuale.",
+        "☀️ Sistema Solare · 🌑 Lune · 🧊 Nani · ☄️ Comete · 🪨 Asteroidi\n"
+        "⭐ Stelle · ✨ Costellazioni · 🌌 Galassie · 🌀 Nebulose\n"
+        "🕳️ Buchi neri · 🔭 Cielo profondo · 🪐 Esopianeti · ⭐ Sistemi\n"
+        "👽 Vita · 🚀 Missioni · 📡 Sonde · 📚 Impara\n\n"
+        "Oceanici e abitabili, dove compaiono, sono modelli di raggio e temperatura: non oceani e non vita.",
+    )
+
+
+def world_orbit_text() -> str:
+    return _card(
+        "🛰️ <b>IN ORBITA</b>",
+        "Posizioni e dati live. Il passaggio sopra la tua città non lo invento.",
+        "🛰️ ISS adesso — Where the ISS at? (NORAD 25544)\n"
+        "👥 Chi è in orbita — Open Notify\n"
+        "☀️ Attività solare — indice Kp e brillamenti\n"
+        "📡 Satelliti e sonde — schede Wikipedia\n\n"
+        "La visibilità ISS «visible / eclipsed» è geometria del satellite, non un avvistamento da una città.",
     )
 
 
@@ -196,8 +211,7 @@ def mondi_hub_text() -> str:
         "🌌 <b>ESPLORA I MONDI</b>",
         "Ogni filtro è una ricerca sull'archivio, o una voce Wikipedia.",
         "🌊 Oceanici e 🌱 abitabili = raggio e temperatura, non oceani e non vita.\n"
-        "🌋 Vulcanici, 💍 anelli, 🌙 molte lune: corpi del Sistema Solare con voce.\n"
-        "🎲 Genera = mondo immaginario, scritto grande che è finto.",
+        "🌋 Vulcanici, 💍 anelli, 🌙 molte lune: corpi del Sistema Solare con voce.",
     )
 
 
