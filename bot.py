@@ -878,6 +878,7 @@ PLACE_WORLD = (
     ("Sydney", -33.8688, 151.2093),
     ("São Paulo", -23.5505, -46.6333),
     ("Città del Messico", 19.4326, -99.1332),
+    ("Berlino", 52.5200, 13.4050),
     ("Istanbul", 41.0082, 28.9784),
     ("Dubai", 25.2048, 55.2708),
     ("Mosca", 55.7558, 37.6173),
@@ -8118,6 +8119,9 @@ async def send_watch_sats(
     if asked == "pos":
         await show_sats_pos(update, context)
         return
+    if asked == "earth":
+        await send_earth_obs(update, context)
+        return
     if asked == "meteo":
         await show_sats_hub(update, context)
         return
@@ -8174,7 +8178,58 @@ async def send_sat_card(update: Update, context: ContextTypes.DEFAULT_TYPE, key:
     await reply_html(update, context, text, reply_markup=markup)
 
 
+async def send_earth_obs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "watch:sats:earth")
+    name, lat, lon = _earth_obs_place(context)
+    layer = _earth_obs_layer(context)
+    markup = watch_earth_keyboard(layer)
+    await send_typing(update)
+    await deliver_text(update, context, f"🌍 Foto di {name}…")
+    sat_it = "Terra" if layer == "terra" else "Aqua"
+    try:
+        view = await fetch_sat_view(_http_client(context), layer, lat, lon, place=name)
+    except Exception:
+        logger.exception("GIBS %s", name)
+        view = {}
+    image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
+    day = str(view.get("day") or "")
+    when_bit = day[8:10] + "/" + day[5:7] + "/" + day[:4] if len(day) == 10 else "oggi"
+    text = (
+        f"🌍 <b>OSSERVAZIONE TERRA</b>\n"
+        f"📍 <b>{e(name)}</b>\n"
+        f"NASA GIBS · MODIS {e(sat_it)} · {when_bit}\n"
+        "<i>Solo questa cartella. Non è Cielo né Starlink.</i>"
+    )
+    if image:
+        ok = await deliver_photo_bytes(
+            update,
+            context,
+            bytes(image),
+            text,
+            filename=str(view.get("filename") or "terra.jpg"),
+            reply_markup=markup,
+        )
+        if ok:
+            return
+        await reply_html(
+            update,
+            context,
+            text + "\n\nLa foto è arrivata ma Telegram non l'ha accettata.",
+            reply_markup=markup,
+        )
+        return
+    await reply_html(
+        update,
+        context,
+        f"{text}\n\nNiente foto per questo punto (GIBS). Prova Aqua o un altro luogo.",
+        reply_markup=markup,
+    )
+
+
 async def send_sat_group(update: Update, context: ContextTypes.DEFAULT_TYPE, group: str) -> None:
+    if group == "earth":
+        await send_earth_obs(update, context)
+        return
     nav_mark(context, f"watch:sats:{group}")
     await send_typing(update)
     meta = SAT_GROUPS[group]
@@ -8202,42 +8257,11 @@ async def send_sat_group(update: Update, context: ContextTypes.DEFAULT_TYPE, gro
             rows.append({"key": key, "error": True})
         else:
             rows.append(item)
-    if all(row.get("error") for row in rows) and group != "earth":
+    if all(row.get("error") for row in rows):
         await reply_offline(update, context)
         return
     text = format_sat_group(group=group, when=now, rows=rows)
-    markup = watch_sats_card_keyboard(group)
-    image = None
-    filename = "sat.jpg"
-    if group == "earth":
-        place_name, plat, plon = _earth_obs_place(context)
-        layer = _earth_obs_layer(context)
-        markup = watch_earth_keyboard(layer)
-        view = await fetch_sat_view(_http_client(context), layer, plat, plon)
-        image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
-        filename = str(view.get("filename") or f"{layer}.jpg")
-        sat_it = "Terra" if layer == "terra" else "Aqua"
-        text = (
-            f"{text}\n"
-            f"🖼️ Luogo di questa cartella: <b>{e(place_name)}</b> "
-            f"(<code>{plat:.3f}, {plon:.3f}</code>). "
-            f"Cambia il luogo e cambia la foto. Non tocca Cielo, Horizons né Starlink.\n"
-            f"Oggi, vero colore MODIS {e(sat_it)}"
-            + (f" — {e(str(view['note']))}" if view.get("note") else "")
-            + "."
-        )
-    if image:
-        ok = await deliver_photo_bytes(
-            update,
-            context,
-            bytes(image),
-            text,
-            filename=filename,
-            reply_markup=markup,
-        )
-        if ok:
-            return
-    await reply_html(update, context, text, reply_markup=markup)
+    await reply_html(update, context, text, reply_markup=watch_sats_card_keyboard(group))
 
 
 async def send_starlink(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -8492,7 +8516,7 @@ async def apply_place(
         _remember_earth_obs_place(context, name, lat, lon)
         if context.user_data.get(NAV_HERE_KEY) == "loc:go:terra":
             context.user_data[NAV_HERE_KEY] = "watch:sats:earth"
-        await send_sat_group(update, context, "earth")
+        await send_earth_obs(update, context)
         return
     if purpose == "natev":
         _remember_natura_place(context, name, lat, lon)
