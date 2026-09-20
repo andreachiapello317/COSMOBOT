@@ -156,6 +156,19 @@ from services.compass import (
     reverse_place,
 )
 from services.weather import fetch_forecast, format_forecast, parse_forecast_request
+from services.horizons import (
+    BODIES,
+    HorizonsError,
+    PLANETS,
+    ROCKS,
+    fetch_group,
+    fetch_observer,
+    fetch_rts,
+    format_body_card,
+    format_distances,
+    format_observer_list,
+    format_rts_list,
+)
 from services.earth import (
     fetch_eonet,
     fetch_quakes,
@@ -270,6 +283,9 @@ from ui.keyboards import (
     meteo_keyboard,
     meteo_span_keyboard,
     sky_result_keyboard,
+    watch_bodies_keyboard,
+    watch_result_keyboard,
+    world_watch_keyboard,
     oracoli_keyboard,
     oracoli_mazzi_keyboard,
     oracle_surprise_after_keyboard,
@@ -373,6 +389,7 @@ from ui.texts import (
     compat_advanced_text,
     compat_hub_text,
     world_sky_text,
+    world_watch_text,
     world_vita_text,
     world_pietre_text,
     pietre_hub_text,
@@ -2214,8 +2231,9 @@ def help_text() -> str:
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città o la tua posizione, niente carte).\n"
-        "🔭 <b>ASTRO</b> — Cielo (città o GPS), Meteo, Esplora lo spazio "
-        "(enciclopedia), In orbita (ISS e dati live). Niente divinazione.\n"
+        "🔭 <b>ASTRO</b> — Cielo (luna, alba, tramonto), Meteo, Osserva lo spazio "
+        "(stelle, eventi, JPL Horizons), Esplora lo spazio (enciclopedia), "
+        "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
         "🧮 <b>MATEMATICA</b> — calcolatrice, percentuali, conversioni.\n"
@@ -5812,6 +5830,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
     if prefix == "world" and action == "sky":
         await show_cielo_hub(update, context)
         return
+    if prefix == "world" and action == "watch":
+        await show_watch_hub(update, context)
+        return
     if prefix == "world" and action in {"mondi", "space"}:
         await reply_html(update, context, world_mondi_text(), reply_markup=world_mondi_keyboard())
         return
@@ -6609,7 +6630,7 @@ async def cmd_eventi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def send_eventi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Solo fenomeni che la mappa dice osservabili dalla città salvata. Altrimenti nulla."""
     if not _has_cielo_place(context):
-        await show_place_picker(update, context, "cielo")
+        await show_place_picker(update, context, "watch")
         return
     name, lat, lon = _cielo_place(context)
     await send_typing(update)
@@ -6752,7 +6773,7 @@ async def send_eventi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         update,
         context,
         "\n".join(lines),
-        reply_markup=sky_result_keyboard([_tarot_btn("🔄 Aggiorna", "sky:eventi")]),
+        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Aggiorna", "watch:eventi")]),
     )
 
 
@@ -6813,6 +6834,9 @@ async def on_world_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await query.answer()
     if action == "sky":
         await show_cielo_hub(update, context)
+        return
+    if action == "watch":
+        await show_watch_hub(update, context)
         return
     if action in {"mondi", "space"}:
         await reply_html(update, context, world_mondi_text(), reply_markup=world_mondi_keyboard())
@@ -7092,6 +7116,20 @@ async def show_cielo_hub(
     await reply_html(update, context, world_sky_text(name), reply_markup=world_sky_keyboard())
 
 
+async def show_watch_hub(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    force_pick: bool = False,
+) -> None:
+    nav_mark(context, "world:watch")
+    if force_pick or not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    name, _lat, _lon = _cielo_place(context)
+    await reply_html(update, context, world_watch_text(name), reply_markup=world_watch_keyboard())
+
+
 async def on_sky_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None or not query.data:
@@ -7123,6 +7161,192 @@ async def on_sky_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await show_cielo_hub(update, context)
 
 
+async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    parts = query.data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    extra = parts[2] if len(parts) > 2 else ""
+    if action == "city":
+        await query.answer()
+        await show_watch_hub(update, context, force_pick=True)
+        return
+    if not _has_cielo_place(context):
+        await query.answer()
+        await show_place_picker(update, context, "watch")
+        return
+    name, lat, lon = _cielo_place(context)
+    await query.answer()
+    if action == "stelle":
+        await send_sky_stars(update, context, name=name, lat=lat, lon=lon)
+        return
+    if action == "eventi":
+        await send_eventi(update, context)
+        return
+    if action == "planets":
+        await send_horizons_list(update, context, kind="planets")
+        return
+    if action == "rocks":
+        await send_horizons_list(update, context, kind="rocks")
+        return
+    if action == "dist":
+        await send_horizons_distances(update, context)
+        return
+    if action == "rts":
+        await send_horizons_rts(update, context)
+        return
+    if action == "b" and extra in BODIES:
+        await send_horizons_body(update, context, extra)
+        return
+    await show_watch_hub(update, context)
+
+
+async def _watch_clock(
+    context: ContextTypes.DEFAULT_TYPE, lat: float, lon: float
+) -> tuple[ZoneInfo, datetime]:
+    client = _http_client(context)
+    tz_name = await api_timezone_name(client, lat, lon)
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = DEFAULT_TZ
+    return tz, datetime.now(tz)
+
+
+async def send_horizons_list(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    kind: str,
+) -> None:
+    if not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    name, lat, lon = _cielo_place(context)
+    catalog = PLANETS if kind == "planets" else ROCKS
+    title = "🪐 <b>PIANETI</b>" if kind == "planets" else "🪨 <b>ASTEROIDI</b>"
+    wait = "pianeti" if kind == "planets" else "asteroidi"
+    await send_typing(update)
+    await deliver_text(update, context, f"📡 Chiedo a JPL Horizons i {wait} sopra {name}…")
+    tz, now = await _watch_clock(context, lat, lon)
+    try:
+        items = await fetch_group(_http_client(context), catalog, lat, lon, now.astimezone(timezone.utc))
+    except HorizonsError:
+        await reply_offline(update, context)
+        return
+    note = (
+        "Altezza, magnitudine, distanza e elongazione: tabella observer Horizons. "
+        "Non dico se li vedi a occhio nudo."
+        if kind == "planets"
+        else "Cerere, Pallade, Giunone, Vesta e Apophis: Horizons, stessi numeri della NASA. "
+        "Magnitudine 8 o 9 non è visibile a occhio nudo."
+    )
+    text = format_observer_list(
+        title=title,
+        place=name,
+        when=now,
+        tz=tz,
+        items=list(items),
+        catalog=catalog,
+        note=note,
+    )
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=watch_bodies_keyboard(kind),
+    )
+
+
+async def send_horizons_distances(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"📏 Misuro le distanze Horizons da {name}…")
+    tz, now = await _watch_clock(context, lat, lon)
+    try:
+        items = await fetch_group(_http_client(context), PLANETS, lat, lon, now.astimezone(timezone.utc))
+    except HorizonsError:
+        await reply_offline(update, context)
+        return
+    text = format_distances(place=name, when=now, tz=tz, items=list(items), catalog=PLANETS)
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Aggiorna", "watch:dist")]),
+    )
+
+
+async def send_horizons_rts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"⬆️ Calcolo alba e tramonto dei pianeti da {name}…")
+    tz, now = await _watch_clock(context, lat, lon)
+
+    async def one(key: str) -> tuple[str, list[dict[str, Any]] | None]:
+        try:
+            rows = await fetch_rts(
+                _http_client(context),
+                PLANETS[key]["command"],
+                lat,
+                lon,
+                now.astimezone(timezone.utc),
+            )
+            return key, rows
+        except HorizonsError:
+            return key, None
+
+    fetched = await asyncio.gather(*[one(key) for key in PLANETS])
+    text = format_rts_list(place=name, tz=tz, items=list(fetched), catalog=PLANETS)
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Aggiorna", "watch:rts")]),
+    )
+
+
+async def send_horizons_body(update: Update, context: ContextTypes.DEFAULT_TYPE, key: str) -> None:
+    if not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    meta = BODIES.get(key)
+    if meta is None:
+        await show_watch_hub(update, context)
+        return
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"📡 Horizons su {meta['it']} da {name}…")
+    tz, now = await _watch_clock(context, lat, lon)
+    try:
+        row = await fetch_observer(
+            _http_client(context),
+            meta["command"],
+            lat,
+            lon,
+            now.astimezone(timezone.utc),
+        )
+    except HorizonsError:
+        await reply_offline(update, context)
+        return
+    kind = "planets" if key in PLANETS else "rocks"
+    text = format_body_card(meta=meta, place=name, when=now, tz=tz, row=row)
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=watch_bodies_keyboard(kind),
+    )
+
+
 def _place_pool(kind: str) -> tuple[tuple[str, float, float], ...]:
     return PLACE_IT if kind == "it" else PLACE_WORLD
 
@@ -7142,7 +7366,7 @@ async def show_place_picker(
     context.user_data[LOC_ASK_KEY] = True
     context.user_data["cielo_ask"] = False
     titles = {
-        "cielo": "Da dove osservi il cielo? La salvo per luna, stelle, alba, tramonto ed eventi.",
+        "cielo": "Da dove calcolare Sole e Luna? La salvo per alba, tramonto e la Luna.",
         "sole": "Da dove calcolare alba e tramonto?",
         "meteo": "Di quale città vuoi il meteo?",
         "osserva": "Da dove osservi i pianeti?",
@@ -7153,6 +7377,7 @@ async def show_place_picker(
         "compass": "Da dove calcolo nord geografico e magnetico?",
         "brfrom": "Da dove parti? Poi ti chiedo la destinazione.",
         "brto": "Verso quale città o luogo?",
+        "watch": "Da dove osservi lo spazio? La salvo per stelle, eventi e Horizons.",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
     if step == "it":
@@ -7204,6 +7429,9 @@ async def apply_place(
         )
         return
     _remember_cielo_place(context, name, lat, lon)
+    if purpose == "watch":
+        await show_watch_hub(update, context)
+        return
     if purpose == "cielo":
         await show_cielo_hub(update, context)
         return
@@ -7823,7 +8051,7 @@ async def send_sky_stars(
         update,
         context,
         "\n".join(lines),
-        reply_markup=sky_result_keyboard([_tarot_btn("🔄 Aggiorna", "sky:stelle")]),
+        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Aggiorna", "watch:stelle")]),
     )
 
 
@@ -7833,7 +8061,7 @@ async def show_stelle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         context,
         "⭐ <b>STELLE</b>\n\n"
         "Enciclopedia: schede Wikipedia e Wikidata. "
-        "Cosa si vede adesso dalla tua città sta in 🔭 Cielo → Stelle.",
+        "Cosa si vede adesso dalla tua città sta in 🌌 Osserva lo spazio → Stelle.",
         reply_markup=stelle_menu_keyboard(),
     )
 
@@ -11934,6 +12162,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_cmp_action, pattern=r"^cmp:"))
     application.add_handler(CallbackQueryHandler(on_sq_action, pattern=r"^sq:"))
     application.add_handler(CallbackQueryHandler(on_sky_action, pattern=r"^sky:"))
+    application.add_handler(CallbackQueryHandler(on_watch_action, pattern=r"^watch:"))
     application.add_handler(CallbackQueryHandler(on_orb_action, pattern=r"^orb:"))
     application.add_handler(CallbackQueryHandler(on_geo_action, pattern=r"^geo:"))
     application.add_handler(CallbackQueryHandler(on_world_action, pattern=r"^world:"))

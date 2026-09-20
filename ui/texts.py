@@ -45,8 +45,9 @@ def astro_hub_text() -> str:
     return _card(
         "🔭 <b>ASTRO</b>",
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
-        "🔭 <b>CIELO</b> — prima il luogo (città o la tua posizione), poi luna, stelle, alba, tramonto, eventi\n"
+        "🔭 <b>CIELO</b> — luna, alba, tramonto (e crepuscoli) da un luogo\n"
         "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
+        "🌌 <b>OSSERVA LO SPAZIO</b> — stelle, eventi, pianeti e asteroidi JPL Horizons\n"
         "🚀 <b>ESPLORA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
@@ -156,11 +157,26 @@ def world_sky_text(place: str = "") -> str:
     )
     return _card(
         "🔭 <b>CIELO</b>",
-        "Osservatorio: luna, stelle, alba, tramonto, eventi. Numeri live, niente enciclopedia e niente oracoli.",
+        "Orari del Sole e della Luna da questo luogo. Niente stelle, niente eventi, niente enciclopedia.",
         f"{where}\n"
-        "Ogni pulsante usa quella città. In fondo: 📍 Cambia città.\n\n"
-        "Eventi = solo ciò che è osservabile da questa città, adesso.\n"
-        "Enciclopedia e orbite live stanno nelle altre sezioni di ASTRO.",
+        "🌙 Luna · 🌅 Alba · 🌇 Tramonto (con mezzogiorno e crepuscoli).\n"
+        "Stelle, eventi e corpi Horizons stanno in 🌌 Osserva lo spazio.",
+    )
+
+
+def world_watch_text(place: str = "") -> str:
+    where = (
+        f"Città salvata: <b>{_html.escape(place)}</b>."
+        if place
+        else "Appena entri, chiedo la città o la tua posizione e la tengo."
+    )
+    return _card(
+        "🌌 <b>OSSERVA LO SPAZIO</b>",
+        "Cosa sta sopra di te. Stelle e eventi dalla mappa; pianeti e asteroidi da JPL Horizons.",
+        f"{where}\n"
+        "⭐ Stelle · 🌠 Eventi (solo se osservabili da qui)\n"
+        "🪐 Pianeti · 🪨 Asteroidi · 📏 Distanze · ⬆️ Alba/tramonto dei pianeti\n\n"
+        "Horizons è l'efemeride JPL, non Wikipedia. L'enciclopedia sta in Esplora lo spazio.",
     )
 
 

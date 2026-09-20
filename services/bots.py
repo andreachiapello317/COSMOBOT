@@ -19,7 +19,7 @@ BOTS: tuple[dict[str, Any], ...] = (
         "name": "ASTRO",
         "tag": "Osservatorio, enciclopedia, orbite",
         "ready": True,
-        "worlds": ("sky", "mondi", "orbit"),
+        "worlds": ("sky", "watch", "mondi", "orbit"),
     },
     {
         "id": "geo",
@@ -84,6 +84,10 @@ def parent_bot_token(token: str) -> str:
         return "bot:geo"
     if raw.startswith(("loc:go:gps", "loc:go:compass", "loc:go:brfrom", "loc:go:brto")):
         return "bot:bussola"
+    if raw.startswith(
+        ("loc:go:cielo", "loc:go:meteo", "loc:go:sole", "loc:go:osserva", "loc:go:luna", "loc:go:watch")
+    ):
+        return "bot:astro"
     oracolo = (
         "world:self",
         "world:div",
