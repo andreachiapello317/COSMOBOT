@@ -15,7 +15,7 @@ def all_hub_text() -> str:
         "🪐 <b>BOTSQUAD</b>",
         "Tre bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
-        "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, cataloghi.\n"
+        "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
         "🌍 <b>GEO</b> — la Terra: pietre, terremoti, vulcani, oceani.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
@@ -40,12 +40,10 @@ def astro_hub_text() -> str:
     return _card(
         "🔭 <b>ASTRO</b>",
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
-        "🔭 <b>CIELO</b> — mappa, stelle, eventi, ISS. Chiede la città.\n"
+        "🔭 <b>CIELO</b> — luna, stelle, alba, eventi, costellazioni\n"
         "🌤️ <b>METEO</b> — previsioni Open-Meteo di qualsiasi città del mondo\n"
-        "🪐 <b>MONDI</b> — esopianeti, sistemi, salvataggi\n"
-        "👽 <b>VITA</b> — come la cerchiamo, senza dichiararla\n"
-        "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n\n"
-        "🎲 Casuale pesca una scheda di catalogo. Le pietre e i dati sulla Terra stanno in 🌍 GEO."
+        "🪐 <b>MONDI</b> — esopianeti, pianeti, vita, missioni\n\n"
+        "Le pietre e i dati sulla Terra stanno in 🌍 GEO."
     )
 
 
@@ -147,11 +145,10 @@ def world_asksky_text() -> str:
 def world_sky_text() -> str:
     return _card(
         "🔭 <b>CIELO</b>",
-        "Osservatorio: cosa c'è sopra di te adesso. Numeri live, niente oracoli.",
-        "Prima la città, poi la mappa.\n"
-        "🔭 Adesso · 🌙 Luna · 🪐 Pianeti · ⭐ Stelle\n"
-        "🌠 Eventi · 📚 Cataloghi · 🌤️ Meteo\n"
-        "🌅 Alba · 🛰️ ISS",
+        "Osservatorio: luna, stelle, alba, eventi, costellazioni. Numeri live, niente oracoli.",
+        "🌙 Luna e 🌅 alba chiedono la città.\n"
+        "⭐ Stelle · ✨ Costellazioni · 🌠 Eventi\n\n"
+        "Il meteo ha la sua sezione. Pianeti, vita e missioni stanno in 🪐 Mondi.",
     )
 
 
@@ -160,7 +157,8 @@ def world_mondi_text() -> str:
         "🪐 <b>MONDI</b>",
         "Un esploratore NASA e Wikipedia. Non un oracolo.",
         "🌍 Filtri · ⭐ Sistemi · ☀️ Sistema Solare\n"
-        "🪐 Pianeti e lune · 🪨 Asteroidi · 📌 Salvati\n\n"
+        "🪐 Pianeti · 🌑 Lune · 🪨 Asteroidi · 📌 Salvati\n"
+        "👽 Vita · 🚀 Missioni\n\n"
         "Oceanici e abitabili = modelli, non oceani e non vita.",
     )
 

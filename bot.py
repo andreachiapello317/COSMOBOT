@@ -220,6 +220,7 @@ from ui.keyboards import (
     oracoli_keyboard,
     oracoli_mazzi_keyboard,
     oracle_surprise_after_keyboard,
+    pianeti_now_keyboard,
     place_hub_keyboard,
     place_list_keyboard,
     sky_catalog_keyboard,
@@ -2128,8 +2129,8 @@ def help_text() -> str:
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra la tua città: niente carte).\n"
-        "🔭 <b>ASTRO</b> — osservatorio: Cielo, Meteo mondiale, Mondi, Vita, "
-        "Missioni. Niente divinazione.\n"
+        "🔭 <b>ASTRO</b> — osservatorio: Cielo, Meteo, Mondi "
+        "(pianeti, vita, missioni). Niente divinazione.\n"
         "🌍 <b>GEO</b> — la Terra: pietre, terremoti USGS, vulcani, oceani, "
         "placche, eventi NASA EONET.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
@@ -4445,7 +4446,7 @@ async def cmd_pianeti(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         "<i>Efemeridi live: CosmyDay API (Swiss Ephemeris / NASA JPL DE431). "
         "Posizioni tropicali.</i>"
     )
-    await reply_html(update, context, "\n".join(lines), reply_markup=back_home_keyboard())
+    await reply_html(update, context, "\n".join(lines), reply_markup=pianeti_now_keyboard())
     await delete_user_command(update)
 
 
@@ -8093,7 +8094,7 @@ async def send_eclissi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     lines.extend(["", "<i>Fonte live: calendario eclissi Skytime.</i>"])
     kb = InlineKeyboardMarkup(
         [
-            [_tarot_btn("🔭 Cielo Roma", "home:cielo")],
+            [_tarot_btn("🌠 Eventi", "home:eventi")],
             nav_row(),
         ]
     )
