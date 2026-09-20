@@ -8,7 +8,7 @@ import html
 import io
 import math
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -60,7 +60,7 @@ CALAM_CATS: dict[str, dict[str, Any]] = {
         "src": "NASA EONET",
         "layer": "vii",
         "eonet": "severeStorms",
-        "near_km": 2000.0,
+        "near_km": 500.0,
         "blurb": "Cicloni, tifoni e tempeste ancora aperti. L'ultimo punto del tracciato.",
     },
     "volc": {
@@ -70,7 +70,7 @@ CALAM_CATS: dict[str, dict[str, Any]] = {
         "src": "NASA EONET",
         "layer": "false",
         "eonet": "volcanoes",
-        "near_km": 2000.0,
+        "near_km": 500.0,
         "blurb": "Attività vulcanica che NASA sta ancora seguendo. Non dice se erutterà.",
     },
     "flood": {
@@ -80,7 +80,7 @@ CALAM_CATS: dict[str, dict[str, Any]] = {
         "src": "NASA EONET",
         "layer": "false",
         "eonet": "floods",
-        "near_km": 800.0,
+        "near_km": 500.0,
         "blurb": "Alluvioni ancora aperte nel tracciatore NASA.",
     },
     "slide": {
@@ -90,7 +90,7 @@ CALAM_CATS: dict[str, dict[str, Any]] = {
         "src": "NASA EONET",
         "layer": "terra",
         "eonet": "landslides",
-        "near_km": 800.0,
+        "near_km": 500.0,
         "blurb": "Frane segnalate come ancora aperte.",
     },
     "dust": {
@@ -100,7 +100,7 @@ CALAM_CATS: dict[str, dict[str, Any]] = {
         "src": "NASA EONET",
         "layer": "false",
         "eonet": "dustHaze",
-        "near_km": 1500.0,
+        "near_km": 500.0,
         "blurb": "Polvere o caligine ancora aperta nel catalogo NASA.",
     },
 }
@@ -109,12 +109,13 @@ CALAM_KEYS = tuple(CALAM_CATS)
 PAGE_SIZE = 5
 MAX_ITEMS = 20
 HUB_NEAR_KM = 500.0
+LOOKBACK_DAYS = 7
 
 FIRMS_CSV = (
     "https://firms.modaps.eosdis.nasa.gov/data/active_fire/"
-    "{family}/csv/{file}_{area}_24h.csv"
+    "{family}/csv/{file}_{area}_{span}.csv"
 )
-FIRMS_AREA_API = "https://firms.modaps.eosdis.nasa.gov/api/area/csv/{key}/{src}/{west},{south},{east},{north}/1"
+FIRMS_AREA_API = "https://firms.modaps.eosdis.nasa.gov/api/area/csv/{key}/{src}/{west},{south},{east},{north}/7"
 
 FIRMS_REGIONS: tuple[tuple[str, float, float, float, float], ...] = (
     ("Europe", 34.0, 72.0, -25.0, 45.0),
@@ -179,6 +180,15 @@ def ago_it(when: datetime | None) -> str:
         return f"{hours}h {minutes:02d}m" if minutes else f"{hours}h"
     days = sec // 86400
     return f"{days} g fa"
+
+
+def within_lookback(when: datetime | None, *, days: int = LOOKBACK_DAYS) -> bool:
+    if when is None:
+        return False
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    age = datetime.now(timezone.utc) - when.astimezone(timezone.utc)
+    return timedelta(0) <= age <= timedelta(days=days)
 
 
 def mag_dot(mag: float | None) -> str:
@@ -342,6 +352,7 @@ async def fetch_firms_points(
             family="suomi-npp-viirs-c2",
             file="SUOMI_VIIRS_C2",
             area=area,
+            span="7d",
         )
         response = await client.get(url)
         response.raise_for_status()
@@ -354,6 +365,8 @@ async def fetch_firms_points(
             continue
         dist = haversine_km(lat, lon, point["lat"], point["lon"])
         if dist > radius_km:
+            continue
+        if not within_lookback(point.get("when")):
             continue
         point["dist_km"] = dist
         points.append(point)
@@ -476,14 +489,14 @@ async def load_calam_items(
     scope: str = "n",
 ) -> list[dict[str, Any]]:
     meta = calam_meta(key)
-    near_km = float(meta["near_km"])
+    near_km = HUB_NEAR_KM
     items: list[dict[str, Any]] = []
     if key == "quake":
         if scope == "w":
             data = await fetch_quakes(client, "sig")
         else:
             data = await fetch_quakes_near(
-                client, lat, lon, radius_km=near_km, minmagnitude=2.5, days=14, limit=MAX_ITEMS
+                client, lat, lon, radius_km=near_km, minmagnitude=2.5, days=LOOKBACK_DAYS, limit=MAX_ITEMS
             )
         features = data.get("features") if isinstance(data.get("features"), list) else []
         for feature in features:
@@ -492,7 +505,11 @@ async def load_calam_items(
                 if row is not None:
                     items.append(row)
         if scope == "n":
-            items = [row for row in items if float(row.get("dist_km") or 0) <= near_km]
+            items = [
+                row
+                for row in items
+                if float(row.get("dist_km") or 0) <= near_km and within_lookback(row.get("when"))
+            ]
         items.sort(key=lambda row: float(row.get("dist_km") or 0) if scope == "n" else 0)
         if scope == "w":
             items.sort(key=lambda row: row.get("when") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
@@ -510,10 +527,7 @@ async def load_calam_items(
             items = []
 
     eonet_cat = str(meta.get("eonet") or "")
-    bbox = bbox_around(lat, lon, near_km) if scope == "n" and key != "storm" else None
-    # Tempeste: bbox stretto taglia i cicloni oceanici; vicino = distanza sul punto.
-    if key == "storm" and scope == "n":
-        bbox = None
+    bbox = bbox_around(lat, lon, near_km) if scope == "n" else None
     try:
         data = await fetch_eonet(
             client,
@@ -532,6 +546,8 @@ async def load_calam_items(
             continue
         if scope == "n" and float(row.get("dist_km") or 99999) > near_km:
             continue
+        if scope == "n" and not within_lookback(row.get("when")):
+            continue
         items.append(row)
     items.sort(key=lambda row: (float(row.get("dist_km") or 0), -(row.get("count") or 0)))
     return items[:MAX_ITEMS]
@@ -544,9 +560,18 @@ async def hub_counts(
 ) -> dict[str, int]:
     counts = {key: 0 for key in CALAM_KEYS}
     try:
-        quakes = await fetch_quakes_near(client, lat, lon, radius_km=HUB_NEAR_KM, limit=20)
+        quakes = await fetch_quakes_near(
+            client, lat, lon, radius_km=HUB_NEAR_KM, days=LOOKBACK_DAYS, limit=20
+        )
         features = quakes.get("features") if isinstance(quakes.get("features"), list) else []
-        counts["quake"] = sum(1 for item in features if isinstance(item, dict))
+        n_quake = 0
+        for item in features:
+            if not isinstance(item, dict):
+                continue
+            row = _compact_quake(item, lat, lon)
+            if row and float(row.get("dist_km") or 0) <= HUB_NEAR_KM and within_lookback(row.get("when")):
+                n_quake += 1
+        counts["quake"] = n_quake
     except Exception:
         counts["quake"] = 0
     try:
@@ -565,8 +590,10 @@ async def hub_counts(
     for event in events:
         if not isinstance(event, dict):
             continue
-        nearest = eonet_nearest(event, lat, lon)
-        if nearest is None or nearest[2] > HUB_NEAR_KM:
+        row = _compact_eonet(event, lat, lon)
+        if row is None or float(row.get("dist_km") or 99999) > HUB_NEAR_KM:
+            continue
+        if not within_lookback(row.get("when")):
             continue
         for cid in eonet_event_ids(event):
             mapped = cat_to_key.get(cid)
@@ -588,20 +615,24 @@ def format_calam_hub(
 ) -> str:
     total = sum(int(counts.get(key) or 0) for key in CALAM_KEYS)
     where = html.escape(place, quote=False)
+    window = f"raggio {HUB_NEAR_KM:.0f} km · ultimi {LOOKBACK_DAYS} giorni"
+    present = [key for key in CALAM_KEYS if int(counts.get(key) or 0) > 0]
     if total:
-        pulse = f"🔴 <b>{total}</b> eventi nelle vicinanze (circa {HUB_NEAR_KM:.0f} km)"
+        pulse = f"🔴 <b>{total}</b> eventi qui ({window})"
+        bits = " · ".join(
+            f"{calam_meta(key)['emoji']} {int(counts[key])}" for key in present
+        )
     else:
-        pulse = f"Nessun evento aperto entro circa {HUB_NEAR_KM:.0f} km da {where}."
-    bits = [f"{calam_meta(key)['emoji']} {int(counts.get(key) or 0)}" for key in CALAM_KEYS]
+        pulse = f"Nessun evento negli ultimi {LOOKBACK_DAYS} giorni entro {HUB_NEAR_KM:.0f} km da {where}."
+        bits = "I tasti delle categorie compaiono solo se c'è qualcosa."
     return "\n".join(
         [
             "🌋 <b>EVENTI E CALAMITÀ</b>",
             f"📍 <b>{where.upper()}</b>",
             pulse,
-            " · ".join(bits),
+            bits,
             "",
-            "USGS per le scosse. NASA EONET per i fenomeni aperti. "
-            "FIRMS (VIIRS) per i fuochi vicini. La foto è NASA Worldview / GIBS.",
+            "USGS, NASA EONET, FIRMS. La foto sul punto è Worldview / GIBS.",
             "",
             "<i>Non è un bollettino della protezione civile. Se i feed sono vuoti, non invento.</i>",
         ]
@@ -628,7 +659,7 @@ def format_calam_list(
 ) -> str:
     meta = calam_meta(key)
     where = html.escape(place, quote=False)
-    area = "mondo" if scope == "w" else f"raggio {meta['near_km']:.0f} km"
+    area = "mondo" if scope == "w" else f"raggio {HUB_NEAR_KM:.0f} km · {LOOKBACK_DAYS} giorni"
     lines = [
         f"{meta['emoji']} <b>{html.escape(str(meta['it']).upper(), quote=False)}</b>",
         f"📍 {where} · {area}",

@@ -26,8 +26,8 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🧰 STRUMENTI → Bussola | Posizione, coordinate, nord, verso un luogo. Via e numero o numeri scritti | Open-Meteo + BGS WMM + Nominatim |
 | 🧰 STRUMENTI → Calendario | Ora e mese; eventi per regioni / religiose / mondo (amori, buffe…); compleanni | orologio + computus + file locale |
 | 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, terra, strumenti | cataloghi locali; ASTRO ha anche Wikipedia live |
-| 🌍 TERRA → Eventi | Eventi e calamità: categorie, distanza, foto Worldview/GIBS | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) + [FIRMS](https://firms.modaps.eosdis.nasa.gov) + [GIBS](https://wvs.earthdata.nasa.gov) |
-| 🌍 TERRA → Eventi → categorie | Terremoti USGS; incendi FIRMS+EONET; tempeste, vulcani, alluvioni, frane, polvere EONET; satellite GIBS | USGS + EONET + FIRMS + GIBS |
+| 🌍 TERRA → Eventi | Sulla città: solo i tasti delle categorie con eventi (500 km, 7 giorni). Mondo + cataloghi restano. Foto Worldview/GIBS | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) + [FIRMS](https://firms.modaps.eosdis.nasa.gov) + [GIBS](https://wvs.earthdata.nasa.gov) |
+| 🌍 TERRA → Eventi → categorie | Terremoti USGS; incendi FIRMS+EONET; tempeste, vulcani, alluvioni, frane, polvere EONET (compaiono solo se ci sono); satellite GIBS | USGS + EONET + FIRMS + GIBS |
 | 🌍 TERRA → Eventi → Cataloghi | Feed lunghi aperti (USGS / EONET) | USGS + EONET |
 | 🌍 TERRA → Fauna | Uccelli e osservati (eBird/GBIF), mappa GBIF, tracciati se pubblici, iNaturalist nel mondo | [GBIF](https://www.gbif.org) + [eBird](https://ebird.org) (se `EBIRD_API_KEY`) + [iNaturalist](https://www.inaturalist.org) |
 | 🌍 TERRA → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |

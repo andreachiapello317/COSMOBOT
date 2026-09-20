@@ -97,22 +97,23 @@ def calam_hub_keyboard(place: str = "Cuneo", counts: dict[str, int] | None = Non
     def cat_btn(key: str) -> InlineKeyboardButton:
         meta = CALAM_CATS[key]
         n = int((counts or {}).get(key) or 0)
-        tail = f" ({n})" if n else ""
-        return kb_btn(f"{meta['emoji']} {meta['btn']}{tail}", f"geo:cat:{key}")
+        return kb_btn(f"{meta['emoji']} {meta['btn']} ({n})", f"geo:cat:{key}")
 
     label = str(place or "Cuneo").strip()[:22]
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn(f"📍 {label}", "geo:city")],
-            [cat_btn("quake"), cat_btn("fire")],
-            [cat_btn("storm"), cat_btn("volc")],
-            [cat_btn("flood"), cat_btn("slide")],
-            [cat_btn("dust")],
-            [kb_btn("🌍 Eventi nel mondo", "geo:world")],
-            [kb_btn("📡 Cataloghi", "world:live")],
-            nav_row(),
-        ]
-    )
+    present = [key for key in CALAM_KEYS if int((counts or {}).get(key) or 0) > 0]
+    rows: list[list[InlineKeyboardButton]] = [[kb_btn(f"📍 {label}", "geo:city")]]
+    pair: list[InlineKeyboardButton] = []
+    for key in present:
+        pair.append(cat_btn(key))
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([kb_btn("🌍 Eventi nel mondo", "geo:world")])
+    rows.append([kb_btn("📡 Cataloghi", "world:live")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
 
 
 def world_flora_keyboard() -> InlineKeyboardMarkup:
