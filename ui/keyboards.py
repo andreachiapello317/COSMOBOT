@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+from services.earth import EARTH_TOPICS, PLATES, VOLCANOES, WATER
 from services.stones import CATS, COLORS, ENVS, MUSEUM, RARITY, STONES
 from services.catalog import (
     ASTRONAUTS,
@@ -52,6 +53,7 @@ def all_hub_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🔮 ORACOLO", "bot:oracolo")],
             [kb_btn("🔭 ASTRO", "bot:astro")],
+            [kb_btn("🌍 GEO", "bot:geo")],
             [kb_btn("📚 Aiuto", "home:aiuto")],
         ]
     )
@@ -76,12 +78,82 @@ def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def geo_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌍 Terra", "world:terra"), kb_btn("💎 Pietre", "world:pietre")],
+            [kb_btn("🌋 Terremoti", "world:quake"), kb_btn("🔥 Vulcani", "world:volc")],
+            [kb_btn("🌊 Acqua", "world:water"), kb_btn("🧭 Placche", "world:plates")],
+            [kb_btn("🌪️ Eventi Terra", "geo:events")],
+            nav_row(),
+        ]
+    )
+
+
+def geo_quakes_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("📅 24 ore M≥4,5", "geo:quake:day"), kb_btn("📆 7 giorni M≥2,5", "geo:quake:week")],
+            [kb_btn("⚠️ Significativi", "geo:quake:sig")],
+            nav_row(),
+        ]
+    )
+
+
+def geo_events_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔄 Aperti", "geo:events"), kb_btn("🔥 Vulcani", "geo:ev:volcanoes")],
+            [kb_btn("🌪️ Tempeste", "geo:ev:severeStorms"), kb_btn("🔥 Incendi", "geo:ev:wildfires")],
+            [kb_btn("🧊 Ghiaccio", "geo:ev:seaLakeIce")],
+            nav_row(),
+        ]
+    )
+
+
+def geo_list_keyboard(kind: str, rows: tuple[dict[str, str], ...]) -> InlineKeyboardMarkup:
+    buttons = [kb_btn(f"{item['emoji']} {item['it']}", f"geo:s:{kind}:{item['id']}") for item in rows]
+    grid = _pairs(buttons)
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def world_terra_keyboard() -> InlineKeyboardMarkup:
+    return geo_list_keyboard("terra", EARTH_TOPICS)
+
+
+def world_quake_keyboard() -> InlineKeyboardMarkup:
+    return geo_quakes_keyboard()
+
+
+def world_volc_keyboard() -> InlineKeyboardMarkup:
+    return geo_list_keyboard("volc", VOLCANOES)
+
+
+def world_water_keyboard() -> InlineKeyboardMarkup:
+    return geo_list_keyboard("water", WATER)
+
+
+def world_plates_keyboard() -> InlineKeyboardMarkup:
+    return geo_list_keyboard("plate", PLATES)
+
+
+def geo_after_keyboard(kind: str) -> InlineKeyboardMarkup:
+    back = {
+        "terra": ("🌍 Terra", "world:terra"),
+        "volc": ("🔥 Vulcani", "world:volc"),
+        "water": ("🌊 Acqua", "world:water"),
+        "plate": ("🧭 Placche", "world:plates"),
+    }.get(kind, ("🌍 GEO", "bot:geo"))
+    return InlineKeyboardMarkup([[kb_btn(back[0], back[1])], nav_row()])
+
+
 def astro_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🌤️ Meteo", "loc:go:meteo")],
             [kb_btn("🪐 Mondi", "world:mondi"), kb_btn("👽 Vita", "world:vita")],
-            [kb_btn("🚀 Missioni", "world:miss"), kb_btn("💎 Pietre", "world:pietre")],
+            [kb_btn("🚀 Missioni", "world:miss")],
             [kb_btn("🎲 Casuale", "home:random")],
             nav_row(),
         ]

@@ -13,9 +13,10 @@ def _card(title: str, intro: str, body: str = "") -> str:
 def all_hub_text() -> str:
     return _card(
         "🪐 <b>BOTSQUAD</b>",
-        "Due bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
+        "Tre bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
-        "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, cataloghi.\n\n"
+        "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, cataloghi.\n"
+        "🌍 <b>GEO</b> — la Terra: pietre, terremoti, vulcani, oceani.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
 
@@ -31,7 +32,7 @@ def oracolo_hub_text() -> str:
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
         "🃏 <b>CONSULTAZIONI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n"
         "🌌 <b>INTERROGA IL CIELO</b> — chiedi al cielo sopra la tua città\n\n"
-        "Il cielo misurato e il meteo stanno in 🔭 ASTRO.",
+        "Il cielo misurato sta in 🔭 ASTRO. Le pietre e la Terra stanno in 🌍 GEO.",
     )
 
 
@@ -43,9 +44,8 @@ def astro_hub_text() -> str:
         "🌤️ <b>METEO</b> — previsioni Open-Meteo di qualsiasi città del mondo\n"
         "🪐 <b>MONDI</b> — esopianeti, sistemi, salvataggi\n"
         "👽 <b>VITA</b> — come la cerchiamo, senza dichiararla\n"
-        "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n"
-        "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione\n\n"
-        "🎲 Casuale pesca una scheda di catalogo. Per interrogare il cielo, vai in 🔮 ORACOLO.",
+        "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n\n"
+        "🎲 Casuale pesca una scheda di catalogo. Le pietre e i dati sulla Terra stanno in 🌍 GEO."
     )
 
 
@@ -217,6 +217,63 @@ def world_vita_text() -> str:
     )
 
 
+def geo_hub_text() -> str:
+    return _card(
+        "🌍 <b>GEO</b>",
+        "Bot di BOTSQUAD per la Terra. Misure e cataloghi, niente oracoli.",
+        "🌍 <b>TERRA</b> — crosta, mantello, nucleo, atmosfera\n"
+        "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione\n"
+        "🌋 <b>TERREMOTI</b> — feed USGS live\n"
+        "🔥 <b>VULCANI</b> — schede Wikipedia\n"
+        "🌊 <b>ACQUA</b> — oceani, fosse, ciclo idrologico\n"
+        "🧭 <b>PLACCHE</b> — tettonica\n"
+        "🌪️ <b>EVENTI</b> — NASA EONET",
+    )
+
+
+def world_terra_text() -> str:
+    return _card(
+        "🌍 <b>TERRA</b>",
+        "Il pianeta sotto i piedi. Voci Wikipedia e misure Wikidata.",
+        "Crosta, mantello, nucleo, campo magnetico, atmosfera, tettonica.\n"
+        "Niente geologia inventata: apro la voce, non la riscrivo.",
+    )
+
+
+def world_quake_text() -> str:
+    return _card(
+        "🌋 <b>TERREMOTI</b>",
+        "Catalogo USGS, non un allarme. Scegli il feed.",
+        "📅 24 ore, magnitudo ≥ 4,5\n"
+        "📆 7 giorni, magnitudo ≥ 2,5\n"
+        "⚠️ Solo gli eventi che USGS marca come significativi",
+    )
+
+
+def world_volc_text() -> str:
+    return _card(
+        "🔥 <b>VULCANI</b>",
+        "Schede di vulcani noti. Wikipedia, non un bollettino eruttivo.",
+        "Tocca un nome. Per gli eventi aperti in questo momento: 🌪️ Eventi Terra.",
+    )
+
+
+def world_water_text() -> str:
+    return _card(
+        "🌊 <b>ACQUA</b>",
+        "Oceani, fosse, correnti, ciclo dell'acqua. Voci, non un atlante inventato.",
+        "Pacifico, Atlantico, Indiano, Mediterraneo, polarità, Fossa delle Marianne.",
+    )
+
+
+def world_plates_text() -> str:
+    return _card(
+        "🧭 <b>PLACCHE</b>",
+        "Le placche tettoniche principali. Wikipedia / Wikidata.",
+        "Pacifica, nordamericana, eurasiatica, africana, sudamericana, e le altre.",
+    )
+
+
 def world_pietre_text() -> str:
     return pietre_hub_text()
 
@@ -224,7 +281,7 @@ def world_pietre_text() -> str:
 def pietre_hub_text() -> str:
     return _card(
         "💎 <b>PIETRE</b>",
-        "Mineralogia da catalogo. Il folklore sta nell'oracolo, a parte.",
+        "Mineralogia da catalogo, nel bot GEO. Il folklore sta in ORACOLO, a parte.",
         "Foto: pietra al centro, tavolo uniforme. Non è un'analisi.\n\n"
         "🧭 Esplora · 🔬 Laboratorio · 🎒 Collezione · 🧠 Giochi",
     )

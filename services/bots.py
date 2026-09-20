@@ -19,7 +19,15 @@ BOTS: tuple[dict[str, Any], ...] = (
         "name": "ASTRO",
         "tag": "Osservatorio, meteo, cataloghi",
         "ready": True,
-        "worlds": ("sky", "mondi", "vita", "miss", "pietre"),
+        "worlds": ("sky", "mondi", "vita", "miss"),
+    },
+    {
+        "id": "geo",
+        "emoji": "🌍",
+        "name": "GEO",
+        "tag": "Terra, pietre, terremoti",
+        "ready": True,
+        "worlds": ("terra", "pietre", "quake", "volc", "water", "plates"),
     },
 )
 
@@ -82,4 +90,17 @@ def parent_bot_token(token: str) -> str:
     )
     if any(raw == key or raw.startswith(key) for key in oracolo):
         return "bot:oracolo"
+    geo = (
+        "world:pietre",
+        "world:terra",
+        "world:quake",
+        "world:volc",
+        "world:water",
+        "world:plates",
+        "geo:",
+        "pt:",
+        "home:pietre",
+    )
+    if any(raw == key or raw.startswith(key) for key in geo):
+        return "bot:geo"
     return "bot:astro"

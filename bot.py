@@ -128,6 +128,14 @@ from services.stones import (
 from services.bots import parent_bot_token
 from services.stonephoto import confidence_label, guess_stones, identify_from_photo, read_photo_hints
 from services.weather import fetch_forecast, format_forecast
+from services.earth import (
+    fetch_eonet,
+    fetch_quakes,
+    format_earth_topic,
+    format_eonet,
+    format_quakes,
+    geo_item,
+)
 from services.lenormand import (
     HINTS as LENO_HINTS,
     SPREADS as LENORMAND_SPREADS,
@@ -193,6 +201,10 @@ from ui.keyboards import (
     ss_bodies_keyboard,
     all_hub_keyboard,
     astro_hub_keyboard,
+    geo_after_keyboard,
+    geo_events_keyboard,
+    geo_hub_keyboard,
+    geo_quakes_keyboard,
     cosmo_hub_keyboard,
     home_keyboard as section_home_keyboard,
     oracolo_hub_keyboard,
@@ -237,6 +249,11 @@ from ui.keyboards import (
     sole_keyboard,
     world_asksky_keyboard,
     world_div_keyboard,
+    world_plates_keyboard,
+    world_quake_keyboard,
+    world_terra_keyboard,
+    world_volc_keyboard,
+    world_water_keyboard,
     world_miss_keyboard,
     world_mondi_keyboard,
     world_self_keyboard,
@@ -266,6 +283,7 @@ from ui.keyboards import (
 from ui.texts import (
     all_hub_text,
     astro_hub_text,
+    geo_hub_text,
     cosmo_hub_text,
     domanda_text,
     esplora_text,
@@ -277,6 +295,11 @@ from ui.texts import (
     rune_intro_text,
     world_asksky_text,
     world_div_text,
+    world_plates_text,
+    world_quake_text,
+    world_terra_text,
+    world_volc_text,
+    world_water_text,
     world_miss_text,
     cosmo_text,
     life_plus_text,
@@ -1390,7 +1413,7 @@ def nav_pop(context: ContextTypes.DEFAULT_TYPE) -> str | None:
 
 def _cmd_begin(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     _flows_reset(context)
-    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:cosmo", "bot:next"}:
+    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:cosmo", "bot:next"}:
         here = context.user_data.get(NAV_HERE_KEY)
         if here in {None, "home:menu"}:
             context.user_data[NAV_STACK_KEY] = ["home:menu"]
@@ -2100,13 +2123,15 @@ def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
         "🪐 <b>BOTSQUAD</b>\n"
-        "<i>Due bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
+        "<i>Tre bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (lettura simbolica "
         "sopra la tua città).\n"
         "🔭 <b>ASTRO</b> — osservatorio: Cielo, Meteo mondiale, Mondi, Vita, "
-        "Missioni, Pietre (catalogo e laboratorio). Niente divinazione.\n\n"
+        "Missioni. Niente divinazione.\n"
+        "🌍 <b>GEO</b> — la Terra: pietre, terremoti USGS, vulcani, oceani, "
+        "placche, eventi NASA EONET.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
         "nome del segno in chat.\n\n"
@@ -2136,6 +2161,11 @@ async def show_astro_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await reply_html(update, context, astro_hub_text(), reply_markup=astro_hub_keyboard())
 
 
+async def show_geo_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "bot:geo")
+    await reply_html(update, context, geo_hub_text(), reply_markup=geo_hub_keyboard())
+
+
 async def show_cosmo_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await show_oracolo_hub(update, context)
 
@@ -2156,6 +2186,9 @@ async def on_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     if action in {"astro", "next"}:
         await show_astro_hub(update, context)
+        return
+    if action == "geo":
+        await show_geo_hub(update, context)
         return
     await show_all_hub(update, context)
 
@@ -5496,6 +5529,11 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         "vita": (world_vita_text, world_vita_keyboard),
         "miss": (world_miss_text, world_miss_keyboard),
         "pietre": (world_pietre_text, world_pietre_keyboard),
+        "terra": (world_terra_text, world_terra_keyboard),
+        "quake": (world_quake_text, world_quake_keyboard),
+        "volc": (world_volc_text, world_volc_keyboard),
+        "water": (world_water_text, world_water_keyboard),
+        "plates": (world_plates_text, world_plates_keyboard),
     }
     if prefix == "bot":
         if action in {"oracolo", "cosmo"}:
@@ -5504,7 +5542,13 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         if action in {"astro", "next"}:
             await show_astro_hub(update, context)
             return
+        if action == "geo":
+            await show_geo_hub(update, context)
+            return
         await show_all_hub(update, context)
+        return
+    if prefix == "geo":
+        await dispatch_geo(update, context, token)
         return
     if prefix == "world" and action in worlds:
         text_fn, kb_fn = worlds[action]
@@ -6367,6 +6411,11 @@ async def on_world_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "vita": (world_vita_text, world_vita_keyboard),
         "miss": (world_miss_text, world_miss_keyboard),
         "pietre": (world_pietre_text, world_pietre_keyboard),
+        "terra": (world_terra_text, world_terra_keyboard),
+        "quake": (world_quake_text, world_quake_keyboard),
+        "volc": (world_volc_text, world_volc_keyboard),
+        "water": (world_water_text, world_water_keyboard),
+        "plates": (world_plates_text, world_plates_keyboard),
     }
     page = pages.get(action)
     if page is None:
@@ -10337,7 +10386,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale.\n"
         "Scrivi un segno (es. <i>vergine</i>) per l'oroscopo, "
-        "oppure tocca i pulsanti: 🔮 ORACOLO o 🔭 ASTRO.",
+        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO o 🌍 GEO.",
         reply_markup=all_hub_keyboard(),
     )
 
@@ -10347,7 +10396,7 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update,
         context,
         "I comandi scritti non ci sono più: qui si va a pulsanti.\n"
-        "Tocca 🔮 ORACOLO o 🔭 ASTRO, oppure 📚 Aiuto.",
+        "Tocca 🔮 ORACOLO, 🔭 ASTRO o 🌍 GEO, oppure 📚 Aiuto.",
         reply_markup=all_hub_keyboard(),
     )
     await delete_user_command(update)
@@ -10392,6 +10441,115 @@ async def post_shutdown(application: Application) -> None:
         logger.info("Client HTTP chiuso")
 
 
+async def send_geo_quakes(update: Update, context: ContextTypes.DEFAULT_TYPE, feed: str) -> None:
+    if feed not in {"day", "week", "sig"}:
+        feed = "day"
+    await send_typing(update)
+    await deliver_text(update, context, "🌋 Scarico il catalogo USGS…")
+    try:
+        data = await fetch_quakes(_http_client(context), feed)
+    except Exception:
+        logger.exception("USGS terremoti non disponibile")
+        await reply_offline(update, context)
+        return
+    await reply_html(update, context, format_quakes(data, feed=feed), reply_markup=geo_quakes_keyboard())
+
+
+async def send_geo_events(update: Update, context: ContextTypes.DEFAULT_TYPE, category: str | None = None) -> None:
+    await send_typing(update)
+    await deliver_text(update, context, "🌪️ Apro NASA EONET…")
+    client = _http_client(context)
+    try:
+        data = await fetch_eonet(client, limit=12, category=category)
+    except Exception:
+        logger.exception("EONET non disponibile")
+        await reply_offline(update, context)
+        return
+    events = data.get("events") if isinstance(data.get("events"), list) else []
+    titles = [str(ev.get("title") or "") for ev in events[:8] if isinstance(ev, dict) and ev.get("title")]
+    if titles:
+        try:
+            blob = await translate_to_italian(client, " || ".join(titles))
+            parts = [p.strip() for p in blob.split("||")]
+            idx = 0
+            for ev in events[:8]:
+                if not isinstance(ev, dict) or not ev.get("title"):
+                    continue
+                if idx < len(parts) and parts[idx]:
+                    ev["title"] = parts[idx]
+                idx += 1
+        except StelleOfflineError:
+            pass
+    await reply_html(update, context, format_eonet(data, category=category), reply_markup=geo_events_keyboard())
+
+
+async def send_earth_topic(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str, sid: str) -> None:
+    item = geo_item(kind, sid)
+    if item is None:
+        await reply_html(update, context, "Questa scheda non è in catalogo GEO.", reply_markup=geo_hub_keyboard())
+        return
+    await send_typing(update)
+    await deliver_text(update, context, f"{item.get('emoji') or '🌍'} Apro la voce di {item['it']}…")
+    client = _http_client(context)
+    title = str(item.get("wiki_it") or item.get("wiki") or item["it"])
+    wiki = await wikipedia_summary(client, title)
+    if (not wiki or not wiki.get("extract")) and item.get("wiki") and item.get("wiki") != title:
+        wiki = await wikipedia_summary(client, str(item["wiki"]))
+    extract = None
+    url = None
+    if wiki:
+        extract = str(wiki.get("extract") or "").strip() or None
+        url = str(wiki.get("url") or "") or None
+        if extract and wiki.get("lang") == "en":
+            try:
+                extract = await translate_to_italian(client, extract)
+            except StelleOfflineError:
+                pass
+        if extract:
+            extract = clip_text(extract, 900)
+    facts: list[tuple[str, str]] = []
+    qid = str(item.get("qid") or "")
+    if qid:
+        try:
+            facts = await wikidata_facts(client, qid)
+        except Exception:
+            facts = []
+    text = format_earth_topic(item, extract=extract, facts=facts, url=url)
+    await reply_html(update, context, text, reply_markup=geo_after_keyboard(kind), preview=True)
+
+
+async def dispatch_geo(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    parts = token.split(":")
+    action = parts[1] if len(parts) > 1 else "hub"
+    extra = parts[2] if len(parts) > 2 else ""
+    extra2 = parts[3] if len(parts) > 3 else ""
+    if action in {"hub", ""}:
+        await show_geo_hub(update, context)
+        return
+    if action == "quake":
+        await send_geo_quakes(update, context, extra or "day")
+        return
+    if action == "events":
+        await send_geo_events(update, context)
+        return
+    if action == "ev":
+        await send_geo_events(update, context, extra or None)
+        return
+    if action == "s" and extra and extra2:
+        await send_earth_topic(update, context, extra, extra2)
+        return
+    await show_geo_hub(update, context)
+
+
+async def on_geo_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    await query.answer()
+    await dispatch_geo(update, context, query.data)
+
+
 def build_application(token: str) -> Application:
     application = (
         Application.builder()
@@ -10417,6 +10575,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_oq_action, pattern=r"^oq:"))
     application.add_handler(CallbackQueryHandler(on_lett_action, pattern=r"^lett:"))
     application.add_handler(CallbackQueryHandler(on_bot_action, pattern=r"^bot:"))
+    application.add_handler(CallbackQueryHandler(on_geo_action, pattern=r"^geo:"))
     application.add_handler(CallbackQueryHandler(on_world_action, pattern=r"^world:"))
     application.add_handler(CallbackQueryHandler(on_sheet_action, pattern=r"^w:"))
     application.add_handler(CallbackQueryHandler(on_aster_action, pattern=r"^aster:"))
