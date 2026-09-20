@@ -152,7 +152,6 @@ def calam_list_keyboard(
     if nav:
         rows.append(nav)
     rows.append([kb_btn("🛰️ Mappa zona", "geo:sat")])
-    rows.append([kb_btn("🌋 Eventi", "world:flora")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
@@ -164,7 +163,6 @@ def calam_detail_keyboard(index: int) -> InlineKeyboardMarkup:
                 kb_btn("🛰️ Satellite", f"geo:img:{index}"),
                 kb_btn("🗺️ Mappa", f"geo:map:{index}"),
             ],
-            [kb_btn("⬅️ Lista", "geo:back")],
             nav_row(),
         ]
     )
@@ -177,8 +175,6 @@ def calam_photo_keyboard(index: int) -> InlineKeyboardMarkup:
                 kb_btn("🛰️ Satellite", f"geo:img:{index}"),
                 kb_btn("🗺️ Mappa", f"geo:map:{index}"),
             ],
-            [kb_btn("📍 Dettagli", f"geo:i:{index}")],
-            [kb_btn("⬅️ Lista", "geo:back")],
             nav_row(),
         ]
     )
@@ -202,7 +198,6 @@ def world_live_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔥 Incendi aperti", "geo:ev:wildfires"), kb_btn("🧊 Ghiaccio", "geo:ev:seaLakeIce")],
             [kb_btn("🌊 Alluvioni", "geo:ev:floods"), kb_btn("🪨 Frane", "geo:ev:landslides")],
             [kb_btn("🌵 Siccità", "geo:ev:drought"), kb_btn("📋 Tutti i fenomeni", "geo:events")],
-            [kb_btn("🌋 Eventi", "world:flora")],
             nav_row(),
         ]
     )
@@ -224,13 +219,7 @@ def natura_here_keyboard() -> InlineKeyboardMarkup:
 
 
 def natura_world_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("🔄 Aggiorna", "geo:world")],
-            [kb_btn("🌋 Eventi", "world:flora")],
-            nav_row(),
-        ]
-    )
+    return InlineKeyboardMarkup([nav_row()])
 
 
 def geo_quakes_keyboard() -> InlineKeyboardMarkup:

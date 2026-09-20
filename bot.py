@@ -341,7 +341,6 @@ from ui.keyboards import (
     calam_hub_keyboard,
     calam_list_keyboard,
     calam_photo_keyboard,
-    kb_btn,
     geo_after_keyboard,
     geo_events_keyboard,
     geo_hub_keyboard,
@@ -13394,12 +13393,7 @@ async def send_calam_place_sat(update: Update, context: ContextTypes.DEFAULT_TYP
     image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
     note = str(view.get("note") or "NASA Worldview / GIBS")
     text = format_calam_caption(key="quake", place=name, item=None, note=note, kind="map")
-    markup = InlineKeyboardMarkup(
-        [
-            [kb_btn("🌋 Eventi", "world:flora")],
-            nav_row(),
-        ]
-    )
+    markup = InlineKeyboardMarkup([nav_row()])
     if image:
         ok = await deliver_photo_bytes(
             update,
