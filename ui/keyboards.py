@@ -116,12 +116,20 @@ def compat_advanced_keyboard(*, has_natal: bool = False, has_syn: bool = False) 
         [kb_btn("♀️♂️ Venere e Marte", "cp:go:vm")],
         [kb_btn("☀️🌙⬆️ Big Three", "cp:go:b3")],
     ]
-    if has_natal:
-        rows.append([kb_btn("🌌 Due temi (sinastria)", "cp:syn")])
     if has_syn:
         rows.append([kb_btn("🏠 Overlay case", "cp:ov")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
+
+
+def compat_b3_source_keyboard(who: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("✍️ Li so già", f"cp:src:{who}:know")],
+            [kb_btn("📅 Calcolali da nascita", f"cp:src:{who}:calc")],
+            nav_row(),
+        ]
+    )
 
 
 def compat_sign_keyboard(prefix: str) -> InlineKeyboardMarkup:

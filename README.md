@@ -8,7 +8,7 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 
 ## Cosa fa
 
-Tutto è a **pulsanti**. Il menu comandi di Telegram è vuoto. L’unico slash che resta è `/start` (il bottone Start di Telegram): apre **BOTSQUAD**. Qualunque altro `/comando` viene ignorato e rimanda ai pulsanti. **📚 Aiuto** sta sul portale.
+Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/aiuto`. Qualunque altro `/comando` viene ignorato e rimanda ai pulsanti. **📚 Aiuto** sta anche sul portale.
 
 `/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO** ha Te stesso e Oracoli. **🔭 ASTRO** ha Cielo, Mondi, Vita, Missioni e il catalogo Pietre (l’estrazione simbolica resta in Oracoli). Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
 
@@ -27,7 +27,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Tema natale** chiede data, ora e città una alla volta, geocodifica con CosmyDay e calcola Sole, Luna, Ascendente, pianeti, case e aspetti.
 
-**Compatibilità** sta in 🔮 ORACOLO / Te stesso. Prima i due segni (Soli). Poi, se vuoi, Lune, ascendenti, Venere e Marte, Big Three. È astrologia tradizionale, non astronomia. Niente percentuali.
+**Compatibilità** sta in 🔮 ORACOLO / Te stesso. Prima i due segni (Soli). Poi, se vuoi, Lune, ascendenti, Venere e Marte, Big Three. Nella Big Three, per ciascuna persona: se conosci Sole/Luna/Ascendente li scegli; altrimenti il bot li calcola da data, ora e luogo. È astrologia tradizionale, non astronomia. Niente percentuali.
 
 **Tarocchi**: scegli lo spread, (se serve) scrivi la domanda, poi **PESCA LE CARTE**. L’API decide quali carte escono; dritta/rovesciata è casuale; i testi sono i significati ufficiali, tradotti e letti insieme.
 
@@ -92,7 +92,7 @@ Avvio:
 python bot.py
 ```
 
-Nei log deve comparire `Avvio in modalità POLLING`. Apri Telegram, cerca il bot, manda `/start` e usa i pulsanti (ORACOLO, ASTRO, Aiuto). Il menu comandi di Telegram deve essere vuoto.
+Nei log deve comparire `Avvio in modalità POLLING`. Apri Telegram, cerca il bot, manda `/start` e usa i pulsanti (ORACOLO, ASTRO, Aiuto). Nel menu comandi di Telegram restano solo Start e Aiuto.
 
 Per fermarlo: `Ctrl+C`.
 

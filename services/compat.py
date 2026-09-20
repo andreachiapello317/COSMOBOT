@@ -254,8 +254,8 @@ def format_big_three(
 ) -> str:
     lines = [
         "❤️ <b>BIG THREE</b>",
-        "<i>Sole, Luna e Ascendente calcolati da data, ora e luogo (Swiss Ephemeris). "
-        "Tre porte: identità, casa, primo incontro. Non è un verdetto.</i>",
+        "<i>Sole, Luna e Ascendente di due persone. Tre porte: identità, casa, primo incontro. "
+        "Chi li ha fatti calcolare usa data, ora e luogo (Swiss Ephemeris). Non è un verdetto.</i>",
         "",
     ]
     rows = (

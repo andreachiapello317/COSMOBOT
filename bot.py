@@ -5,8 +5,8 @@ astrologia, pianeti, stelle e astronomia.
 
 Tutto il contenuto "di fatto" arriva da API live. I testi fissi nel codice
 sono solo interfaccia (pulsanti, etichette, messaggi di errore), mai oroscopi
-o curiosità astronomiche inventate. Il menu Telegram è vuoto: si naviga
-a pulsanti. Resta solo /start per aprire BOTSQUAD.
+o curiosità astronomiche inventate. Si naviga a pulsanti. Nel menu Telegram
+restano solo /start e /aiuto.
 
 Avvio:
   - senza WEBHOOK_URL  -> polling (sviluppo locale)
@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from dotenv import load_dotenv
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
 
 from services.astronomy import stellarium_url, visibility_stars
 from services.catalog import (
@@ -223,6 +223,7 @@ from ui.keyboards import (
     world_self_keyboard,
     compat_advanced_keyboard,
     compat_after_keyboard,
+    compat_b3_source_keyboard,
     compat_element_keyboard,
     compat_hub_keyboard,
     compat_sign_keyboard,
@@ -353,6 +354,7 @@ NAV_SKIP_PREFIXES = (
     "cp:loc:",
     "cp:p:",
     "cp:el:",
+    "cp:src:",
 )
 NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
 
@@ -2022,7 +2024,7 @@ def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
         "🪐 <b>BOTSQUAD</b>\n"
-        "<i>Due bot, un Telegram. Tutto a pulsanti: non servono comandi da scrivere.</i>\n\n"
+        "<i>Due bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità) e Oracoli (tarocchi, I Ching, rune, Lenormand, "
         "estrazione pietre).\n"
@@ -8950,9 +8952,11 @@ async def _compat_my_sun(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def _compat_kb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> InlineKeyboardMarkup:
+    state = _compat_state(context)
+    two_charts = isinstance(state.get("chart_a"), dict) and isinstance(state.get("chart_b"), dict)
     return compat_after_keyboard(
         has_natal=await _compat_has_natal(update),
-        has_syn=isinstance(_compat_state(context).get("chart_b"), dict),
+        has_syn=two_charts,
     )
 
 
@@ -8978,7 +8982,8 @@ async def show_compat_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def show_compat_advanced(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     has_natal = await _compat_has_natal(update)
-    has_syn = isinstance(_compat_state(context).get("chart_b"), dict)
+    state = _compat_state(context)
+    has_syn = isinstance(state.get("chart_a"), dict) and isinstance(state.get("chart_b"), dict)
     await reply_html(
         update,
         context,
@@ -8992,6 +8997,13 @@ async def start_compat_mode(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     state["mode"] = mode
     state["picks"] = {}
     state["step"] = None
+    state["source"] = {}
+    state["who"] = "a"
+    for key in ("chart_a", "chart_b", "year", "month", "day", "hour", "minute", "lat", "lon", "place", "places", "time_unknown"):
+        state.pop(key, None)
+    if mode == "b3":
+        await show_compat_b3_source(update, context, "a")
+        return
     if mode == "el":
         chart = await _compat_my_chart(update, context)
         mine = chart_element(chart) if chart else None
@@ -9012,6 +9024,109 @@ async def start_compat_mode(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         if dest in points:
             picks[slot] = points[dest]
     await show_compat_slot(update, context)
+
+
+B3_PERSON_SLOTS = {
+    "a": (("as", "il Sole"), ("am", "la Luna"), ("aa", "l'Ascendente")),
+    "b": (("bs", "il Sole"), ("bm", "la Luna"), ("ba", "l'Ascendente")),
+}
+B3_POINT_MAP = {
+    "a": {"sun": "as", "moon": "am", "asc": "aa"},
+    "b": {"sun": "bs", "moon": "bm", "asc": "ba"},
+}
+
+
+def _compat_who_label(who: str) -> str:
+    return "prima persona" if who == "a" else "seconda persona"
+
+
+async def show_compat_b3_source(update: Update, context: ContextTypes.DEFAULT_TYPE, who: str) -> None:
+    state = _compat_state(context)
+    state["mode"] = "b3"
+    state["who"] = who
+    state["step"] = None
+    person = _compat_who_label(who)
+    await reply_html(
+        update,
+        context,
+        "❤️ <b>BIG THREE</b>\n"
+        f"<i>{person}</i>\n\n"
+        "Conosci già Sole, Luna e Ascendente, o li calcolo da data, ora e luogo di nascita?",
+        reply_markup=compat_b3_source_keyboard(who),
+    )
+
+
+async def show_compat_b3_signs(update: Update, context: ContextTypes.DEFAULT_TYPE, who: str) -> None:
+    state = _compat_state(context)
+    state["mode"] = "b3"
+    state["who"] = who
+    slots = B3_PERSON_SLOTS[who]
+    picks = state.setdefault("picks", {})
+    nxt = next((slot for slot, _label in slots if slot not in picks), None)
+    if nxt is None:
+        if who == "a":
+            await show_compat_b3_source(update, context, "b")
+            return
+        await finish_compat_mode(update, context)
+        return
+    label = dict(slots)[nxt]
+    person = _compat_who_label(who)
+    text = f"❤️ <b>BIG THREE</b>\n<i>{person} — segni che conosci.</i>\n\nScegli {label}."
+    filled = ", ".join(
+        f"{COMPAT_SIGNS[v][1]} {COMPAT_SIGNS[v][0]}" for slot, v in picks.items() if slot in dict(slots) and v in COMPAT_SIGNS
+    )
+    if filled:
+        text += f"\nGià scelti: {filled}"
+    await reply_html(update, context, text, reply_markup=compat_sign_keyboard(f"cp:p:{nxt}:"))
+
+
+async def compute_compat_b3_person(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _compat_state(context)
+    who = str(state.get("who") or "a")
+    if state.get("lat") is None or state.get("year") is None:
+        await ask_compat_birth_place(update, context)
+        return
+    await send_typing(update)
+    await deliver_text(update, context, "❤️ Calcolo Sole, Luna e Ascendente (Swiss Ephemeris)…")
+    client = _http_client(context)
+    try:
+        chart = await api_natal_chart(
+            client,
+            year=int(state["year"]),
+            month=int(state["month"]),
+            day=int(state["day"]),
+            hour=int(state.get("hour") or 12),
+            minute=int(state.get("minute") or 0),
+            lat=float(state["lat"]),
+            lon=float(state["lon"]),
+        )
+    except StelleOfflineError:
+        await reply_offline(update, context)
+        return
+    points = chart_points(chart)
+    picks = state.setdefault("picks", {})
+    mapping = B3_POINT_MAP[who]
+    for src, dest in mapping.items():
+        if src in points:
+            picks[dest] = points[src]
+    state[f"chart_{who}"] = chart
+    state[f"place_{who}"] = state.get("place")
+    state["step"] = None
+    for key in ("year", "month", "day", "hour", "minute", "lat", "lon", "place", "places", "time_unknown"):
+        state.pop(key, None)
+    if not all(picks.get(dest) in COMPAT_SIGNS for dest in mapping.values()):
+        await reply_html(
+            update,
+            context,
+            "❤️ Non ho trovato Sole, Luna e Ascendente su quella nascita. "
+            "Riprova a calcolarli, oppure sceglili a mano.",
+            reply_markup=compat_b3_source_keyboard(who),
+        )
+        return
+    if who == "a":
+        await show_compat_b3_source(update, context, "b")
+        return
+    await finish_compat_mode(update, context)
 
 
 async def show_compat_slot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -9092,45 +9207,73 @@ async def send_compat_signs(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 
 async def send_compat_overlay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chart_a = await _compat_my_chart(update, context)
-    chart_b = _compat_state(context).get("chart_b")
-    if not chart_a or not isinstance(chart_b, dict):
+    state = _compat_state(context)
+    chart_a = state.get("chart_a")
+    chart_b = state.get("chart_b")
+    if not isinstance(chart_a, dict) or not isinstance(chart_b, dict):
         await show_compat_hub(update, context)
         return
     await reply_html(update, context, format_overlays(chart_a, chart_b), reply_markup=await _compat_kb(update, context))
 
 
-async def ask_compat_other_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _compat_state(context)["step"] = "date"
+async def ask_compat_birth_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _compat_state(context)
+    state["step"] = "date"
+    person = _compat_who_label(str(state.get("who") or "a"))
+    title = "BIG THREE" if state.get("mode") == "b3" else "SINASTRIA"
     await reply_html(
         update,
         context,
-        "❤️ <b>SINASTRIA</b>\n\n"
-        "Il tuo tema salvato resta tu.\n"
-        "📅 Data di nascita dell'altra persona: <code>GG/MM/AAAA</code>",
+        f"❤️ <b>{title}</b>\n"
+        f"<i>{person} — li calcolo dalla nascita.</i>\n\n"
+        "📅 Data di nascita: <code>GG/MM/AAAA</code>",
         reply_markup=InlineKeyboardMarkup([nav_row()]),
     )
 
 
-async def ask_compat_other_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _compat_state(context)["step"] = "time"
+async def ask_compat_birth_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _compat_state(context)
+    state["step"] = "time"
+    person = _compat_who_label(str(state.get("who") or "a"))
     await reply_html(
         update,
         context,
-        "🕐 Ora di nascita dell'altra persona: <code>HH:MM</code>\n"
-        "Se non la sai, l'Ascendente sarà solo indicativo.",
+        f"🕐 Ora di nascita della {person}: <code>HH:MM</code>\n"
+        "Se non la sai, l'Ascendente sarà solo indicativo (uso mezzogiorno).",
         reply_markup=InlineKeyboardMarkup([[_tarot_btn("❓ Non conosco l'ora", "cp:notime")], nav_row()]),
     )
 
 
-async def ask_compat_other_place(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _compat_state(context)["step"] = "place"
+async def ask_compat_birth_place(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _compat_state(context)
+    state["step"] = "place"
+    person = _compat_who_label(str(state.get("who") or "a"))
     await reply_html(
         update,
         context,
-        "📍 Luogo di nascita dell'altra persona.\nEsempio: <code>Roma, Italia</code>",
+        f"📍 Luogo di nascita della {person}.\nEsempio: <code>Roma, Italia</code>",
         reply_markup=InlineKeyboardMarkup([nav_row()]),
     )
+
+
+async def ask_compat_other_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _compat_state(context)["who"] = "b"
+    await ask_compat_birth_date(update, context)
+
+
+async def ask_compat_other_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await ask_compat_birth_time(update, context)
+
+
+async def ask_compat_other_place(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await ask_compat_birth_place(update, context)
+
+
+async def _compat_after_place(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if _compat_state(context).get("mode") == "b3":
+        await compute_compat_b3_person(update, context)
+        return
+    await send_compat_synastry(update, context)
 
 
 async def send_compat_synastry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -9201,8 +9344,25 @@ async def dispatch_compat(update: Update, context: ContextTypes.DEFAULT_TYPE, to
     if action == "signs":
         await start_compat_mode(update, context, "signs")
         return
+    if action == "src" and extra in {"a", "b"} and extra2 in {"know", "calc"}:
+        state = _compat_state(context)
+        state["mode"] = "b3"
+        state["who"] = extra
+        state.setdefault("source", {})[extra] = extra2
+        for slot, _label in B3_PERSON_SLOTS[extra]:
+            state.setdefault("picks", {}).pop(slot, None)
+        state.pop(f"chart_{extra}", None)
+        if extra2 == "know":
+            await show_compat_b3_signs(update, context, extra)
+            return
+        await ask_compat_birth_date(update, context)
+        return
     if action == "p" and extra2 in COMPAT_SIGNS:
         _compat_state(context).setdefault("picks", {})[extra] = extra2
+        if _compat_state(context).get("mode") == "b3":
+            who = "a" if extra in {"as", "am", "aa"} else "b"
+            await show_compat_b3_signs(update, context, who)
+            return
         await show_compat_slot(update, context)
         return
     if action == "el" and extra2 in COMPAT_ELEMENTS:
@@ -9238,7 +9398,7 @@ async def dispatch_compat(update: Update, context: ContextTypes.DEFAULT_TYPE, to
         state = _compat_state(context)
         state["hour"], state["minute"] = 12, 0
         state["time_unknown"] = True
-        await ask_compat_other_place(update, context)
+        await ask_compat_birth_place(update, context)
         return
     if action == "loc" and extra.isdigit():
         places = _compat_state(context).get("places")
@@ -9247,9 +9407,9 @@ async def dispatch_compat(update: Update, context: ContextTypes.DEFAULT_TYPE, to
             _compat_state(context)["place"] = place.get("display")
             _compat_state(context)["lat"] = place.get("lat")
             _compat_state(context)["lon"] = place.get("lon")
-            await send_compat_synastry(update, context)
+            await _compat_after_place(update, context)
             return
-        await ask_compat_other_place(update, context)
+        await ask_compat_birth_place(update, context)
         return
     await show_compat_hub(update, context)
 
@@ -9275,7 +9435,7 @@ async def receive_compat_text(update: Update, context: ContextTypes.DEFAULT_TYPE
             return True
         state["year"], state["month"], state["day"] = parsed
         await delete_user_command(update)
-        await ask_compat_other_time(update, context)
+        await ask_compat_birth_time(update, context)
         return True
     if step == "time":
         parsed = parse_birth_time(text)
@@ -9290,7 +9450,7 @@ async def receive_compat_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         state["hour"], state["minute"] = parsed
         state["time_unknown"] = False
         await delete_user_command(update)
-        await ask_compat_other_place(update, context)
+        await ask_compat_birth_place(update, context)
         return True
     if step == "place":
         await send_typing(update)
@@ -9306,7 +9466,7 @@ async def receive_compat_text(update: Update, context: ContextTypes.DEFAULT_TYPE
             state["place"] = places[0].get("display")
             state["lat"] = places[0].get("lat")
             state["lon"] = places[0].get("lon")
-            await send_compat_synastry(update, context)
+            await _compat_after_place(update, context)
             return True
         rows = [[_tarot_btn(clip_text(str(p["display"]), 40), f"cp:loc:{idx}")] for idx, p in enumerate(places[:4])]
         rows.append(nav_row())
@@ -9436,10 +9596,14 @@ async def post_init(application: Application) -> None:
         follow_redirects=True,
     )
     try:
-        await application.bot.delete_my_commands()
-        await application.bot.set_my_commands([])
+        await application.bot.set_my_commands(
+            [
+                BotCommand("start", "BOTSQUAD — i bot"),
+                BotCommand("aiuto", "Come si usa"),
+            ]
+        )
     except TelegramError as exc:
-        logger.warning("Impossibile svuotare i comandi del menu Telegram: %s", exc)
+        logger.warning("Impossibile impostare i comandi del menu: %s", exc)
     logger.info("StelleBot inizializzato")
 
 
@@ -9460,6 +9624,7 @@ def build_application(token: str) -> Application:
     )
 
     application.add_handler(CommandHandler("start", cmd_start))
+    application.add_handler(CommandHandler(["aiuto", "help"], cmd_aiuto))
     application.add_handler(CallbackQueryHandler(on_oroscopo_period, pattern=r"^horo:"))
     application.add_handler(CallbackQueryHandler(on_tarot_action, pattern=r"^tarot:"))
     application.add_handler(CallbackQueryHandler(on_iching_action, pattern=r"^iching:"))

@@ -101,37 +101,27 @@ def world_self_text() -> str:
     )
 
 
-def compat_hub_text(*, has_natal: bool, has_syn: bool = False) -> str:
-    natal = (
-        "Se hai il tema, il tuo segno lo riempio io."
-        if has_natal
-        else "Scegli due segni. Per i due temi completi serve il tema salvato."
-    )
+def compat_hub_text(*, has_natal: bool = False, has_syn: bool = False) -> str:
     return _card(
         "❤️ <b>COMPATIBILITÀ</b>",
-        "Due segni, e basta. Nessuna percentuale, nessuna previsione.",
+        "Due persone, un confronto. Nessuna percentuale, nessuna previsione.",
         "♈ <b>Due segni</b> — i due Soli, il confronto classico.\n"
-        "✨ <b>Avanzate</b> — Lune, ascendenti, Venere e Marte, Big Three; "
-        "sinastria se hai il tema.\n\n"
-        f"{natal}",
+        "✨ <b>Avanzate</b> — Lune, ascendenti, Venere e Marte, Big Three.\n\n"
+        "Nella Big Three, per ciascuna persona: se li sai li scegli, "
+        "altrimenti li calcolo da data, ora e luogo.",
     )
 
 
-def compat_advanced_text(*, has_natal: bool, has_syn: bool = False) -> str:
-    extra = (
-        "🌌 <b>Due temi</b> — sinastria live sul tuo tema salvato.\n"
-        if has_natal
-        else "La sinastria sui due temi si sblocca con il 🌌 tema salvato.\n"
-    )
-    overlay = "🏠 Overlay delle case: dopo una sinastria.\n" if has_syn else ""
+def compat_advanced_text(*, has_natal: bool = False, has_syn: bool = False) -> str:
+    overlay = "🏠 Overlay delle case: dopo due carte calcolate.\n" if has_syn else ""
     return _card(
         "✨ <b>CONFRONTI AVANZATI</b>",
-        "Stessi segni, un altro punto della carta. Solo se lo conosci.",
+        "Un altro punto della carta, o le tre porte insieme.",
         "🌙 <b>Lune</b> — come vi sentite e vi accudite.\n"
         "⬆️ <b>Ascendenti</b> — come vi incontrate.\n"
         "♀️♂️ <b>Venere e Marte</b> — gusto e slancio.\n"
-        "☀️🌙⬆️ <b>Big Three</b> — sole, luna, ascendente.\n"
-        f"{extra}{overlay}\n"
+        "☀️🌙⬆️ <b>Big Three</b> — per ognuno: li sai già o li calcolo dalla nascita.\n"
+        f"{overlay}\n"
         "Tradizione, non un test di coppia.",
     )
 
