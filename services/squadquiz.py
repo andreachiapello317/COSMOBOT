@@ -17,17 +17,25 @@ WORLD_META: dict[str, dict[str, str]] = {
     "oracolo": {"emoji": "🔮", "name": "ORACOLO", "blurb": "Tradizione dei mazzi e dei segni. Non è una lettura."},
     "astro": {"emoji": "🔭", "name": "ASTRO", "blurb": "Catalogo e, se vuoi, domande live da Wikipedia."},
     "geo": {"emoji": "🌿", "name": "NATURA", "blurb": "Pietre, terra, vulcani, oceani. Fauna ancora no."},
-    "calc": {"emoji": "🧮", "name": "MATEMATICA", "blurb": "Calcoli veri. Il risultato si può verificare."},
-    "bussola": {"emoji": "🧭", "name": "BUSSOLA", "blurb": "Gradi, cardinali, linea d'aria. Non un esame di navigazione."},
+    "tool": {"emoji": "🧰", "name": "STRUMENTI", "blurb": "Calcoli, cardinali, conversioni. Il risultato si può verificare."},
 }
 
 TOPICS: dict[str, tuple[tuple[str, str], ...]] = {
     "oracolo": (("segni", "♈ Segni"), ("rune", "🪶 Rune"), ("leno", "🌿 Lenormand")),
     "astro": (("solare", "☀️ Sistema solare"), ("lune", "🌑 Lune"), ("live", "📡 Enciclopedia live")),
     "geo": (("pietre", "💎 Pietre"), ("terra", "🌍 Terra"), ("volc", "🔥 Vulcani"), ("ocean", "🌊 Oceani")),
-    "calc": (("arit", "➕ Calcoli"), ("pct", "➗ Percentuali"), ("conv", "🔄 Conversioni")),
-    "bussola": (("card", "🧭 Cardinali"), ("dir", "📐 Direzioni")),
+    "tool": (
+        ("arit", "➕ Calcoli"),
+        ("pct", "➗ Percentuali"),
+        ("conv", "🔄 Conversioni"),
+        ("card", "🧭 Cardinali"),
+        ("dir", "📐 Direzioni"),
+    ),
 }
+
+
+def canonical_wid(wid: str) -> str:
+    return {"calc": "tool", "bussola": "tool"}.get(str(wid or ""), str(wid or ""))
 
 
 def worlds() -> list[dict[str, str]]:
@@ -35,7 +43,7 @@ def worlds() -> list[dict[str, str]]:
 
 
 def topics_of(wid: str) -> tuple[tuple[str, str], ...]:
-    return TOPICS.get(wid, ())
+    return TOPICS.get(canonical_wid(wid), ())
 
 
 def topic_label(wid: str, tid: str) -> str:
@@ -231,7 +239,7 @@ def _math_arit() -> dict[str, Any] | None:
         pool,
         source="calcolo locale",
         explain=f"{a} {op} {b} = {pretty}.",
-        wid="calc",
+        wid="tool",
         tid="arit",
     )
 
@@ -249,7 +257,7 @@ def _math_pct() -> dict[str, Any] | None:
         others,
         source="calcolo locale",
         explain=f"{pct}% di {whole} = {pretty}.",
-        wid="calc",
+        wid="tool",
         tid="pct",
     )
 
@@ -274,7 +282,7 @@ def _math_conv() -> dict[str, Any] | None:
         distractors,
         source="fattori fissi (SI / consuetudine)",
         explain=f"{format_number(raw)} {src} = {pretty} {dst}.",
-        wid="calc",
+        wid="tool",
         tid="conv",
     )
 
@@ -290,7 +298,7 @@ def _bussola_card() -> dict[str, Any] | None:
             ["0", "45", "90", "135", "180", "270"],
             source="convenzione 0° = nord geografico",
             explain=f"{name.capitalize()} = {deg}°. Est 90, sud 180, ovest 270.",
-            wid="bussola",
+            wid="tool",
             tid="card",
         )
     return _mcq(
@@ -299,7 +307,7 @@ def _bussola_card() -> dict[str, Any] | None:
         ["nord", "est", "sud", "ovest"],
         source="convenzione 0° = nord geografico",
         explain=f"{deg}° è {name}.",
-        wid="bussola",
+        wid="tool",
         tid="card",
     )
 
@@ -340,9 +348,9 @@ def _bussola_dir() -> dict[str, Any] | None:
         question,
         correct,
         pool,
-        source="comportamento del bot BUSSOLA",
+        source="comportamento di STRUMENTI / Bussola",
         explain=explain,
-        wid="bussola",
+        wid="tool",
         tid="dir",
     )
 
@@ -357,6 +365,11 @@ BUILDERS = {
     ("geo", "terra"): lambda: _geo_list(EARTH_TOPICS, "terra", "Terra"),
     ("geo", "volc"): lambda: _geo_list(VOLCANOES, "volc", "Vulcani"),
     ("geo", "ocean"): lambda: _geo_list(OCEANS, "ocean", "Oceani"),
+    ("tool", "arit"): _math_arit,
+    ("tool", "pct"): _math_pct,
+    ("tool", "conv"): _math_conv,
+    ("tool", "card"): _bussola_card,
+    ("tool", "dir"): _bussola_dir,
     ("calc", "arit"): _math_arit,
     ("calc", "pct"): _math_pct,
     ("calc", "conv"): _math_conv,
@@ -366,6 +379,7 @@ BUILDERS = {
 
 
 def pick_local_question(wid: str, tid: str) -> dict[str, Any] | None:
+    wid = canonical_wid(wid)
     builder = BUILDERS.get((wid, tid))
     if builder is None:
         return None

@@ -15,12 +15,11 @@ def _card(title: str, intro: str, body: str = "") -> str:
 def all_hub_text() -> str:
     return _card(
         "🪐 <b>BOTSQUAD</b>",
-        "Sei bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
+        "Cinque bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
         "🌿 <b>NATURA</b> — flora, fauna, pietre.\n"
-        "🧮 <b>MATEMATICA</b> — calcolatrice, percentuali, conversioni.\n"
-        "🧭 <b>BUSSOLA</b> — posizione GPS, nord, direzione.\n"
+        "🧰 <b>STRUMENTI</b> — calcolatrice, bussola, coordinate, tempo.\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
@@ -241,12 +240,19 @@ def meteo_span_text(place: str) -> str:
 
 
 def math_hub_text() -> str:
+    return tool_hub_text()
+
+
+def tool_hub_text() -> str:
     return _card(
-        "🧮 <b>MATEMATICA</b>",
-        "Numeri, non oracoli e non cielo. La calcolatrice è una funzione, non tutto il bot.",
+        "🧰 <b>STRUMENTI</b>",
+        "Attrezzi. Numeri veri, niente oracoli e niente enciclopedia.",
         "🧮 <b>CALCOLATRICE</b> — tasti, come sul telefono\n"
-        "➗ <b>PERCENTUALE</b> — «20% di 150», sconti, aumenti\n"
-        "🔄 <b>CONVERSIONI</b> — km, miglia, metri, piedi, kg, libbre, °C, °F",
+        "➗ <b>PERCENTUALE</b> · 🔄 <b>CONVERSIONI</b>\n"
+        "🧭 <b>BUSSOLA</b> — posizione, nord, verso un luogo\n"
+        "📐 <b>COORDINATE</b> — decimale e gradi-minuti-secondi\n"
+        "📅 <b>GIORNO GIULIANO</b> — JD / MJD da Astronomy Engine\n"
+        "🕐 <b>CHE ORA È</b> — ora locale di una città (Open-Meteo)",
     )
 
 
@@ -255,7 +261,7 @@ def calc_hub_text(expr: str = "", error: str = "") -> str:
     extra = f"\n\n⚠️ {_html.escape(error)}" if error else ""
     return (
         "🧮 <b>CALCOLATRICE</b>\n"
-        "<i>Una funzione di MATEMATICA. Solo aritmetica.</i>\n\n"
+        "<i>Una funzione di STRUMENTI. Solo aritmetica.</i>\n\n"
         f"<code>{_html.escape(shown)}</code>"
         f"{extra}"
     )
@@ -287,7 +293,7 @@ def math_convert_text(kind: str = "", result: str = "") -> str:
 def compass_hub_text() -> str:
     return _card(
         "🧭 <b>BUSSOLA</b>",
-        "Posizione e direzione. Numeri da coordinate, non un navigatore stradale.",
+        "Dentro STRUMENTI. Posizione e direzione, non un navigatore stradale.",
         "📍 <b>POSIZIONE GPS</b> — coordinate, quota del terreno, declinazione, mappa\n"
         "🧭 <b>BUSSOLA</b> — nord geografico e nord magnetico in quel punto\n"
         "🎯 <b>VERSO UN LUOGO</b> — distanza in linea d'aria e azimut\n\n"
@@ -530,16 +536,15 @@ def quiz_hub_text() -> str:
         "🔮 ORACOLO — segni, rune, Lenormand (niente letture)\n"
         "🔭 ASTRO — sistema solare, lune, enciclopedia live\n"
         "🌿 NATURA — pietre, terra, vulcani, oceani\n"
-        "🧮 MATEMATICA — calcoli, percentuali, conversioni\n"
-        "🧭 BUSSOLA — cardinali e come funziona il bot\n\n"
+        "🧰 STRUMENTI — calcoli, conversioni, cardinali\n\n"
         "La classifica è solo tua. I mondi non si mescolano.",
     )
 
 
 def quiz_world_text(wid: str) -> str:
-    from services.squadquiz import WORLD_META, topics_of
+    from services.squadquiz import WORLD_META, canonical_wid, topics_of
 
-    meta = WORLD_META.get(wid) or {"emoji": "🧩", "name": wid.upper(), "blurb": ""}
+    meta = WORLD_META.get(canonical_wid(wid)) or {"emoji": "🧩", "name": wid.upper(), "blurb": ""}
     lines = [f"{label}" for _tid, label in topics_of(wid)]
     body = "\n".join(lines) if lines else "Questo mondo non ha ancora argomenti."
     return _card(

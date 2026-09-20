@@ -81,6 +81,7 @@ from services.imagine import format_imaginary, generate_world
 from services.i18n import compass_it, discovery_it, event_name_it, kp_label_it, star_it
 from services.eclipses import fetch_eclipses, kind_it, next_of, parse_peak
 from services.iss import fetch_iss_position, fetch_people_in_space, reverse_iss_place
+from services.tools import format_coord_card, format_julian_card, parse_coord_pair, parse_tool_date
 from services.sats import GROUPS as SAT_GROUPS
 from services.sats import SATS, format_sat_card, format_sat_group, locate_sat
 from services.neo import near_earth_asteroids
@@ -328,6 +329,8 @@ from ui.keyboards import (
     math_convert_keyboard,
     math_hub_keyboard,
     math_percent_keyboard,
+    tool_hub_keyboard,
+    tool_result_keyboard,
     meteo_keyboard,
     meteo_span_keyboard,
     sky_result_keyboard,
@@ -455,6 +458,7 @@ from ui.texts import (
     math_convert_text,
     math_hub_text,
     math_percent_text,
+    tool_hub_text,
     meteo_span_text,
 )
 from telegram.constants import ChatAction, ParseMode
@@ -1580,7 +1584,7 @@ def nav_pop(context: ContextTypes.DEFAULT_TYPE) -> str | None:
 
 def _cmd_begin(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     _flows_reset(context)
-    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:calc", "bot:bussola", "bot:quiz", "bot:cosmo", "bot:next"}:
+    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:calc", "bot:bussola", "bot:tool", "bot:quiz", "bot:cosmo", "bot:next"}:
         here = context.user_data.get(NAV_HERE_KEY)
         if here in {None, "home:menu"}:
             context.user_data[NAV_STACK_KEY] = ["home:menu"]
@@ -2387,7 +2391,7 @@ def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
         "🪐 <b>BOTSQUAD</b>\n"
-        "<i>Sei bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
+        "<i>Cinque bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
@@ -2397,9 +2401,8 @@ def help_text() -> str:
         "Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
-        "🧮 <b>MATEMATICA</b> — calcolatrice, percentuali, conversioni.\n"
-        "🧭 <b>BUSSOLA</b> — posizione GPS, nord magnetico, direzione verso un luogo.\n"
-        "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, natura, matematica, bussola.\n\n"
+        "🧰 <b>STRUMENTI</b> — calcolatrice, percentuali, conversioni, bussola, coordinate, giorno giuliano, che ora è.\n"
+        "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, natura, strumenti.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
         "nome del segno in chat.\n\n"
@@ -2442,10 +2445,14 @@ def _calc_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
     return state
 
 
-async def show_math_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    nav_mark(context, "bot:calc")
+async def show_tool_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "bot:tool")
     context.user_data[MATH_ASK_KEY] = None
-    await reply_html(update, context, math_hub_text(), reply_markup=math_hub_keyboard())
+    await reply_html(update, context, tool_hub_text(), reply_markup=tool_hub_keyboard())
+
+
+async def show_math_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await show_tool_hub(update, context)
 
 
 async def show_calc_hub(update: Update, context: ContextTypes.DEFAULT_TYPE, *, error: str = "") -> None:
@@ -2488,6 +2495,105 @@ async def show_math_convert(
         src, dst, _mul, _add = CONVERSIONS[kind]
         label = f"{src} → {dst}"
     await reply_html(update, context, math_convert_text(label, result), reply_markup=math_convert_keyboard())
+
+
+async def dispatch_tool(update: Update, context: ContextTypes.DEFAULT_TYPE, action: str) -> None:
+    if action in {"hub", "", "home"}:
+        await show_tool_hub(update, context)
+        return
+    if action == "coord":
+        await send_tool_coord(update, context)
+        return
+    if action == "jd":
+        await send_tool_jd(update, context)
+        return
+    if action == "clock":
+        _ensure_cielo_place(context)
+        name, lat, lon = _cielo_place(context)
+        await send_tool_clock(update, context, name=name, lat=lat, lon=lon)
+        return
+    await show_tool_hub(update, context)
+
+
+async def send_tool_coord(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    lat: float | None = None,
+    lon: float | None = None,
+    name: str = "",
+) -> None:
+    nav_mark(context, "tool:coord")
+    context.user_data[MATH_ASK_KEY] = {"mode": "coord"}
+    if lat is None or lon is None:
+        _ensure_cielo_place(context)
+        name, lat, lon = _cielo_place(context)
+    text = format_coord_card(name or "Cuneo", float(lat), float(lon))
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=tool_result_keyboard("coord", [_tarot_btn("📍 Cambia città", "loc:go:coord")]),
+    )
+
+
+async def send_tool_jd(update: Update, context: ContextTypes.DEFAULT_TYPE, when: datetime | None = None) -> None:
+    nav_mark(context, "tool:jd")
+    context.user_data[MATH_ASK_KEY] = {"mode": "jd"}
+    stamp = when or datetime.now(timezone.utc)
+    label = stamp.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    await reply_html(
+        update,
+        context,
+        format_julian_card(stamp, label),
+        reply_markup=tool_result_keyboard("jd"),
+    )
+
+
+async def send_tool_clock(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    name: str,
+    lat: float,
+    lon: float,
+) -> None:
+    nav_mark(context, "tool:clock")
+    await send_typing(update)
+    tz_name = await api_timezone_name(_http_client(context), lat, lon)
+    try:
+        zone = ZoneInfo(tz_name)
+    except Exception:
+        zone = DEFAULT_TZ
+        tz_name = str(DEFAULT_TZ)
+    local = datetime.now(zone)
+    utc = datetime.now(timezone.utc)
+    offset = local.utcoffset()
+    off_h = (offset.total_seconds() / 3600.0) if offset else 0.0
+    sign = "+" if off_h >= 0 else "−"
+    text = (
+        f"🕐 <b>CHE ORA È — {e(name.upper())}</b>\n"
+        "<i>Fuso da Open-Meteo. Non è un orologio atomico.</i>\n\n"
+        f"Lì: <b>{local.strftime('%d/%m/%Y %H:%M:%S')}</b>\n"
+        f"UTC: <code>{utc.strftime('%d/%m/%Y %H:%M:%S')}</code>\n"
+        f"Fuso: <code>{e(tz_name)}</code> · UTC{sign}{abs(off_h):.0f}h"
+    )
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=tool_result_keyboard("clock", [_tarot_btn("📍 Cambia città", "loc:go:clock")]),
+    )
+
+
+async def on_tool_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    action = query.data.split(":")[1] if ":" in query.data else ""
+    await query.answer()
+    await dispatch_tool(update, context, action)
 
 
 async def on_calc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2576,11 +2682,8 @@ async def on_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if action == "geo":
         await show_geo_hub(update, context)
         return
-    if action == "calc":
-        await show_math_hub(update, context)
-        return
-    if action == "bussola":
-        await show_bussola_hub(update, context)
+    if action in {"calc", "bussola", "tool"}:
+        await show_tool_hub(update, context)
         return
     if action == "quiz":
         await show_quiz_bot_hub(update, context)
@@ -5950,11 +6053,8 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         if action == "geo":
             await show_geo_hub(update, context)
             return
-        if action == "calc":
-            await show_math_hub(update, context)
-            return
-        if action == "bussola":
-            await show_bussola_hub(update, context)
+        if action in {"calc", "bussola", "tool"}:
+            await show_tool_hub(update, context)
             return
         if action == "quiz":
             await show_quiz_bot_hub(update, context)
@@ -5978,6 +6078,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
             await show_math_convert(update, context)
             return
         await show_math_hub(update, context)
+        return
+    if prefix == "tool":
+        await dispatch_tool(update, context, action)
         return
     if prefix == "geo":
         await dispatch_geo(update, context, token)
@@ -8089,6 +8192,8 @@ async def show_place_picker(
         "compass": "Da dove calcolo nord geografico e magnetico?",
         "brfrom": "Da dove parti? Poi ti chiedo la destinazione.",
         "brto": "Verso quale città o luogo?",
+        "clock": "Di quale città vuoi l'ora locale?",
+        "coord": "Di quale luogo vuoi le coordinate in decimale e in gradi?",
         "watch": "Da dove punta l'osservatorio? La salvo per stelle, eventi e Horizons.",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
@@ -8126,6 +8231,14 @@ async def apply_place(
     if purpose == "natev":
         _remember_natura_place(context, name, lat, lon)
         await send_natura_here(update, context)
+        return
+    if purpose == "clock":
+        _remember_cielo_place(context, name, lat, lon)
+        await send_tool_clock(update, context, name=name, lat=lat, lon=lon)
+        return
+    if purpose == "coord":
+        _remember_cielo_place(context, name, lat, lon)
+        await send_tool_coord(update, context, name=name, lat=lat, lon=lon)
         return
     if purpose in {"gps", "compass", "brfrom", "brto"}:
         await apply_bussola_place(
@@ -9859,11 +9972,17 @@ async def show_quiz_bot_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 async def show_quiz_world(update: Update, context: ContextTypes.DEFAULT_TYPE, wid: str) -> None:
+    from services.squadquiz import canonical_wid
+
+    wid = canonical_wid(wid)
     nav_mark(context, f"sq:w:{wid}")
     await reply_html(update, context, quiz_world_text(wid), reply_markup=quiz_world_keyboard(wid))
 
 
 async def send_squad_question(update: Update, context: ContextTypes.DEFAULT_TYPE, wid: str, tid: str) -> None:
+    from services.squadquiz import canonical_wid
+
+    wid = canonical_wid(wid)
     await send_typing(update)
     item: dict[str, Any] | None = None
     if wid == "astro" and tid == "live":
@@ -12283,7 +12402,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale.\n"
         "Scrivi un segno (es. <i>vergine</i>) per l'oroscopo, "
-        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧮 MATEMATICA, 🧭 BUSSOLA o 🧩 QUIZ.",
+        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧰 STRUMENTI o 🧩 QUIZ.",
         reply_markup=all_hub_keyboard(),
     )
 
@@ -12293,7 +12412,7 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update,
         context,
         "I comandi scritti non ci sono più: qui si va a pulsanti.\n"
-        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧮 MATEMATICA, 🧭 BUSSOLA o 🧩 QUIZ, oppure 📚 Aiuto.",
+        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧰 STRUMENTI o 🧩 QUIZ, oppure 📚 Aiuto.",
         reply_markup=all_hub_keyboard(),
     )
     await delete_user_command(update)
@@ -12511,7 +12630,7 @@ def _bussola_place(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
 
 
 async def show_bussola_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    nav_mark(context, "bot:bussola")
+    nav_mark(context, "cmp:hub")
     context.user_data[COMPASS_SHARE_KEY] = False
     await reply_html(update, context, compass_hub_text(), reply_markup=compass_hub_keyboard())
 
@@ -12852,6 +12971,23 @@ async def receive_math_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             result=f"{calc_format_number(number)} {src} = {calc_format_number(out)} {dst}",
         )
         return
+    if mode == "coord":
+        parsed = parse_coord_pair(text)
+        await delete_user_command(update)
+        if parsed is None:
+            await send_tool_coord(update, context)
+            return
+        lat, lon = parsed
+        await send_tool_coord(update, context, lat=lat, lon=lon, name="punto scritto")
+        return
+    if mode == "jd":
+        parsed = parse_tool_date(text)
+        await delete_user_command(update)
+        if parsed is None:
+            await send_tool_jd(update, context)
+            return
+        await send_tool_jd(update, context, when=parsed)
+        return
     context.user_data[MATH_ASK_KEY] = None
     await show_math_hub(update, context)
 
@@ -13000,6 +13136,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_lett_action, pattern=r"^lett:"))
     application.add_handler(CallbackQueryHandler(on_bot_action, pattern=r"^bot:"))
     application.add_handler(CallbackQueryHandler(on_calc_action, pattern=r"^calc:"))
+    application.add_handler(CallbackQueryHandler(on_tool_action, pattern=r"^tool:"))
     application.add_handler(CallbackQueryHandler(on_cmp_action, pattern=r"^cmp:"))
     application.add_handler(CallbackQueryHandler(on_sq_action, pattern=r"^sq:"))
     application.add_handler(CallbackQueryHandler(on_sky_action, pattern=r"^sky:"))

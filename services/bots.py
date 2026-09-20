@@ -30,18 +30,10 @@ BOTS: tuple[dict[str, Any], ...] = (
         "worlds": ("flora", "fauna", "pietre"),
     },
     {
-        "id": "calc",
-        "emoji": "🧮",
-        "name": "MATEMATICA",
-        "tag": "Calcolatrice, percentuali, conversioni",
-        "ready": True,
-        "worlds": (),
-    },
-    {
-        "id": "bussola",
-        "emoji": "🧭",
-        "name": "BUSSOLA",
-        "tag": "GPS, nord, direzione",
+        "id": "tool",
+        "emoji": "🧰",
+        "name": "STRUMENTI",
+        "tag": "Calcolatrice, bussola, coordinate",
         "ready": True,
         "worlds": (),
     },
@@ -56,7 +48,7 @@ BOTS: tuple[dict[str, Any], ...] = (
 )
 
 # Vecchi token: COSMO → ORACOLO, slot vuoto → ASTRO.
-ALIASES = {"cosmo": "oracolo", "next": "astro"}
+ALIASES = {"cosmo": "oracolo", "next": "astro", "calc": "tool", "bussola": "tool"}
 
 
 def canonical_bot_id(sid: str) -> str:
@@ -82,8 +74,8 @@ def parent_bot_token(token: str) -> str:
         return f"bot:{canonical_bot_id(raw.split(':', 1)[1])}"
     if raw.startswith("loc:go:natev"):
         return "bot:geo"
-    if raw.startswith(("loc:go:gps", "loc:go:compass", "loc:go:brfrom", "loc:go:brto")):
-        return "bot:bussola"
+    if raw.startswith(("loc:go:gps", "loc:go:compass", "loc:go:brfrom", "loc:go:brto", "loc:go:clock", "loc:go:coord")):
+        return "bot:tool"
     if raw.startswith(
         ("loc:go:cielo", "loc:go:meteo", "loc:go:sole", "loc:go:osserva", "loc:go:luna", "loc:go:watch")
     ):
@@ -142,10 +134,8 @@ def parent_bot_token(token: str) -> str:
     )
     if any(raw == key or raw.startswith(key) for key in geo):
         return "bot:geo"
-    if raw.startswith("calc:"):
-        return "bot:calc"
-    if raw.startswith("cmp:"):
-        return "bot:bussola"
+    if raw.startswith(("calc:", "cmp:", "tool:")):
+        return "bot:tool"
     if raw.startswith("sq:"):
         return "bot:quiz"
     return "bot:astro"

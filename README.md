@@ -10,7 +10,7 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 
 Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/aiuto`. Qualunque altro `/comando` viene ignorato e rimanda ai pulsanti. **📚 Aiuto** sta anche sul portale.
 
-`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO**, **🔭 ASTRO**, **🌿 NATURA**, **🧮 MATEMATICA**, **🧭 BUSSOLA** e **🧩 QUIZ**. Il quiz è un bot a parte: scegli il mondo, poi l'argomento. Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
+`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO**, **🔭 ASTRO**, **🌿 NATURA**, **🧰 STRUMENTI** e **🧩 QUIZ**. Il quiz è un bot a parte: scegli il mondo, poi l'argomento. Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
 
 | Pulsante / mondo | Effetto | Fonte live |
 | --- | --- | --- |
@@ -21,13 +21,13 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🔭 ASTRO → Meteo | Subito il meteo di **Cuneo** (o dell'ultima città), oggi e domani. Puoi cambiare giorni o città | [Open-Meteo](https://open-meteo.com) |
 | 🔭 ASTRO → Osservatorio | Cielo di adesso (6 carte + grado), Horizons NASA, Satelliti live (ISS, equipaggio, Tiangong, Hubble, Terra, meteo) | Hipparcos + Astronomy Engine + [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) + WTIA + TLE/SGP4 |
 | 🔭 ASTRO → Studia lo spazio | Enciclopedia Wikipedia: sistema solare, stelle, galassie, satelliti, sonde, missioni. Niente salvati né casuale | Wikipedia / Wikidata / NASA TAP |
-| 🧮 MATEMATICA → Calcolatrice | Tastierino aritmetico | calcolo locale |
-| 🧮 MATEMATICA → Percentuale | 20% di, su, aumenta, sconta | calcolo locale |
-| 🧮 MATEMATICA → Conversioni | km/miglia, m/piedi, kg/libbre, °C/°F | fattori fissi |
-| 🧭 BUSSOLA → Posizione GPS | Coordinate, quota terreno, declinazione, mappa | Open-Meteo + BGS WMM + Nominatim |
-| 🧭 BUSSOLA → Bussola | Nord geografico e magnetico in un punto | BGS WMM 2025 |
-| 🧭 BUSSOLA → Verso un luogo | Distanza in linea d'aria e azimut | calcolo locale + WMM |
-| 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, natura, matematica, bussola | cataloghi locali; ASTRO ha anche Wikipedia live |
+| 🧰 STRUMENTI → Calcolatrice | Tastierino aritmetico | calcolo locale |
+| 🧰 STRUMENTI → Percentuale / Conversioni | 20% di, km/miglia, °C/°F… | calcolo locale |
+| 🧰 STRUMENTI → Bussola | GPS, nord magnetico, verso un luogo | Open-Meteo + BGS WMM + Nominatim |
+| 🧰 STRUMENTI → Coordinate | Decimale ↔ gradi-minuti-secondi | calcolo locale |
+| 🧰 STRUMENTI → Giorno giuliano | JD / MJD | Astronomy Engine |
+| 🧰 STRUMENTI → Che ora è | Ora locale di una città | Open-Meteo timezone |
+| 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, natura, strumenti | cataloghi locali; ASTRO ha anche Wikipedia live |
 | 🌿 NATURA → Flora → Eventi | Catastrofi e fenomeni importanti nel mondo (senza il mare di incendi) | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
 | 🌿 NATURA → Flora → Live | Scosse USGS e fenomeni NASA aperti; ogni evento ha cosa/dove e un link alla fonte | USGS + NASA EONET |
 | 🌿 NATURA → Flora → Esplora | Enciclopedia: terra, oceani, mari, vulcani, placche, ghiacciai | Wikipedia / Wikidata |
@@ -48,7 +48,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Pietre in Consultazioni**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
-**Cielo** in ASTRO è Sole, Luna e Terra da un luogo: scheda alba/tramonto, Luna (fase, illuminazione, quarti), Terra (giorno/notte, stagione, distanze) e uno **schema a emoji** Sole–Luna–Terra. Non è l'enciclopedia di NATURA. **Osservatorio** ha un solo **Cielo di adesso**: le 6 carte PNG (frecce per lo stile e per il grado: Tutto / Facile / Occhio nudo / Binocolo) e, a parte, **Cosa osservare stasera**. **Tutto** è il cielo completo, senza filtro. Gli altri gradi nascondono Sole e oggetti troppo deboli o bassi; se è ancora giorno usano le 22:00. **Horizons NASA** resta a parte (schede singolo corpo da [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/tutorial.html); **Calcoli**: più alto, più luminoso, separazioni, prossimo a sorgere; stelle Hipparcos; eventi e prossimi). Horizons non è un catalogo stellare. **Satelliti** in Osservatorio è il posto live: ISS (Where the ISS at?), chi è lassù (Open Notify), Tiangong, Hubble, osservazione Terra e meteo sat (TLE + SGP4). I passaggi sopra una città non si inventano. **Studia lo spazio** è l'enciclopedia, anche satelliti e sonde. **Meteo** apre subito la previsione di Cuneo (o dell'ultima città): oggi e domani, con i tasti per 3/7/14 giorni o un'altra città. **MATEMATICA** ha la calcolatrice come una funzione, più percentuali e conversioni. **BUSSOLA** chiede una città e dà coordinate, nord e direzione. **QUIZ** è il sesto bot: una porta per ogni mondo, domande nel recinto di quel bot. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Se non scegli una città, il bot usa **Cuneo, Italia**. Il tasto GPS è stato tolto: su Telegram desktop non funzionava. Non si mescolano.
+**Cielo** in ASTRO è Sole, Luna e Terra da un luogo: scheda alba/tramonto, Luna (fase, illuminazione, quarti), Terra (giorno/notte, stagione, distanze) e uno **schema a emoji** Sole–Luna–Terra. Non è l'enciclopedia di NATURA. **Osservatorio** ha un solo **Cielo di adesso**: le 6 carte PNG (frecce per lo stile e per il grado: Tutto / Facile / Occhio nudo / Binocolo) e, a parte, **Cosa osservare stasera**. **Tutto** è il cielo completo, senza filtro. Gli altri gradi nascondono Sole e oggetti troppo deboli o bassi; se è ancora giorno usano le 22:00. **Horizons NASA** resta a parte (schede singolo corpo da [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/tutorial.html); **Calcoli**: più alto, più luminoso, separazioni, prossimo a sorgere; stelle Hipparcos; eventi e prossimi). Horizons non è un catalogo stellare. **Satelliti** in Osservatorio è il posto live: ISS (Where the ISS at?), chi è lassù (Open Notify), Tiangong, Hubble, osservazione Terra e meteo sat (TLE + SGP4). I passaggi sopra una città non si inventano. **Studia lo spazio** è l'enciclopedia, anche satelliti e sonde. **Meteo** apre subito la previsione di Cuneo (o dell'ultima città): oggi e domani, con i tasti per 3/7/14 giorni o un'altra città. **STRUMENTI** unisce calcolatrice, percentuali, conversioni, bussola, coordinate, giorno giuliano e l'ora di una città. **QUIZ** è il quinto bot: una porta per ogni mondo, domande nel recinto di quel bot. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Se non scegli una città, il bot usa **Cuneo, Italia**. Il tasto GPS è stato tolto: su Telegram desktop non funzionava. Non si mescolano.
 
 Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 
@@ -230,9 +230,10 @@ services/runes.py      # dataset Elder Futhark
 services/iss.py        # posizione ISS e equipaggio
 services/sats.py       # TLE live + SGP4 (Tiangong, Hubble, Terra, meteo)
 services/astronomy.py  # visibilità da numeri live
-services/bots.py       # registro BOTSQUAD (ORACOLO + ASTRO)
-ui/keyboards.py        # BOTSQUAD + ORACOLO + ASTRO
-ui/texts.py            # testi BOTSQUAD / ORACOLO / ASTRO
+services/bots.py       # registro BOTSQUAD (cinque bot)
+services/tools.py      # coordinate e giorno giuliano di STRUMENTI
+ui/keyboards.py        # BOTSQUAD + ORACOLO + ASTRO + STRUMENTI
+ui/texts.py            # testi BOTSQUAD / ORACOLO / ASTRO / STRUMENTI
 requirements.txt
 .env.example
 README.md
