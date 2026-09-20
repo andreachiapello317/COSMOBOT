@@ -356,6 +356,7 @@ from ui.keyboards import (
     birthday_alert_keyboard,
     birthday_keyboard,
     calendar_events_keyboard,
+    calendar_hub_keyboard,
     clock_calendar_keyboard,
     compass_hub_keyboard,
     compass_result_keyboard,
@@ -496,6 +497,7 @@ from ui.texts import (
     math_convert_text,
     math_hub_text,
     math_percent_text,
+    calendar_hub_text,
     tool_hub_text,
     meteo_span_text,
 )
@@ -2509,7 +2511,7 @@ def help_text() -> str:
         "🌍 <b>TERRA</b> — Eventi (atmosferici e naturali, live), "
         "Animali live (iNaturalist), Pietre.\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
-        "eventi di calendario, ora, calendario e compleanni.\n"
+        "calendario (ora, eventi, compleanni).\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, terra, strumenti.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
@@ -2583,6 +2585,14 @@ async def show_tool_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await reply_html(update, context, tool_hub_text(), reply_markup=tool_hub_keyboard())
 
 
+async def show_calendar_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "tool:calhub")
+    ask = context.user_data.get(MATH_ASK_KEY)
+    if isinstance(ask, dict) and ask.get("mode") == "bday":
+        context.user_data[MATH_ASK_KEY] = None
+    await reply_html(update, context, calendar_hub_text(), reply_markup=calendar_hub_keyboard())
+
+
 async def show_math_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await show_tool_hub(update, context)
 
@@ -2635,6 +2645,9 @@ async def dispatch_tool(
 ) -> None:
     if action in {"hub", "", "home"}:
         await show_tool_hub(update, context)
+        return
+    if action in {"calhub", "tempo"}:
+        await show_calendar_hub(update, context)
         return
     if action == "coord":
         await send_tool_coord(update, context)

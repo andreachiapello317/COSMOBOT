@@ -548,8 +548,18 @@ def tool_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🧮 Calcolatrice", "calc:pad")],
             [kb_btn("🔄 Conversioni", "calc:conv")],
             [kb_btn("🧭 Bussola", "cmp:hub")],
-            [kb_btn("📅 Eventi di calendario", "tool:feste")],
-            [kb_btn("🕐 Ora e calendario", "tool:clock")],
+            [kb_btn("📅 Calendario", "tool:calhub")],
+            nav_row(),
+        ]
+    )
+
+
+def calendar_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🕐 Ora e mese", "tool:clock")],
+            [kb_btn("📅 Eventi", "tool:feste")],
+            [kb_btn("🎂 Compleanni", "tool:bd")],
             nav_row(),
         ]
     )
@@ -576,7 +586,7 @@ def clock_calendar_keyboard() -> InlineKeyboardMarkup:
                 kb_btn("◀ mese", "tool:cal:prev"),
                 kb_btn("mese ▶", "tool:cal:next"),
             ],
-            [kb_btn("🕐 Ora", "tool:clock"), kb_btn("🎂 Compleanni", "tool:bd")],
+            [kb_btn("🕐 Ora", "tool:clock"), kb_btn("📅 Eventi", "tool:feste"), kb_btn("🎂 Compleanni", "tool:bd")],
             nav_row(),
         ]
     )
@@ -591,7 +601,7 @@ def birthday_keyboard(items: list[dict] | None = None) -> InlineKeyboardMarkup:
         name = str(item.get("name") or "compleanno")[:16]
         if sid:
             rows.append([kb_btn(f"🗑 {name}", f"tool:bd:rm:{sid}")])
-    rows.append([kb_btn("🕐 Calendario", "tool:clock")])
+    rows.append([kb_btn("🕐 Mese", "tool:clock"), kb_btn("📅 Eventi", "tool:feste")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
@@ -626,6 +636,7 @@ def calendar_events_keyboard(page: int = 0, pages: int = 1) -> InlineKeyboardMar
             kb_btn("anno ▶", "tool:feste:ynext"),
         ]
     )
+    rows.append([kb_btn("🕐 Mese", "tool:clock"), kb_btn("🎂 Compleanni", "tool:bd")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 

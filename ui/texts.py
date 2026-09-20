@@ -251,8 +251,17 @@ def tool_hub_text() -> str:
         "🧮 <b>CALCOLATRICE</b> — scientifica: sen, log, radici, π\n"
         "🔄 <b>CONVERSIONI</b> — lunghezza, massa, temperatura, cielo…\n"
         "🧭 <b>BUSSOLA</b> — posizione, coordinate, nord, verso un luogo\n"
-        "📅 <b>EVENTI DI CALENDARIO</b> — Pasqua, Natale, Italia, mondo, stagioni\n"
-        "🕐 <b>ORA E CALENDARIO</b> — ora italiana, il mese, i compleanni",
+        "📅 <b>CALENDARIO</b> — ora e mese, eventi (Pasqua, Natale…), compleanni",
+    )
+
+
+def calendar_hub_text() -> str:
+    return _card(
+        "📅 <b>CALENDARIO</b>",
+        "Una cartella di STRUMENTI. Ora italiana, feste, compleanni.",
+        "🕐 <b>ORA E MESE</b> — orologio e griglia del mese\n"
+        "📅 <b>EVENTI</b> — Pasqua, Natale, Italia, mondo, stagioni\n"
+        "🎂 <b>COMPLEANNI</b> — li carichi tu, avviso il giorno",
     )
 
 
