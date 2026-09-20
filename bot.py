@@ -161,7 +161,14 @@ from services.geoapp import clean_purpose, install_geo_http, register_pin_handle
 from services.weather import fetch_forecast, fetch_now_conditions, format_forecast, parse_forecast_request
 from services.moon import moon_now, next_quarters
 from services.skycatalog import SkyFrame, visible_stars as catalog_stars
-from services.skychart import draw_sky_chart
+from services.skychart import (
+    SKY_STYLES,
+    draw_figure_chart,
+    draw_horizon_chart,
+    draw_sky_chart,
+    format_emoji_sky,
+    sky_style_label,
+)
 from services.watchevents import snapshot, tonight_picks, upcoming_events
 from services.horizons import (
     BODIES,
@@ -296,12 +303,12 @@ from ui.keyboards import (
     watch_bodies_keyboard,
     watch_next_keyboard,
     watch_result_keyboard,
+    watch_sky_keyboard,
     world_watch_keyboard,
     oracoli_keyboard,
     oracoli_mazzi_keyboard,
     oracle_surprise_after_keyboard,
     pianeti_now_keyboard,
-    place_here_button,
     place_hub_keyboard,
     place_list_keyboard,
     sky_catalog_keyboard,
@@ -435,10 +442,10 @@ from telegram.ext import (
 # scorpio, sagittarius, capricorn, aquarius, pisces.
 DEFAULT_SIGN = "libra"
 
-# Coordinate di default per Luna e pianeti (Roma). L'Italia merita il suo cielo.
-DEFAULT_LAT = 41.9028
-DEFAULT_LON = 12.4964
-DEFAULT_PLACE_NAME = "Roma"
+# Coordinate di default per Luna e pianeti (Cuneo).
+DEFAULT_LAT = 44.3904
+DEFAULT_LON = 7.5483
+DEFAULT_PLACE_NAME = "Cuneo, Italia"
 DEFAULT_TZ = ZoneInfo("Europe/Rome")
 
 # Messaggio unico quando un'API esterna non risponde.
@@ -458,6 +465,7 @@ TELEGRAM_CAPTION_MAX = 1024
 LAST_BOT_MSG_KEY = "last_bot_msg"
 CIELO_LAST_KEY = "cielo_last"
 WATCH_EVENTS_KEY = "watch_next_events"
+WATCH_SKY_KEY = "watch_sky_style"
 NATURA_LAST_KEY = "natura_last"
 BUSSOLA_LAST_KEY = "bussola_last"
 MATH_ASK_KEY = "math_ask"
@@ -750,12 +758,13 @@ EVENT_KIND_IT = {
 }
 
 OSSERVA_CITIES = (
-    ("Roma", 41.9028, 12.4964),
-    ("Milano", 45.4642, 9.1900),
-    ("Napoli", 40.8518, 14.2681),
+    ("Cuneo", 44.3904, 7.5483),
     ("Torino", 45.0703, 7.6869),
-    ("Palermo", 38.1157, 13.3613),
+    ("Milano", 45.4642, 9.1900),
+    ("Roma", 41.9028, 12.4964),
     ("Firenze", 43.7696, 11.2558),
+    ("Napoli", 40.8518, 14.2681),
+    ("Palermo", 38.1157, 13.3613),
 )
 PLACE_IT = OSSERVA_CITIES
 PLACE_WORLD = (
@@ -2341,9 +2350,9 @@ def help_text() -> str:
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
-        "pianeti sopra di te: città o la tua posizione, niente carte).\n"
+        "pianeti sopra di te: città, default Cuneo, niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (luna e alba/tramonto), Meteo, Osservatorio "
-        "(carta del cielo, stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
+        "(cielo di adesso in più modi, stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
@@ -4444,10 +4453,8 @@ async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     if action == "cielo":
         await query.answer()
+        _ensure_cielo_place(context)
         name, lat, lon = _cielo_place(context)
-        if name == DEFAULT_PLACE_NAME and not context.user_data.get(CIELO_LAST_KEY):
-            await show_place_picker(update, context, "cielo")
-            return
         await send_cielo(update, context, name=name, lat=lat, lon=lon)
         return
     if action == "pianeta":
@@ -4933,7 +4940,6 @@ def osserva_picker_keyboard() -> InlineKeyboardMarkup:
             pair = []
     if pair:
         rows.append(pair)
-    rows.append([place_here_button("osserva")])
     rows.append([_tarot_btn("✍️ Altra città", "osserva:ask")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
@@ -5378,8 +5384,7 @@ async def show_osserva_picker(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data[LOC_ASK_KEY] = True
     text = (
         "🔭 <b>COSA POSSO VEDERE STASERA?</b>\n\n"
-        "Scegli una città, oppure tocca <b>La tua posizione</b>: "
-        "leggo il GPS e la uso come se l'avessi scritta tu. "
+        "Scegli una città. Se non la tocchi, uso Cuneo. "
         "Uso posizione, data e ora per Luna, pianeti "
         "e costellazioni sopra l'orizzonte.\n\n"
         "Oppure scrivi un'altra città in un messaggio."
@@ -5397,11 +5402,8 @@ async def show_osserva_ask_city(update: Update, context: ContextTypes.DEFAULT_TY
         context,
         "🔭 <b>Da dove guardi?</b>\n\n"
         "Scrivi città e paese.\n"
-        "Esempio: <code>Bologna, Italia</code>\n\n"
-        "Oppure tocca <b>La tua posizione</b>: leggo il GPS e la uso come città.",
-        reply_markup=InlineKeyboardMarkup(
-            [[place_here_button("osserva")], nav_row()]
-        ),
+        "Esempio: <code>Cuneo, Italia</code>.",
+        reply_markup=InlineKeyboardMarkup([nav_row()]),
     )
 
 
@@ -6042,8 +6044,7 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
                 update,
                 context,
                 "📍 <b>Da dove guardi?</b>\n\n"
-                "Scrivi città e paese.\nEsempio: <code>Bologna, Italia</code>\n\n"
-                "Oppure tocca <b>La tua posizione</b>: leggo il GPS e la uso come città.",
+                "Scrivi città e paese.\nEsempio: <code>Cuneo, Italia</code>.",
                 reply_markup=cielo_picker_keyboard(),
             )
             return
@@ -7192,6 +7193,11 @@ def _has_cielo_place(context: ContextTypes.DEFAULT_TYPE) -> bool:
     return isinstance(last, dict) and last.get("lat") is not None
 
 
+def _ensure_cielo_place(context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_cielo_place(context):
+        _remember_cielo_place(context, DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON)
+
+
 def _remember_natura_place(context: ContextTypes.DEFAULT_TYPE, name: str, lat: float, lon: float) -> None:
     context.user_data[NATURA_LAST_KEY] = {"name": name, "lat": lat, "lon": lon}
 
@@ -7219,9 +7225,10 @@ async def show_cielo_hub(
     force_pick: bool = False,
 ) -> None:
     nav_mark(context, "world:sky")
-    if force_pick or not _has_cielo_place(context):
+    if force_pick:
         await show_place_picker(update, context, "cielo")
         return
+    _ensure_cielo_place(context)
     name, _lat, _lon = _cielo_place(context)
     await reply_html(update, context, world_sky_text(name), reply_markup=world_sky_keyboard())
 
@@ -7233,9 +7240,10 @@ async def show_watch_hub(
     force_pick: bool = False,
 ) -> None:
     nav_mark(context, "world:watch")
-    if force_pick or not _has_cielo_place(context):
+    if force_pick:
         await show_place_picker(update, context, "watch")
         return
+    _ensure_cielo_place(context)
     name, _lat, _lon = _cielo_place(context)
     await reply_html(update, context, world_watch_text(name), reply_markup=world_watch_keyboard())
 
@@ -7250,10 +7258,7 @@ async def on_sky_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await query.answer()
         await show_cielo_hub(update, context, force_pick=True)
         return
-    if not _has_cielo_place(context):
-        await query.answer()
-        await show_place_picker(update, context, "cielo")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     await query.answer()
     if action == "luna":
@@ -7283,14 +7288,11 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.answer()
         await show_watch_hub(update, context, force_pick=True)
         return
-    if not _has_cielo_place(context):
-        await query.answer()
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     await query.answer()
     if action == "now":
-        await send_sky_now(update, context)
+        await send_sky_now(update, context, style=extra or None)
         return
     if action == "stelle":
         await send_sky_stars(update, context, name=name, lat=lat, lon=lon)
@@ -7492,38 +7494,76 @@ async def send_horizons_body(update: Update, context: ContextTypes.DEFAULT_TYPE,
     )
 
 
-async def send_sky_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+def _sky_style(context: ContextTypes.DEFAULT_TYPE, asked: str | None = None) -> str:
+    current = str(context.user_data.get(WATCH_SKY_KEY) or "classic")
+    if current not in SKY_STYLES:
+        current = "classic"
+    if asked in {"next", "prev"}:
+        step = 1 if asked == "next" else -1
+        current = SKY_STYLES[(SKY_STYLES.index(current) + step) % len(SKY_STYLES)]
+    elif asked in SKY_STYLES:
+        current = asked
+    context.user_data[WATCH_SKY_KEY] = current
+    return current
+
+
+async def send_sky_now(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    style: str | None = None,
+) -> None:
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
+    chosen = _sky_style(context, style)
     await send_typing(update)
-    await deliver_text(update, context, f"🔭 Disegno il cielo sopra {name}…")
     tz, now = await _watch_clock(context, lat, lon)
+    label = sky_style_label(chosen)
+    idx = SKY_STYLES.index(chosen) + 1
+    head = (
+        f"🔭 <b>CIELO DI ADESSO — {e(name.upper())}</b>\n"
+        f"{e(format_day_it(now))} · {now.strftime('%H:%M')} · modo {idx}/{len(SKY_STYLES)} · {e(label)}"
+    )
+    markup = watch_sky_keyboard(chosen)
+    if chosen == "emoji":
+        try:
+            body = format_emoji_sky(place=name, lat=lat, lon=lon, when=now)
+        except Exception:
+            logger.exception("Cielo emoji non generato")
+            await reply_offline(update, context)
+            return
+        await reply_html(update, context, f"{head}\n\n{body}", reply_markup=markup)
+        return
+    await deliver_text(update, context, f"🔭 Disegno il cielo sopra {name} ({label})…")
     try:
-        png = draw_sky_chart(place=name, lat=lat, lon=lon, when=now)
+        if chosen == "horizon":
+            png = draw_horizon_chart(place=name, lat=lat, lon=lon, when=now)
+        elif chosen == "figures":
+            png = draw_figure_chart(place=name, lat=lat, lon=lon, when=now)
+        else:
+            png = draw_sky_chart(place=name, lat=lat, lon=lon, when=now)
     except Exception:
         logger.exception("Carta del cielo non generata")
         await reply_offline(update, context)
         return
     caption = (
-        f"🔭 <b>CIELO DI ADESSO — {e(name.upper())}</b>\n"
-        f"{e(format_day_it(now))} · {now.strftime('%H:%M')}\n"
-        "N in alto, orizzonte sul bordo. Stelle Hipparcos; Sole, Luna e pianeti da Astronomy Engine."
+        f"{head}\n"
+        "Stelle Hipparcos; Sole, Luna e pianeti da Astronomy Engine. Scorri i modi con ◀ ▶."
     )
     ok = await deliver_photo_bytes(
         update,
         context,
         png,
         caption,
-        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Rigenera", "watch:now")]),
+        filename="cielo.png",
+        reply_markup=markup,
     )
     if not ok:
         await reply_html(
             update,
             context,
             caption + "\n\nLa PNG non è partita. Riprova.",
-            reply_markup=watch_result_keyboard([_tarot_btn("🔄 Rigenera", "watch:now")]),
+            reply_markup=markup,
         )
 
 
@@ -7759,8 +7799,8 @@ async def show_place_picker(
         text = (
             f"📍 <b>DOVE TI TROVI?</b>\n\n"
             f"{e(prompt)}\n\n"
-            "📍 <b>La tua posizione</b> legge il GPS e la uso come se l'avessi "
-            "scritta tu. Oppure Italia, una città del mondo, o scrivila."
+            "Se non scegli, uso <b>Cuneo, Italia</b>. "
+            "Oppure Italia, una città del mondo, o scrivila."
         )
         markup = place_hub_keyboard(purpose)
     await reply_html(update, context, text, reply_markup=markup)
@@ -7855,15 +7895,8 @@ async def on_wx_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     parts = query.data.split(":")
     action = parts[1] if len(parts) > 1 else ""
     extra = parts[2] if len(parts) > 2 else ""
-    last = context.user_data.get(CIELO_LAST_KEY)
-    if not isinstance(last, dict) or last.get("lat") is None:
-        await query.answer()
-        purpose = "luna" if action == "luna" else "meteo"
-        await show_place_picker(update, context, purpose)
-        return
-    name = str(last.get("name") or DEFAULT_PLACE_NAME)
-    lat = float(last["lat"])
-    lon = float(last["lon"])
+    _ensure_cielo_place(context)
+    name, lat, lon = _cielo_place(context)
     await query.answer()
     if action == "luna":
         await send_luna_here(update, context, name=name, lat=lat, lon=lon)
@@ -7900,8 +7933,8 @@ async def on_loc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await show_place_picker(update, context, _loc_purpose(context), step=action)
         return
     if action == "here":
-        await query.answer()
-        await show_place_picker(update, context, _loc_purpose(context))
+        await query.answer(DEFAULT_PLACE_NAME)
+        await apply_place(update, context, DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON)
         return
     if action == "ask":
         await query.answer()
@@ -7911,10 +7944,8 @@ async def on_loc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             update,
             context,
             "📍 <b>Scrivi la città</b>\n\n"
-            "Città e paese. Esempio: <code>Lisbona, Portogallo</code>, "
-            "<code>Buenos Aires</code>, <code>Osaka, Giappone</code>.\n\n"
-            "Oppure tocca <b>La tua posizione</b>: leggo il GPS e la uso "
-            "come se l'avessi scritta tu.",
+            "Città e paese. Esempio: <code>Cuneo, Italia</code>, "
+            "<code>Lisbona, Portogallo</code>, <code>Osaka, Giappone</code>.",
             reply_markup=place_hub_keyboard(purpose),
         )
         return
@@ -7936,9 +7967,7 @@ async def show_meteo_span(update: Update, context: ContextTypes.DEFAULT_TYPE, *,
 
 async def receive_meteo_span(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
     context.user_data[METEO_ASK_KEY] = False
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "meteo")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     span = parse_forecast_request(text)
     await delete_user_command(update)
@@ -8323,7 +8352,6 @@ def cielo_picker_keyboard() -> InlineKeyboardMarkup:
             pair = []
     if pair:
         rows.append(pair)
-    rows.append([place_here_button("cielo")])
     rows.append([_tarot_btn("✍️ Altra città", "cielo:ask")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
@@ -8750,8 +8778,7 @@ async def on_cielo_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             context,
             "📍 <b>Da dove guardi?</b>\n\n"
             "Scrivi città e paese.\n"
-            "Esempio: <code>Bologna, Italia</code>\n\n"
-            "Oppure tocca <b>La tua posizione</b>: leggo il GPS e la uso come città.",
+            "Esempio: <code>Cuneo, Italia</code>.",
             reply_markup=cielo_picker_keyboard(),
         )
         return

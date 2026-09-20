@@ -36,7 +36,7 @@ def oracolo_hub_text() -> str:
         "Bot di BOTSQUAD per guardarsi dentro. Simboli, non telescopio.",
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
         "🃏 <b>CONSULTAZIONI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n"
-        "🌌 <b>INTERROGA IL CIELO</b> — luna, stelle e pianeti sopra di te (città o GPS)\n\n"
+        "🌌 <b>INTERROGA IL CIELO</b> — luna, stelle e pianeti sopra di te (città, default Cuneo)\n\n"
         "Il cielo misurato sta in 🔭 ASTRO. La Terra e le pietre stanno in 🌿 NATURA.",
     )
 
@@ -47,7 +47,7 @@ def astro_hub_text() -> str:
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
         "☀️ <b>CIELO</b> — luna (fasi) e alba/tramonto da un luogo\n"
         "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
-        "🔭 <b>OSSERVATORIO</b> — carta del cielo, stelle, Horizons, stasera\n"
+        "🔭 <b>OSSERVATORIO</b> — cielo di adesso (più modi), stelle, Horizons, stasera\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
@@ -144,7 +144,7 @@ def world_div_text() -> str:
 def world_asksky_text() -> str:
     return _card(
         "🌌 <b>INTERROGA IL CIELO</b>",
-        "Prima il luogo (città o la tua posizione). Poi il cielo sopra di te: luna, stelle, pianeti. Niente carte.",
+        "Prima il luogo (default Cuneo). Poi il cielo sopra di te: luna, stelle, pianeti. Niente carte.",
         "Altezza e orari sono astronomia. La lettura è mistica, non un effetto dimostrato.",
     )
 
@@ -153,7 +153,7 @@ def world_sky_text(place: str = "") -> str:
     where = (
         f"Città salvata: <b>{_html.escape(place)}</b>."
         if place
-        else "Appena entri, chiedo la città o la tua posizione e la tengo."
+        else "Se non scegli una città, uso Cuneo."
     )
     return _card(
         "☀️ <b>CIELO</b>",
@@ -168,13 +168,13 @@ def world_watch_text(place: str = "") -> str:
     where = (
         f"Città salvata: <b>{_html.escape(place)}</b>."
         if place
-        else "Appena entri, chiedo la città o la tua posizione e la tengo."
+        else "Se non scegli una città, uso Cuneo."
     )
     return _card(
         "🔭 <b>OSSERVATORIO</b>",
         "Cosa sta sopra di te, adesso. Stelle da Hipparcos; Sole, Luna, pianeti e comete da JPL Horizons.",
         f"{where}\n"
-        "🔭 Cielo di adesso (PNG) · ⭐ Stelle · 🪐 Pianeti · 🌙 Luna\n"
+        "🔭 Cielo di adesso (più modi, scorri) · ⭐ Stelle · 🪐 Pianeti · 🌙 Luna\n"
         "☄️ Comete · 🛰️ Satelliti (ISS live) · 🌠 Eventi · 🔭 Stasera · 📅 Prossimi\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
     )
@@ -240,8 +240,7 @@ def compass_hub_text() -> str:
         "📍 <b>POSIZIONE GPS</b> — coordinate, quota del terreno, declinazione, mappa\n"
         "🧭 <b>BUSSOLA</b> — nord geografico e nord magnetico in quel punto\n"
         "🎯 <b>VERSO UN LUOGO</b> — distanza in linea d'aria e azimut\n\n"
-        "Puoi scrivere una città o toccare 📍 La tua posizione: "
-        "leggo il GPS e la uso come se l'avessi scritta tu.",
+        "Puoi scrivere una città. Se non la dici, uso Cuneo.",
     )
 
 

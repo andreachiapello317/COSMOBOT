@@ -251,22 +251,10 @@ def world_asksky_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def place_here_button(purpose: str | None = None) -> InlineKeyboardButton:
-    # Solo callback: Telegram rifiuta web_app se il dominio non è in BotFather
-    # (Button_type_invalid) e Cielo/Meteo/Osservatorio non si aprono.
-    if purpose in {"gps", "compass", "brfrom", "brto"}:
-        return kb_btn("📍 La tua posizione", f"loc:go:{purpose}")
-    return kb_btn("📍 La tua posizione", "loc:here")
-
-
-def place_here_row(purpose: str | None = None) -> list[InlineKeyboardButton]:
-    return [place_here_button(purpose)]
-
-
 def place_hub_keyboard(purpose: str | None = None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            place_here_row(purpose),
+            [kb_btn("📍 Cuneo, Italia", "loc:city:it:0")],
             [kb_btn("🇮🇹 Italia", "loc:it"), kb_btn("🌍 Mondo", "loc:wd")],
             [kb_btn("✍️ Scrivi una città", "loc:ask")],
             nav_row(),
@@ -281,7 +269,6 @@ def place_list_keyboard(
 ) -> InlineKeyboardMarkup:
     buttons = [kb_btn(f"📍 {name}", f"loc:city:{kind}:{idx}") for idx, (name, _lat, _lon) in enumerate(cities)]
     grid = _pairs(buttons)
-    grid.append(place_here_row(purpose))
     grid.append([kb_btn("✍️ Altra città", "loc:ask")])
     grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
@@ -434,6 +421,23 @@ def watch_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardM
     return InlineKeyboardMarkup(rows)
 
 
+def watch_sky_keyboard(style: str) -> InlineKeyboardMarkup:
+    from services.skychart import sky_style_label
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                kb_btn("◀", "watch:now:prev"),
+                kb_btn(sky_style_label(style), f"watch:now:{style}"),
+                kb_btn("▶", "watch:now:next"),
+            ],
+            [kb_btn("🔄 Rigenera", f"watch:now:{style}")],
+            [kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")],
+            nav_row(),
+        ]
+    )
+
+
 def watch_bodies_keyboard(kind: str) -> InlineKeyboardMarkup:
     from services.horizons import COMETS, PLANETS, ROCKS
 
@@ -513,7 +517,6 @@ def compass_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("📍 Posizione GPS", "cmp:gps")],
             [kb_btn("🧭 Bussola", "cmp:needle")],
             [kb_btn("🎯 Verso un luogo", "cmp:to")],
-            place_here_row("gps"),
             nav_row(),
         ]
     )
@@ -565,7 +568,7 @@ def compass_result_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("📍 Posizione", "cmp:gps"), kb_btn("🧭 Bussola", "cmp:needle")],
             [kb_btn("🎯 Verso un luogo", "cmp:to")],
-            [kb_btn("📍 Cambia luogo", "cmp:city"), place_here_button("gps")],
+            [kb_btn("📍 Cambia luogo", "cmp:city")],
             nav_row(),
         ]
     )
