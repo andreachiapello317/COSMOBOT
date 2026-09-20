@@ -554,7 +554,7 @@ def format_events_card(view: str, year: int, today: date, page: int = 0) -> tupl
             day = row["date"]
             assert isinstance(day, date)
             note = str(row.get("note") or "").strip()
-            bit = f"\n<i>{_html.escape(note)}</i>" if note else ""
+            bit = f"\n<i>{_html.escape(note, quote=False)}</i>" if note else ""
             lines.append(
                 f"{row['emoji']} <b>{_html.escape(str(row['title']))}</b> · "
                 f"{_fmt_short(day)} · <i>{_ago(day, today)}</i>{bit}"
