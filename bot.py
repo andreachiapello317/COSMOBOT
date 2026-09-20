@@ -34,11 +34,14 @@ import httpx
 from dotenv import load_dotenv
 from telegram import (
     BotCommand,
+    Chat,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputMediaPhoto,
+    Message,
     ReplyKeyboardRemove,
     Update,
+    User,
 )
 
 from services.astronomy import stellarium_url, visibility_stars
@@ -153,6 +156,7 @@ from services.compass import (
     format_gps,
     reverse_place,
 )
+from services.geoapp import clean_purpose, install_geo_http, register_pin_handler
 from services.weather import fetch_forecast, format_forecast, parse_forecast_request
 from services.moon import moon_now, next_quarters
 from services.horizons import (
@@ -289,6 +293,7 @@ from ui.keyboards import (
     oracoli_mazzi_keyboard,
     oracle_surprise_after_keyboard,
     pianeti_now_keyboard,
+    place_here_button,
     place_hub_keyboard,
     place_list_keyboard,
     sky_catalog_keyboard,
@@ -405,6 +410,7 @@ from telegram.constants import ChatAction, ParseMode
 from telegram.error import TelegramError
 from telegram.ext import (
     Application,
+    CallbackContext,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
@@ -4821,7 +4827,7 @@ def osserva_picker_keyboard() -> InlineKeyboardMarkup:
             pair = []
     if pair:
         rows.append(pair)
-    rows.append([_tarot_btn("📍 La tua posizione", "loc:here")])
+    rows.append([place_here_button("osserva")])
     rows.append([_tarot_btn("✍️ Altra città", "osserva:ask")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
@@ -5266,8 +5272,8 @@ async def show_osserva_picker(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data[LOC_ASK_KEY] = True
     text = (
         "🔭 <b>COSA POSSO VEDERE STASERA?</b>\n\n"
-        "Scegli una città, oppure tocca <b>La tua posizione</b> e manda il GPS "
-        "dalla graffetta 📎. "
+        "Scegli una città, oppure tocca <b>La tua posizione</b>: "
+        "leggo il GPS e la uso come se l'avessi scritta tu. "
         "Uso posizione, data e ora per Luna, pianeti "
         "e costellazioni sopra l'orizzonte.\n\n"
         "Oppure scrivi un'altra città in un messaggio."
@@ -5286,9 +5292,9 @@ async def show_osserva_ask_city(update: Update, context: ContextTypes.DEFAULT_TY
         "🔭 <b>Da dove guardi?</b>\n\n"
         "Scrivi città e paese.\n"
         "Esempio: <code>Bologna, Italia</code>\n\n"
-        "Oppure tocca <b>La tua posizione</b> e manda il GPS dalla graffetta 📎.",
+        "Oppure tocca <b>La tua posizione</b>: leggo il GPS e la uso come città.",
         reply_markup=InlineKeyboardMarkup(
-            [[_tarot_btn("📍 La tua posizione", "loc:here")], nav_row()]
+            [[place_here_button("osserva")], nav_row()]
         ),
     )
 
@@ -5931,7 +5937,7 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
                 context,
                 "📍 <b>Da dove guardi?</b>\n\n"
                 "Scrivi città e paese.\nEsempio: <code>Bologna, Italia</code>\n\n"
-                "Oppure tocca <b>La tua posizione</b> e manda il GPS dalla graffetta 📎.",
+                "Oppure tocca <b>La tua posizione</b>: leggo il GPS e la uso come città.",
                 reply_markup=cielo_picker_keyboard(),
             )
             return
@@ -7380,19 +7386,18 @@ async def show_place_picker(
     prompt = titles.get(purpose, "In quale città ti trovi?")
     if step == "it":
         text = f"📍 <b>ITALIA</b>\n\n{e(prompt)}"
-        markup = place_list_keyboard("it", PLACE_IT)
+        markup = place_list_keyboard("it", PLACE_IT, purpose)
     elif step == "wd":
         text = f"📍 <b>MONDO</b>\n\n{e(prompt)}"
-        markup = place_list_keyboard("wd", PLACE_WORLD)
+        markup = place_list_keyboard("wd", PLACE_WORLD, purpose)
     else:
         text = (
             f"📍 <b>DOVE TI TROVI?</b>\n\n"
             f"{e(prompt)}\n\n"
-            "📍 <b>La tua posizione</b> — poi 📎 graffetta → <b>Posizione</b> "
-            "(su computer il tasto GPS di Telegram è spento).\n"
-            "Oppure Italia, una città del mondo, o scrivila: vale qualsiasi luogo."
+            "📍 <b>La tua posizione</b> legge il GPS e la uso come se l'avessi "
+            "scritta tu. Oppure Italia, una città del mondo, o scrivila."
         )
-        markup = place_hub_keyboard()
+        markup = place_hub_keyboard(purpose)
     await reply_html(update, context, text, reply_markup=markup)
 
 
@@ -7463,7 +7468,7 @@ async def receive_place_city(update: Update, context: ContextTypes.DEFAULT_TYPE,
             update,
             context,
             "Non trovo quel luogo. Prova <code>Bologna, Italia</code> o <code>Tokyo, Giappone</code>.",
-            reply_markup=place_hub_keyboard(),
+            reply_markup=place_hub_keyboard(_loc_purpose(context)),
         )
         return
     place = places[0]
@@ -7530,21 +7535,22 @@ async def on_loc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await show_place_picker(update, context, _loc_purpose(context), step=action)
         return
     if action == "here":
-        await query.answer("📎 Graffetta → Posizione")
-        await ask_telegram_location(update, context)
+        await query.answer()
+        await show_place_picker(update, context, _loc_purpose(context))
         return
     if action == "ask":
         await query.answer()
         context.user_data[LOC_ASK_KEY] = True
+        purpose = _loc_purpose(context)
         await reply_html(
             update,
             context,
             "📍 <b>Scrivi la città</b>\n\n"
             "Città e paese. Esempio: <code>Lisbona, Portogallo</code>, "
             "<code>Buenos Aires</code>, <code>Osaka, Giappone</code>.\n\n"
-            "Oppure tocca <b>La tua posizione</b> e manda il GPS dalla graffetta 📎, "
-            "senza scrivere nulla.",
-            reply_markup=place_hub_keyboard(),
+            "Oppure tocca <b>La tua posizione</b>: leggo il GPS e la uso "
+            "come se l'avessi scritta tu.",
+            reply_markup=place_hub_keyboard(purpose),
         )
         return
     if action == "city" and extra in {"it", "wd"} and extra2.isdigit():
@@ -7952,7 +7958,7 @@ def cielo_picker_keyboard() -> InlineKeyboardMarkup:
             pair = []
     if pair:
         rows.append(pair)
-    rows.append([_tarot_btn("📍 La tua posizione", "loc:here")])
+    rows.append([place_here_button("cielo")])
     rows.append([_tarot_btn("✍️ Altra città", "cielo:ask")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
@@ -8421,7 +8427,7 @@ async def on_cielo_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "📍 <b>Da dove guardi?</b>\n\n"
             "Scrivi città e paese.\n"
             "Esempio: <code>Bologna, Italia</code>\n\n"
-            "Oppure tocca <b>La tua posizione</b> e manda il GPS dalla graffetta 📎.",
+            "Oppure tocca <b>La tua posizione</b>: leggo il GPS e la uso come città.",
             reply_markup=cielo_picker_keyboard(),
         )
         return
@@ -11914,18 +11920,7 @@ async def ask_telegram_location(
     context.user_data[COMPASS_SHARE_KEY] = True
     context.user_data[LOC_ASK_KEY] = True
     await _drop_reply_keyboard(update, context)
-    await reply_html(
-        update,
-        context,
-        "📍 <b>LA TUA POSIZIONE</b>\n\n"
-        "Telegram non manda il GPS da un tasto sotto il messaggio: "
-        "su computer quel tasto risulta <b>non disponibile</b>.\n\n"
-        "📎 Tocca la <b>graffetta</b> in basso → <b>Posizione</b> → "
-        "<b>Invia la mia posizione attuale</b>.\n"
-        "Vale da telefono e da computer. Non serve scrivere la città.\n\n"
-        "Oppure Italia, una città del mondo, o scrivila qui sotto.",
-        reply_markup=place_hub_keyboard(),
-    )
+    await show_place_picker(update, context, purpose or _loc_purpose(context))
 
 
 async def dispatch_compass(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
@@ -11966,10 +11961,7 @@ async def on_cmp_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if query is None or not query.data:
         return
     _remember_from_callback(update, context)
-    if query.data == "cmp:share":
-        await query.answer("📎 Graffetta → Posizione")
-    else:
-        await query.answer()
+    await query.answer()
     await dispatch_compass(update, context, query.data)
 
 
@@ -11982,6 +11974,49 @@ def _message_geo(message: Any) -> tuple[Any, str | None] | None:
     if loc is not None:
         return loc, None
     return None
+
+
+async def apply_shared_gps(
+    application: Application,
+    user_id: int,
+    lat: float,
+    lon: float,
+    purpose: str | None,
+    accuracy_m: float | None = None,
+    heading: float | None = None,
+) -> str:
+    """Reverse geocode + stessa strada di una città scritta a mano."""
+    context = CallbackContext(application, chat_id=user_id, user_id=user_id)
+    chosen = clean_purpose(purpose)
+    if chosen:
+        context.user_data[LOC_PURPOSE_KEY] = chosen
+    context.user_data[LOC_ASK_KEY] = True
+    context.user_data[COMPASS_SHARE_KEY] = True
+    client = _http_client(context)
+    try:
+        name = await reverse_place(client, lat, lon)
+    except Exception:
+        name = "La tua posizione"
+    chat = Chat(id=user_id, type=Chat.PRIVATE)
+    user = User(id=user_id, is_bot=False, first_name="tu")
+    message = Message(
+        message_id=0,
+        date=datetime.now(timezone.utc),
+        chat=chat,
+        from_user=user,
+    )
+    update = Update(update_id=0, message=message)
+    await apply_place(
+        update,
+        context,
+        name,
+        lat,
+        lon,
+        accuracy_m=accuracy_m,
+        heading=heading,
+        source="Telegram",
+    )
+    return name
 
 
 async def on_user_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -12263,6 +12298,21 @@ def main() -> None:
         sys.exit(1)
 
     application = build_application(token)
+
+    async def on_geo_pin(
+        user_id: int,
+        lat: float,
+        lon: float,
+        purpose: str | None,
+        accuracy_m: float | None,
+        heading: float | None,
+    ) -> str:
+        return await apply_shared_gps(
+            application, user_id, lat, lon, purpose, accuracy_m, heading
+        )
+
+    register_pin_handler(on_geo_pin)
+    install_geo_http()
     webhook_url = (os.getenv("WEBHOOK_URL") or "").strip()
 
     if webhook_url:

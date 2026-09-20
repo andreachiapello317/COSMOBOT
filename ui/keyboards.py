@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from services.earth import EARTH_TOPICS, GLACIERS, OCEANS, PLATES, SEAS, VOLCANOES, WATER
 from services.stones import CATS, COLORS, ENVS, MUSEUM, RARITY, STONES
@@ -251,14 +251,23 @@ def world_asksky_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def place_here_row() -> list[InlineKeyboardButton]:
-    return [kb_btn("📍 La tua posizione", "loc:here")]
+def place_here_button(purpose: str | None = None) -> InlineKeyboardButton:
+    from services.geoapp import geo_web_url
+
+    url = geo_web_url(purpose)
+    if url:
+        return InlineKeyboardButton("📍 La tua posizione", web_app=WebAppInfo(url=url))
+    return kb_btn("📍 La tua posizione", "loc:here")
 
 
-def place_hub_keyboard() -> InlineKeyboardMarkup:
+def place_here_row(purpose: str | None = None) -> list[InlineKeyboardButton]:
+    return [place_here_button(purpose)]
+
+
+def place_hub_keyboard(purpose: str | None = None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            place_here_row(),
+            place_here_row(purpose),
             [kb_btn("🇮🇹 Italia", "loc:it"), kb_btn("🌍 Mondo", "loc:wd")],
             [kb_btn("✍️ Scrivi una città", "loc:ask")],
             nav_row(),
@@ -266,10 +275,14 @@ def place_hub_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def place_list_keyboard(kind: str, cities: tuple[tuple[str, float, float], ...]) -> InlineKeyboardMarkup:
+def place_list_keyboard(
+    kind: str,
+    cities: tuple[tuple[str, float, float], ...],
+    purpose: str | None = None,
+) -> InlineKeyboardMarkup:
     buttons = [kb_btn(f"📍 {name}", f"loc:city:{kind}:{idx}") for idx, (name, _lat, _lon) in enumerate(cities)]
     grid = _pairs(buttons)
-    grid.append(place_here_row())
+    grid.append(place_here_row(purpose))
     grid.append([kb_btn("✍️ Altra città", "loc:ask")])
     grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
@@ -484,7 +497,7 @@ def compass_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("📍 Posizione GPS", "cmp:gps")],
             [kb_btn("🧭 Bussola", "cmp:needle")],
             [kb_btn("🎯 Verso un luogo", "cmp:to")],
-            [kb_btn("📍 La tua posizione", "cmp:share")],
+            place_here_row("gps"),
             nav_row(),
         ]
     )
@@ -536,7 +549,7 @@ def compass_result_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("📍 Posizione", "cmp:gps"), kb_btn("🧭 Bussola", "cmp:needle")],
             [kb_btn("🎯 Verso un luogo", "cmp:to")],
-            [kb_btn("📍 Cambia luogo", "cmp:city"), kb_btn("📍 La tua posizione", "cmp:share")],
+            [kb_btn("📍 Cambia luogo", "cmp:city"), place_here_button("gps")],
             nav_row(),
         ]
     )
