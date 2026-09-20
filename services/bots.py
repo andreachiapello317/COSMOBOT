@@ -1,4 +1,4 @@
-"""Registro dei bot dentro un solo Telegram. Mondi non mescolati."""
+"""Registro BOTSQUAD: bot nello stesso Telegram. Mondi non mescolati."""
 
 from __future__ import annotations
 

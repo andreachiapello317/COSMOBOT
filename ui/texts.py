@@ -1,13 +1,22 @@
-"""Testi di interfaccia: ALL BOT, ORACOLO e ASTRO. I mondi non si mescolano."""
+"""Testi di interfaccia: BOTSQUAD, ORACOLO e ASTRO. I mondi non si mescolano."""
+
+
+def _card(title: str, intro: str, body: str = "") -> str:
+    """Scheda: titolo + presentazione minima + eventuale corpo."""
+    text = f"{title}\n<i>{intro}</i>"
+    extra = body.strip()
+    if extra:
+        text = f"{text}\n\n{extra}"
+    return text
 
 
 def all_hub_text() -> str:
-    return (
-        "🪐 <b>ALL BOT</b>\n\n"
-        "Un solo Telegram, due bot. I mondi restano nel bot giusto.\n\n"
-        "🔮 <b>ORACOLO</b> — te stesso e gli oracoli.\n"
-        "🔭 <b>ASTRO</b> — cielo, mondi, vita, missioni.\n\n"
-        "Entra in un bot. 🏠 Inizio torna sempre qui."
+    return _card(
+        "🪐 <b>BOTSQUAD</b>",
+        "Due bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
+        "🔮 <b>ORACOLO</b> — te stesso, carte, rune, rituali.\n"
+        "🔭 <b>ASTRO</b> — cielo vero, pianeti, missioni, pietre.\n\n"
+        "Entra in un bot. 🏠 Inizio torna sempre qui.",
     )
 
 
@@ -16,25 +25,25 @@ def home_text() -> str:
 
 
 def oracolo_hub_text() -> str:
-    return (
-        "🔮 <b>ORACOLO</b>\n\n"
-        "Un bot di ALL BOT. Solo due mondi, entrambi simbolici.\n\n"
+    return _card(
+        "🔮 <b>ORACOLO</b>",
+        "Bot di BOTSQUAD per guardarsi dentro. Simboli, non telescopio.",
         "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, compatibilità, specchio, rituale\n"
         "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, pietre (estrazione)\n\n"
-        "Il cielo e i pianeti veri stanno in 🔭 ASTRO."
+        "Il cielo misurato sta in 🔭 ASTRO.",
     )
 
 
 def astro_hub_text() -> str:
-    return (
-        "🔭 <b>ASTRO</b>\n\n"
-        "Un bot di ALL BOT. Astronomia e cataloghi, niente oracoli.\n\n"
+    return _card(
+        "🔭 <b>ASTRO</b>",
+        "Bot di BOTSQUAD per il cielo vero. Cataloghi e numeri live, niente carte.",
         "🔭 <b>CIELO</b> — adesso, stelle, eventi, ISS\n"
         "🪐 <b>MONDI</b> — esopianeti, sistemi, salvataggi\n"
         "👽 <b>VITA</b> — come la cerchiamo, senza dichiararla\n"
         "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n"
         "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione\n\n"
-        "✨ COSMICO e 🎲 casuale pescano da questi mondi."
+        "✨ COSMICO e 🎲 casuale pescano da questi mondi.",
     )
 
 
@@ -55,42 +64,41 @@ def domanda_text() -> str:
 
 
 def lettura_text() -> str:
-    return (
-        "📖 <b>LETTURA</b>\n\n"
+    return _card(
+        "📖 <b>LETTURA</b>",
+        "Una situazione, uno strumento. È uno specchio, non un verdetto.",
         "Scrivi cosa sta succedendo — una frase basta.\n"
-        "Poi scegli lo strumento, o lascia che lo scelga COSMOBOT.\n\n"
+        "Poi scegli, o lascia che lo scelga ORACOLO.\n\n"
         "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n"
-        "🎲 Sorprendimi — pesco io il metodo.\n\n"
-        "È una lettura simbolica, non una previsione certa."
+        "🎲 Sorprendimi — pesco io il metodo.",
     )
 
 
 def oracoli_text() -> str:
-    return (
-        "🔮 <b>ORACOLI</b>\n\n"
-        "Scegli lo strumento. I mazzi COSMOBOT stanno in un menu a parte.\n\n"
+    return _card(
+        "🔮 <b>ORACOLI</b>",
+        "Il cassetto degli strumenti. Tradizione e mazzi nostri, tutti simbolici.",
         "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n"
         "🧿 Mazzi · 🪞 Sì/No · 📖 Lettura · 💎 Pietre\n"
-        "🎲 Sorprendimi — pesco io il metodo."
+        "🎲 Sorprendimi — pesco io il metodo.",
     )
 
 
 def rune_intro_text() -> str:
-    return (
-        "🪶 <b>RUNE</b>\n\n"
-        "Le 24 rune dello Elder Futhark. I nomi sono quelli storici; "
-        "i significati sono il dataset interno, non un oracolo infallibile.\n\n"
-        "Pensa a una domanda. Non deve essere sì/no.\n\n"
-        "Quando l'hai formulata, premi il pulsante."
+    return _card(
+        "🪶 <b>RUNE</b>",
+        "Ventiquattro segni dell'Elder Futhark. Nomi storici, significati nostri.",
+        "Pensa a una domanda. Non deve essere sì/no.\n"
+        "Quando l'hai formulata, premi il pulsante.",
     )
 
 
 def world_self_text() -> str:
-    return (
-        "🔮 <b>TE STESSO</b>\n\n"
+    return _card(
+        "🔮 <b>TE STESSO</b>",
+        "La tua carta e i transiti. Tradizione astrologica, non astronomia.",
         "Tema natale, oroscopo, transiti, compatibilità.\n"
-        "Più due pratiche simboliche: specchio e rituale lunare.\n"
-        "I segni e la sinastria sono tradizione, non astronomia."
+        "Più due pratiche: specchio e rituale lunare.",
     )
 
 
@@ -101,14 +109,13 @@ def compat_hub_text(*, has_natal: bool, has_syn: bool = False) -> str:
         else "Per sinastria e overlay serve il 🌌 tema salvato.\n"
     )
     overlay = "🏠 <b>Overlay</b> — i loro pianeti nelle tue case.\n" if has_syn else ""
-    return (
-        "❤️ <b>COMPATIBILITÀ</b>\n\n"
-        "Più porte, nessuna percentuale. Tutto è tradizione, non astronomia.\n\n"
+    return _card(
+        "❤️ <b>COMPATIBILITÀ</b>",
+        "Due carte a confronto. Nessuna percentuale, nessuna previsione.",
         "☀️ Soli · 🌙 Lune · ⬆️ Ascendenti · ☿️ Mercurio\n"
         "♀️♂️ Venere e Marte · 🔥 Elementi · ☀️🌙⬆️ Big Three\n"
         f"{extra}{overlay}\n"
-        "Se hai il tema, i tuoi punti li prendo dalla carta. "
-        "Non è una previsione e non sostituisce due persone che si parlano."
+        "Se hai il tema, i tuoi punti li prendo dalla carta.",
     )
 
 
@@ -117,75 +124,70 @@ def world_div_text() -> str:
 
 
 def world_sky_text() -> str:
-    return (
-        "🔭 <b>CIELO</b>\n\n"
-        "Astronomia reale. Gli oracoli stanno nell'altro mondo.\n\n"
+    return _card(
+        "🔭 <b>CIELO</b>",
+        "Cosa c'è sopra di te adesso. Numeri live, niente oracoli.",
         "🔭 Adesso · 🌙 Luna · 🪐 Pianeti · ⭐ Stelle\n"
         "🌠 Eventi · 📚 Cataloghi (nani, comete, profondo)\n"
-        "🌅 Alba · 🛰️ ISS\n\n"
-        "Numeri da mappa del cielo, Skytime, Wikidata e NASA. "
-        "Niente visibilità inventata."
+        "🌅 Alba · 🛰️ ISS",
     )
 
 
 def world_mondi_text() -> str:
-    return (
-        "🪐 <b>MONDI</b>\n\n"
-        "Un esploratore, non un oracolo.\n\n"
-        "🌍 Filtri NASA · ⭐ Sistemi · ☀️ Sistema Solare\n"
+    return _card(
+        "🪐 <b>MONDI</b>",
+        "Un esploratore NASA e Wikipedia. Non un oracolo.",
+        "🌍 Filtri · ⭐ Sistemi · ☀️ Sistema Solare\n"
         "🪐 Pianeti e lune · 🪨 Asteroidi · 📌 Salvati\n\n"
-        "Oceanici e abitabili = modelli, non oceani e non vita."
+        "Oceanici e abitabili = modelli, non oceani e non vita.",
     )
 
 
 def mondi_hub_text() -> str:
-    return (
-        "🌌 <b>ESPLORA I MONDI</b>\n\n"
-        "Ogni filtro è una ricerca sull'archivio NASA, oppure una scheda Wikipedia.\n"
-        "🌊 Oceanici e 🌱 abitabili = fasce di raggio e temperatura, non oceani e non vita.\n"
+    return _card(
+        "🌌 <b>ESPLORA I MONDI</b>",
+        "Ogni filtro è una ricerca sull'archivio, o una voce Wikipedia.",
+        "🌊 Oceanici e 🌱 abitabili = raggio e temperatura, non oceani e non vita.\n"
         "🌋 Vulcanici, 💍 anelli, 🌙 molte lune: corpi del Sistema Solare con voce.\n"
-        "🌑 Senza stella: se l'archivio è vuoto, apro la voce sui pianeti erranti.\n"
-        "🎲 Genera = mondo immaginario, scritto grande che è finto."
+        "🎲 Genera = mondo immaginario, scritto grande che è finto.",
     )
 
 
 def cosmo_text() -> str:
-    return (
-        "🌌 <b>COSMO</b>\n\n"
-        "Sopra i mondi: una mappa dell'universo osservabile, da cataloghi live.\n\n"
+    return _card(
+        "🌌 <b>COSMO</b>",
+        "Mappa dell'universo osservabile. Solo cataloghi, niente carte.",
         "⭐ Stelle · 🪐 Sistemi · 🌍 Mondi\n"
         "🌌 Galassie · 🌀 Nebulose · 🕳️ Buchi neri\n"
-        "💥 Supernovae · 🔭 Cielo profondo\n\n"
-        "Non mescola gli oracoli. Solo astronomia e schede Wikipedia/NASA."
+        "💥 Supernovae · 🔭 Cielo profondo",
     )
 
 
 def sistemi_text() -> str:
-    return (
-        "⭐ <b>SISTEMI STELLARI</b>\n\n"
-        "Una stella ospite, i suoi pianeti nell'archivio, un albero. "
+    return _card(
+        "⭐ <b>SISTEMI STELLARI</b>",
+        "Una stella ospite e i suoi pianeti, ad albero.",
         "Niente lune extrasolari: l'archivio quasi non le ha.\n"
-        "Il Sistema Solare resta la scheda Wikidata, non uno scarico JPL."
+        "Il Sistema Solare resta la scheda Wikidata, non uno scarico JPL.",
     )
 
 
 def life_plus_text() -> str:
-    return (
-        "🧬 <b>E SE CI FOSSE VITA?</b>\n\n"
-        "Due piani, tenuti distinti.\n\n"
-        "<b>Osservato / documentato</b> — voci Wikipedia: SETI, firme biologiche, "
-        "estremofili, zona abitabile, oceani sotto il ghiaccio.\n\n"
-        "<b>Speculazione</b> — il paradosso di Fermi è un argomento, "
-        "non una rivelazione. I candidati HZ sono un filtro numerico.\n\n"
-        "COSMOBOT non dichiara vita su nessun mondo."
+    return _card(
+        "🧬 <b>E SE CI FOSSE VITA?</b>",
+        "Due piani tenuti distinti: documentato, e speculazione.",
+        "<b>Osservato</b> — SETI, firme biologiche, estremofili, oceani sotto il ghiaccio.\n\n"
+        "<b>Speculazione</b> — Fermi è un argomento, non una rivelazione. "
+        "I candidati HZ sono un filtro numerico.",
     )
 
 
 def world_vita_text() -> str:
-    return (
-        "👽 <b>VITA</b>\n\n"
-        "Come cerchiamo la vita: oceani sotto il ghiaccio, esopianeti, SETI, biosignature.\n"
-        "I candidati in zona abitabile sono un filtro di modelli, non mondi abitati."
+    return _card(
+        "👽 <b>VITA</b>",
+        "Come la cerchiamo. Nessun mondo dichiarato abitato.",
+        "Oceani sotto il ghiaccio, esopianeti, SETI, biosignature.\n"
+        "La zona abitabile è un modello di temperatura e raggio.",
     )
 
 
@@ -194,17 +196,17 @@ def world_pietre_text() -> str:
 
 
 def pietre_hub_text() -> str:
-    return (
-        "💎 <b>PIETRE</b>\n\n"
-        "Mineralogia da catalogo. Il simbolismo sta a parte.\n"
+    return _card(
+        "💎 <b>PIETRE</b>",
+        "Mineralogia da catalogo. Il folklore sta nell'oracolo, a parte.",
         "Foto: pietra al centro, tavolo uniforme. Non è un'analisi.\n\n"
-        "🧭 Esplora · 🔬 Laboratorio · ✨ Oracolo · 🧠 Giochi"
+        "🧭 Esplora · 🔬 Laboratorio · ✨ Oracolo · 🧠 Giochi",
     )
 
 
 def world_miss_text() -> str:
-    return (
-        "🚀 <b>MISSIONI</b>\n\n"
-        "Schede delle missioni e delle sonde, astronauti, mini-lezioni,\n"
-        "quiz a quattro difficoltà e la missione del giorno."
+    return _card(
+        "🚀 <b>MISSIONI</b>",
+        "Voli veri, sonde, lezioni e una sfida al giorno.",
+        "Schede delle missioni, astronauti, quiz a quattro livelli.",
     )

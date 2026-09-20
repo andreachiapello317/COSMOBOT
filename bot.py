@@ -2018,7 +2018,8 @@ def start_text() -> str:
 def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
-        "📚 <b>ALL BOT</b>\n\n"
+        "🪐 <b>BOTSQUAD</b>\n"
+        "<i>Due bot, un Telegram. ORACOLO guarda dentro; ASTRO guarda fuori.</i>\n\n"
         "/start è il portale. 🔮 ORACOLO = te stesso e oracoli. "
         "🔭 ASTRO = cielo, mondi, vita, missioni. "
         "Qui i comandi che usi davvero.\n\n"
@@ -6714,9 +6715,9 @@ async def on_cielo_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await reply_html(
             update,
             context,
-            "📚 <b>CATALOGHI</b>\n\n"
-            "Nani, comete, cielo profondo e pietre dallo spazio. "
-            "Schede da Wikipedia, non un dump JPL.",
+            "📚 <b>CATALOGHI</b>\n"
+            "<i>Oggetti del sistema e del cielo profondo, da Wikipedia.</i>\n\n"
+            "Nani, comete, profondo e pietre dallo spazio. Non un dump JPL.",
             reply_markup=sky_catalog_keyboard(),
         )
         return
@@ -8099,8 +8100,8 @@ async def on_ora_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await reply_html(
             update,
             context,
-            "🧿 <b>MAZZI COSMOBOT</b>\n\n"
-            "Mazzi originali, lettura simbolica. Non sono astronomia.",
+            "🧿 <b>MAZZI</b>\n"
+            "<i>Carte nostre, lettura simbolica. Non sono astronomia.</i>",
             reply_markup=oracoli_mazzi_keyboard(),
         )
         return
@@ -8358,15 +8359,24 @@ async def show_pietre_lab(update: Update, context: ContextTypes.DEFAULT_TYPE, st
     state["photo"] = True
     prompts = {
         "color": (
-            "🔬 <b>IDENTIFICA LA PIETRA</b>\n\n"
+            "🔬 <b>IDENTIFICA LA PIETRA</b>\n"
+            "<i>Restringo il catalogo dal colore o da una foto. Non è un laboratorio.</i>\n\n"
             "Che colore è, soprattutto?\n"
             "Oppure una foto: pietra al centro, su un tavolo di colore uniforme."
         ),
-        "hard": "🔬 <b>DUREZZA</b>\n\nQuanto è dura? (unghia ~2, vetro ~5,5, acciaio ~6–7, corindone 9)",
-        "trans": "🔬 <b>TRASPARENZA</b>\n\nLascia passare la luce?",
-        "metal": "🔬 <b>LUCENTEZZA</b>\n\nHa lucentezza metallica?",
-        "mag": "🔬 <b>MAGNETISMO</b>\n\nAttira una calamita?",
-        "fizz": "🔬 <b>ACIDO</b>\n\nFa effervescenza con acido (come un calcare)?\n<i>Non provare acidi su gemme preziose.</i>",
+        "hard": (
+            "🔬 <b>DUREZZA</b>\n"
+            "<i>Unghia, vetro, acciaio: una scala, non un verdetto.</i>\n\n"
+            "Quanto è dura? (unghia ~2, vetro ~5,5, acciaio ~6–7, corindone 9)"
+        ),
+        "trans": "🔬 <b>TRASPARENZA</b>\n<i>La luce passa, o si ferma.</i>\n\nLascia passare la luce?",
+        "metal": "🔬 <b>LUCENTEZZA</b>\n<i>Brilla come metallo, o no.</i>\n\nHa lucentezza metallica?",
+        "mag": "🔬 <b>MAGNETISMO</b>\n<i>Poche pietre attirano la calamita.</i>\n\nAttira una calamita?",
+        "fizz": (
+            "🔬 <b>ACIDO</b>\n"
+            "<i>Come un calcare, se reagisce. Non provare acidi su gemme.</i>\n\n"
+            "Fa effervescenza con acido?"
+        ),
     }
     await reply_html(
         update,
@@ -8526,7 +8536,8 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
         await reply_html(
             update,
             context,
-            "📸 <b>FOTO</b>\n\n"
+            "📸 <b>FOTO</b>\n"
+            "<i>Confronto colore e miniature Wikipedia. Cinque ipotesi, non un'analisi.</i>\n\n"
             "Mandami adesso la foto della pietra.\n"
             "Mettila <b>al centro</b>, su un <b>tavolo di colore uniforme</b> "
             "(un solo colore, senza venature, tovaglia a disegno o mani in mezzo).\n"
@@ -9395,7 +9406,7 @@ async def post_init(application: Application) -> None:
     try:
         await application.bot.set_my_commands(
             [
-                BotCommand("start", "ALL BOT — tutti i bot"),
+                BotCommand("start", "BOTSQUAD — i bot"),
                 BotCommand("oroscopo", "Oroscopo giorno / settimana / mese"),
                 BotCommand("tema", "Tema natale"),
                 BotCommand("oracoli", "Tarocchi, I Ching, rune…"),
