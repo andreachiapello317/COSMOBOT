@@ -111,7 +111,7 @@ GROUPS: dict[str, dict[str, Any]] = {
         "it": "Osservazione Terra",
         "emoji": "🌍",
         "keys": ("terra", "aqua", "ld8", "ld9", "s2a"),
-        "blurb": "Satelliti che fotografano il suolo. La foto è del luogo scelto in questa cartella, non del resto del bot.",
+        "blurb": "Foto del suolo sul luogo scelto in questa cartella.",
     },
     "sl": {
         "it": "Starlink",
