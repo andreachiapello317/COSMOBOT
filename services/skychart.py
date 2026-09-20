@@ -25,9 +25,22 @@ PLANETS = (
     (astronomy.Body.Uranus, "Urano", (140, 200, 210)),
     (astronomy.Body.Neptune, "Nettuno", (90, 130, 210)),
 )
-NAKED_STAR_MAG = 5.0
-NAKED_PLANET_MAG = 6.0
-NAKED_MIN_ALT = 8.0
+EYE_LEVELS: dict[str, dict[str, Any]] = {
+    "easy": {"star": 3.0, "planet": 4.0, "alt": 15.0, "it": "Facile", "btn": "Facile", "emoji": "✨"},
+    "eye": {"star": 4.5, "planet": 5.5, "alt": 10.0, "it": "Occhio nudo", "btn": "Nudo", "emoji": "👁️"},
+    "bino": {"star": 8.0, "planet": 8.0, "alt": 5.0, "it": "Binocolo", "btn": "Bino", "emoji": "🔭"},
+}
+EYE_ORDER = ("easy", "eye", "bino")
+DEFAULT_EYE_LEVEL = "easy"
+
+
+def eye_level(key: str | None = None) -> dict[str, Any]:
+    return EYE_LEVELS.get(str(key or ""), EYE_LEVELS[DEFAULT_EYE_LEVEL])
+
+
+def eye_level_label(key: str | None = None) -> str:
+    row = eye_level(key)
+    return f"{row['emoji']} {row['it']}"
 
 
 def _body_mag(body: astronomy.Body, moment: astronomy.Time) -> float | None:
@@ -38,17 +51,26 @@ def _body_mag(body: astronomy.Body, moment: astronomy.Time) -> float | None:
     return float(mag) if mag is not None else None
 
 
-def _keep_star(alt: float, mag: float, *, naked: bool) -> bool:
-    if alt <= (NAKED_MIN_ALT if naked else 0.0):
-        return False
-    return not (naked and mag > NAKED_STAR_MAG)
-
-
-def _keep_body(body: astronomy.Body, alt: float, moment: astronomy.Time, *, naked: bool) -> bool:
-    if alt <= (NAKED_MIN_ALT if naked else -0.5):
-        return False
+def _keep_star(alt: float, mag: float, *, naked: bool, eye: str | None = None) -> bool:
     if not naked:
-        return True
+        return alt > 0.0
+    cfg = eye_level(eye)
+    return alt > float(cfg["alt"]) and mag <= float(cfg["star"])
+
+
+def _keep_body(
+    body: astronomy.Body,
+    alt: float,
+    moment: astronomy.Time,
+    *,
+    naked: bool,
+    eye: str | None = None,
+) -> bool:
+    if not naked:
+        return alt > -0.5
+    cfg = eye_level(eye)
+    if alt <= float(cfg["alt"]):
+        return False
     if body == astronomy.Body.Sun:
         return False
     if body == astronomy.Body.Moon:
@@ -56,12 +78,12 @@ def _keep_body(body: astronomy.Body, alt: float, moment: astronomy.Time, *, nake
     mag = _body_mag(body, moment)
     if mag is None:
         return body not in {astronomy.Body.Uranus, astronomy.Body.Neptune}
-    return mag <= NAKED_PLANET_MAG
+    return mag <= float(cfg["planet"])
 
 
-def _chart_label(kind: str, place: str, *, naked: bool) -> str:
+def _chart_label(kind: str, place: str, *, naked: bool, eye: str | None = None) -> str:
     if naked:
-        return f"Cielo osservabile · occhio nudo · {kind} · {place}"
+        return f"Cielo osservabile · {eye_level(eye)['it']} · {kind} · {place}"
     return f"Cielo di adesso · {kind} · {place}"
 
 
@@ -114,9 +136,10 @@ def draw_sky_chart(
     lon: float,
     when: datetime,
     naked: bool = False,
+    eye: str | None = None,
 ) -> bytes:
     frame = SkyFrame(lat, lon, when)
-    stars = [star for star in visible_stars(frame) if _keep_star(star["alt"], float(star["mag"]), naked=naked)]
+    stars = [star for star in visible_stars(frame) if _keep_star(star["alt"], float(star["mag"]), naked=naked, eye=eye)]
     figures = constellation_segments(frame)
     img = Image.new("RGB", (SIZE, SIZE + 70), (8, 12, 22))
     draw = ImageDraw.Draw(img)
@@ -151,14 +174,14 @@ def draw_sky_chart(
         for seg in fig["segs"]:
             pts: list[tuple[int, int]] = []
             for alt, az in seg:
-                if naked and alt < NAKED_MIN_ALT:
+                if naked and alt < float(eye_level(eye)["alt"]):
                     continue
                 point = _clip(alt, az, cx, cy, radius)
                 if point:
                     pts.append(point)
             if len(pts) >= 2:
                 draw.line(pts, fill=(70, 95, 140), width=1)
-        vis = [p for seg in fig["segs"] for p in seg if p[0] > (NAKED_MIN_ALT if naked else 12)]
+        vis = [p for seg in fig["segs"] for p in seg if p[0] > (float(eye_level(eye)["alt"]) if naked else 12)]
         if vis and fig["alt"] > 25:
             mid_alt = sum(p[0] for p in vis) / len(vis)
             mid_az = sum(p[1] for p in vis) / len(vis)
@@ -181,14 +204,14 @@ def draw_sky_chart(
             draw.text((pos[0] + 5, pos[1] - 7), star["name"], fill=(220, 225, 235), font=tiny)
 
     sun_alt, sun_az, _ra, _dec = frame.body_altaz(astronomy.Body.Sun)
-    if _keep_body(astronomy.Body.Sun, sun_alt, frame.moment, naked=naked):
+    if _keep_body(astronomy.Body.Sun, sun_alt, frame.moment, naked=naked, eye=eye):
         pos = _clip(sun_alt, sun_az, cx, cy, radius)
         if pos:
             draw.ellipse((pos[0] - 10, pos[1] - 10, pos[0] + 10, pos[1] + 10), fill=(255, 210, 70))
             draw.text((pos[0] + 12, pos[1] - 8), "Sole", fill=(255, 220, 120), font=small)
 
     moon_alt, moon_az, _ra, _dec = frame.body_altaz(astronomy.Body.Moon)
-    if _keep_body(astronomy.Body.Moon, moon_alt, frame.moment, naked=naked):
+    if _keep_body(astronomy.Body.Moon, moon_alt, frame.moment, naked=naked, eye=eye):
         pos = _clip(moon_alt, moon_az, cx, cy, radius)
         if pos:
             phase = moon_now(frame.when)
@@ -204,7 +227,7 @@ def draw_sky_chart(
 
     for body, label, color in PLANETS:
         alt, az, _ra, _dec = frame.body_altaz(body)
-        if not _keep_body(body, alt, frame.moment, naked=naked):
+        if not _keep_body(body, alt, frame.moment, naked=naked, eye=eye):
             continue
         pos = _clip(alt, az, cx, cy, radius)
         if not pos:
@@ -214,7 +237,7 @@ def draw_sky_chart(
 
     local = when
     draw.rectangle((0, SIZE, SIZE, SIZE + 70), fill=(8, 12, 22))
-    title = _chart_label("zenit", place, naked=naked) if naked else f"Cielo di adesso · {place}"
+    title = _chart_label("zenit", place, naked=naked, eye=eye) if naked else f"Cielo di adesso · {place}"
     draw.text((24, SIZE + 10), title, fill=(235, 238, 245), font=title_font)
     draw.text(
         (24, SIZE + 38),
@@ -538,6 +561,7 @@ def draw_atlas_chart(
     lon: float,
     when: datetime,
     naked: bool = False,
+    eye: str | None = None,
 ) -> bytes:
     """Carta equatoriale da atlante: RA cresce a sinistra, griglia in ore e gradi."""
     from services.skycatalog import constellation_name, load_catalog
@@ -632,7 +656,7 @@ def draw_atlas_chart(
         ra, dec, mag = float(item[0]), float(item[1]), float(item[2])
         extra = item[3] if len(item) > 3 and isinstance(item[3], dict) else {}
         alt, _az = frame.altaz(ra, dec)
-        if not _keep_star(alt, mag, naked=naked):
+        if not _keep_star(alt, mag, naked=naked, eye=eye):
             continue
         pos = xy(ra, dec)
         if not pos:
@@ -650,7 +674,7 @@ def draw_atlas_chart(
         *PLANETS,
     ):
         alt, _az, ra_h, dec = frame.body_altaz(body)
-        if not _keep_body(body, alt, frame.moment, naked=naked):
+        if not _keep_body(body, alt, frame.moment, naked=naked, eye=eye):
             continue
         pos = xy(float(ra_h) * 15.0, float(dec))
         if not pos:
@@ -661,7 +685,7 @@ def draw_atlas_chart(
         draw.text((x + rad + 3, y - 8), label, fill=color, font=small)
 
     draw.rectangle((0, height, width, height + footer), fill=(7, 9, 14))
-    draw.text((20, height + 8), _chart_label("atlante equatoriale", place, naked=naked), fill=(235, 238, 245), font=title_font)
+    draw.text((20, height + 8), _chart_label("atlante equatoriale", place, naked=naked, eye=eye), fill=(235, 238, 245), font=title_font)
     draw.text(
         (20, height + 36),
         f"{when.strftime('%d/%m/%Y %H:%M')} · RA a sinistra · equatore e eclittica · Hipparcos + Astronomy Engine",
@@ -697,6 +721,7 @@ def draw_polar_chart(
     lon: float,
     when: datetime,
     naked: bool = False,
+    eye: str | None = None,
 ) -> bytes:
     """Carta polare: polo celeste al centro, RA in ore, come un planisfero polare."""
     from services.skycatalog import load_catalog
@@ -756,7 +781,7 @@ def draw_polar_chart(
         if not pos:
             continue
         alt, _az = frame.altaz(ra, dec)
-        if naked and not _keep_star(alt, mag, naked=True):
+        if naked and not _keep_star(alt, mag, naked=True, eye=eye):
             continue
         rad = 3.2 if mag < 0.3 else 2.4 if mag < 1.3 else 1.6 if mag < 2.5 else 1.0 if mag < 3.8 else 0.7
         color = _star_color(extra.get("bv")) if alt > 0 else (70, 78, 92)
@@ -775,7 +800,7 @@ def draw_polar_chart(
     ):
         alt, _az, ra_h, dec = frame.body_altaz(body)
         pos = xy(float(ra_h), float(dec))
-        if not pos or not _keep_body(body, alt, frame.moment, naked=naked):
+        if not pos or not _keep_body(body, alt, frame.moment, naked=naked, eye=eye):
             continue
         x, y = pos
         rad = 8 if body == astronomy.Body.Sun else 6 if body == astronomy.Body.Moon else 4
@@ -784,7 +809,7 @@ def draw_polar_chart(
 
     draw.rectangle((0, height, width, height + footer), fill=(7, 9, 14))
     hemi = "nord" if north else "sud"
-    draw.text((20, height + 8), _chart_label(f"polare {hemi}", place, naked=naked), fill=(235, 238, 245), font=title_font)
+    draw.text((20, height + 8), _chart_label(f"polare {hemi}", place, naked=naked, eye=eye), fill=(235, 238, 245), font=title_font)
     draw.text(
         (20, height + 36),
         f"{when.strftime('%d/%m/%Y %H:%M')} · 0h in alto · stelle sotto l'orizzonte in grigio",
@@ -803,6 +828,7 @@ def draw_ecliptic_chart(
     lon: float,
     when: datetime,
     naked: bool = False,
+    eye: str | None = None,
 ) -> bytes:
     """Fascia zodiacale: longitudine eclittica × latitudine. Pianeti sul piano."""
     from services.skycatalog import load_catalog
@@ -853,10 +879,10 @@ def draw_ecliptic_chart(
     for item in load_catalog()["stars"]:
         ra, dec, mag = float(item[0]), float(item[1]), float(item[2])
         extra = item[3] if len(item) > 3 and isinstance(item[3], dict) else {}
-        if mag > (NAKED_STAR_MAG if naked else 4.6):
+        if mag > (float(eye_level(eye)["star"]) if naked else 4.6):
             continue
         alt, _az = frame.altaz(ra, dec)
-        if naked and not _keep_star(alt, mag, naked=True):
+        if naked and not _keep_star(alt, mag, naked=True, eye=eye):
             continue
         elon, elat = _eq_to_ecl(ra, dec, frame.moment)
         if abs(elat) > lat_span:
@@ -871,7 +897,7 @@ def draw_ecliptic_chart(
         *PLANETS,
     ):
         alt, _az, ra_h, dec = frame.body_altaz(body)
-        if not _keep_body(body, alt, frame.moment, naked=naked):
+        if not _keep_body(body, alt, frame.moment, naked=naked, eye=eye):
             continue
         elon, elat = _eq_to_ecl(float(ra_h) * 15.0, float(dec), frame.moment)
         x, y = xy(elon, elat)
@@ -881,7 +907,7 @@ def draw_ecliptic_chart(
         draw.text((x + rad + 3, y - 8), label, fill=fill, font=small)
 
     draw.rectangle((0, height, width, height + footer), fill=(7, 9, 14))
-    draw.text((20, height + 8), _chart_label("fascia eclittica", place, naked=naked), fill=(235, 238, 245), font=title_font)
+    draw.text((20, height + 8), _chart_label("fascia eclittica", place, naked=naked, eye=eye), fill=(235, 238, 245), font=title_font)
     draw.text(
         (20, height + 36),
         f"{when.strftime('%d/%m/%Y %H:%M')} · 0° = equinozio di marzo · pianeti sotto l'orizzonte più scuri",
@@ -900,6 +926,7 @@ def draw_planisphere(
     lon: float,
     when: datetime,
     naked: bool = False,
+    eye: str | None = None,
 ) -> bytes:
     """Tutto il cielo in RA/Dec, con l'orizzonte di questo luogo."""
     from services.skycatalog import load_catalog
@@ -954,10 +981,10 @@ def draw_planisphere(
     for item in catalog["stars"]:
         ra, dec, mag = float(item[0]), float(item[1]), float(item[2])
         extra = item[3] if len(item) > 3 and isinstance(item[3], dict) else {}
-        if mag > (NAKED_STAR_MAG if naked else 4.8) or dec < dec_lo or dec > dec_hi:
+        if mag > (float(eye_level(eye)["star"]) if naked else 4.8) or dec < dec_lo or dec > dec_hi:
             continue
         alt, _az = frame.altaz(ra, dec)
-        if naked and not _keep_star(alt, mag, naked=True):
+        if naked and not _keep_star(alt, mag, naked=True, eye=eye):
             continue
         x, y = xy(ra, dec)
         rad = 2.6 if mag < 0.5 else 1.8 if mag < 1.6 else 1.2 if mag < 3.0 else 0.7
@@ -990,7 +1017,7 @@ def draw_planisphere(
         *PLANETS,
     ):
         alt, _az, ra_h, dec = frame.body_altaz(body)
-        if not _keep_body(body, alt, frame.moment, naked=naked):
+        if not _keep_body(body, alt, frame.moment, naked=naked, eye=eye):
             continue
         x, y = xy(float(ra_h) * 15.0, float(dec))
         rad = 8 if body == astronomy.Body.Sun else 6 if body == astronomy.Body.Moon else 4
@@ -998,7 +1025,7 @@ def draw_planisphere(
         draw.text((x + rad + 3, y - 8), label, fill=color, font=small)
 
     draw.rectangle((0, height, width, height + footer), fill=(7, 9, 14))
-    draw.text((20, height + 8), _chart_label("sfera / planisfero", place, naked=naked), fill=(235, 238, 245), font=title_font)
+    draw.text((20, height + 8), _chart_label("sfera / planisfero", place, naked=naked, eye=eye), fill=(235, 238, 245), font=title_font)
     draw.text(
         (20, height + 36),
         f"{when.strftime('%d/%m/%Y %H:%M')} · RA a sinistra · oro = orizzonte · grigio = sotto",
@@ -1017,14 +1044,15 @@ def draw_figure_chart(
     lon: float,
     when: datetime,
     naked: bool = False,
+    eye: str | None = None,
 ) -> bytes:
     """Stesso zenit della classica, ma solo le figure delle costellazioni."""
     frame = SkyFrame(lat, lon, when)
     stars = [
         star
         for star in visible_stars(frame)
-        if float(star["mag"]) <= (NAKED_STAR_MAG if naked else 4.2)
-        and _keep_star(star["alt"], float(star["mag"]), naked=naked)
+        if float(star["mag"]) <= (float(eye_level(eye)["star"]) if naked else 4.2)
+        and _keep_star(star["alt"], float(star["mag"]), naked=naked, eye=eye)
     ]
     figures = constellation_segments(frame)
     img = Image.new("RGB", (SIZE, SIZE + 70), (4, 6, 14))
@@ -1051,7 +1079,7 @@ def draw_figure_chart(
         for seg in fig["segs"]:
             pts: list[tuple[int, int]] = []
             for alt, az in seg:
-                if naked and alt < NAKED_MIN_ALT:
+                if naked and alt < float(eye_level(eye)["alt"]):
                     continue
                 point = _clip(alt, az, cx, cy, radius)
                 if point:
@@ -1081,7 +1109,7 @@ def draw_figure_chart(
 
     for body, label, color in PLANETS:
         alt, az, _ra, _dec = frame.body_altaz(body)
-        if not _keep_body(body, alt, frame.moment, naked=naked):
+        if not _keep_body(body, alt, frame.moment, naked=naked, eye=eye):
             continue
         pos = _clip(alt, az, cx, cy, radius)
         if not pos:
@@ -1090,20 +1118,20 @@ def draw_figure_chart(
         draw.text((pos[0] + 8, pos[1] - 9), label, fill=color, font=small)
 
     moon_alt, moon_az, _ra, _dec = frame.body_altaz(astronomy.Body.Moon)
-    if _keep_body(astronomy.Body.Moon, moon_alt, frame.moment, naked=naked):
+    if _keep_body(astronomy.Body.Moon, moon_alt, frame.moment, naked=naked, eye=eye):
         pos = _clip(moon_alt, moon_az, cx, cy, radius)
         if pos:
             draw.ellipse((pos[0] - 8, pos[1] - 8, pos[0] + 8, pos[1] + 8), fill=(230, 230, 210))
             draw.text((pos[0] + 11, pos[1] - 8), "Luna", fill=(230, 230, 200), font=small)
     sun_alt, sun_az, _ra, _dec = frame.body_altaz(astronomy.Body.Sun)
-    if _keep_body(astronomy.Body.Sun, sun_alt, frame.moment, naked=naked):
+    if _keep_body(astronomy.Body.Sun, sun_alt, frame.moment, naked=naked, eye=eye):
         pos = _clip(sun_alt, sun_az, cx, cy, radius)
         if pos:
             draw.ellipse((pos[0] - 10, pos[1] - 10, pos[0] + 10, pos[1] + 10), fill=(255, 210, 70))
             draw.text((pos[0] + 12, pos[1] - 8), "Sole", fill=(255, 220, 120), font=small)
 
     draw.rectangle((0, SIZE, SIZE, SIZE + 70), fill=(4, 6, 14))
-    draw.text((24, SIZE + 10), _chart_label("figure", place, naked=naked), fill=(235, 238, 245), font=title_font)
+    draw.text((24, SIZE + 10), _chart_label("figure", place, naked=naked, eye=eye), fill=(235, 238, 245), font=title_font)
     draw.text(
         (24, SIZE + 38),
         f"{when.strftime('%d/%m/%Y %H:%M')} · N in alto · costellazioni IAU · Hipparcos",

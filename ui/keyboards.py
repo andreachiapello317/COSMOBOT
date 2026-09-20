@@ -398,11 +398,44 @@ def world_watch_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🔭 Cielo di adesso", "watch:now")],
             [kb_btn("👁️ Cielo osservabile", "watch:eye")],
+            [kb_btn("📡 Horizons NASA", "watch:hz")],
+            [kb_btn("🛰️ Satelliti", "watch:sats")],
+            [kb_btn("📍 Cambia città", "watch:city")],
+            nav_row(),
+        ]
+    )
+
+
+def watch_horizons_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
             [kb_btn("⭐ Stelle", "watch:stelle"), kb_btn("🪐 Pianeti", "watch:planets")],
             [kb_btn("🌙 Luna", "watch:luna"), kb_btn("☄️ Comete", "watch:comet")],
-            [kb_btn("🛰️ Satelliti", "watch:sats"), kb_btn("🌠 Eventi", "watch:eventi")],
-            [kb_btn("🔭 Cosa osservare stasera", "watch:tonight")],
+            [kb_btn("🌠 Eventi", "watch:eventi")],
             [kb_btn("📅 Prossimi eventi", "watch:next")],
+            [kb_btn("📍 Cambia città", "watch:city")],
+            nav_row(),
+        ]
+    )
+
+
+def _eye_limit_row(level: str, prefix: str) -> list[InlineKeyboardButton]:
+    from services.skychart import EYE_ORDER, eye_level
+
+    row: list[InlineKeyboardButton] = []
+    for key in EYE_ORDER:
+        meta = eye_level(key)
+        mark = "· " if key == level else ""
+        row.append(kb_btn(f"{mark}{meta['emoji']} {meta['btn']}", f"{prefix}:{key}"))
+    return row
+
+
+def watch_eye_hub_keyboard(level: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🗺️ Carte", "watch:eye:pro")],
+            [kb_btn("🔭 Cosa osservare stasera", "watch:tonight")],
+            _eye_limit_row(level, "watch:eye"),
             [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
@@ -452,6 +485,18 @@ def watch_sky_keyboard(style: str) -> InlineKeyboardMarkup:
     )
 
 
+def watch_tonight_keyboard(level: str = "easy") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🗺️ Carte", "watch:eye:pro")],
+            _eye_limit_row(level, "watch:lim"),
+            [kb_btn("🔄 Aggiorna", "watch:tonight")],
+            [kb_btn("📍 Cambia città", "watch:city")],
+            nav_row(),
+        ]
+    )
+
+
 def watch_sky_list_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
@@ -463,7 +508,7 @@ def watch_sky_list_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def watch_eye_keyboard(style: str) -> InlineKeyboardMarkup:
+def watch_eye_keyboard(style: str, level: str = "easy") -> InlineKeyboardMarkup:
     from services.skychart import sky_style_label
 
     return InlineKeyboardMarkup(
@@ -475,6 +520,7 @@ def watch_eye_keyboard(style: str) -> InlineKeyboardMarkup:
             ],
             [kb_btn("🔄 Rigenera", f"watch:eye:{style}")],
             [kb_btn("🔭 Stasera", "watch:tonight")],
+            _eye_limit_row(level, "watch:lim"),
             [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
@@ -494,7 +540,7 @@ def watch_bodies_keyboard(kind: str) -> InlineKeyboardMarkup:
         extras.append([kb_btn("🪨 Asteroidi", "watch:rocks"), kb_btn("📏 Distanze", "watch:dist")])
         extras.append([kb_btn("⬆️ Alba/tramonto", "watch:rts")])
     grid.extend(extras)
-    grid.append([kb_btn("🔄 Elenco", back), kb_btn("🔭 Osservatorio", "world:watch")])
+    grid.append([kb_btn("🔄 Elenco", back), kb_btn("📡 Horizons NASA", "watch:hz")])
     grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
@@ -502,7 +548,7 @@ def watch_bodies_keyboard(kind: str) -> InlineKeyboardMarkup:
 def watch_next_keyboard(n: int) -> InlineKeyboardMarkup:
     buttons = [kb_btn(f"{idx + 1}", f"watch:nx:{idx}") for idx in range(n)]
     grid = _pairs(buttons)
-    grid.append([kb_btn("📅 Prossimi eventi", "watch:next"), kb_btn("🔭 Osservatorio", "world:watch")])
+    grid.append([kb_btn("📅 Prossimi eventi", "watch:next"), kb_btn("📡 Horizons NASA", "watch:hz")])
     grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 

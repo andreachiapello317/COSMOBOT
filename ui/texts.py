@@ -47,7 +47,7 @@ def astro_hub_text() -> str:
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
         "☀️ <b>CIELO</b> — luna, sole, terra e uno schema a emoji\n"
         "🌤️ <b>METEO</b> — Cuneo (o l'ultima città), oggi e domani; puoi cambiare giorni\n"
-        "🔭 <b>OSSERVATORIO</b> — cielo di adesso, cielo osservabile, stelle, Horizons, stasera\n"
+        "🔭 <b>OSSERVATORIO</b> — cielo di adesso, cielo osservabile, Horizons NASA, ISS\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
@@ -174,9 +174,43 @@ def world_watch_text(place: str = "") -> str:
         "🔭 <b>OSSERVATORIO</b>",
         "Cosa sta sopra di te, adesso. Stelle da Hipparcos; Sole, Luna, pianeti e comete da JPL Horizons.",
         f"{where}\n"
-        "🔭 Cielo di adesso · 👁️ Cielo osservabile (occhio nudo) · ⭐ Stelle · 🪐 Pianeti · 🌙 Luna\n"
-        "☄️ Comete · 🛰️ Satelliti (ISS live) · 🌠 Eventi · 🔭 Stasera · 📅 Prossimi\n\n"
+        "🔭 Cielo di adesso — carte complete o elenco\n"
+        "👁️ Cielo osservabile — carte + cosa osservare stasera, con grado sceglibile\n"
+        "📡 Horizons NASA — stelle, luna, pianeti, comete, eventi\n"
+        "🛰️ Satelliti — solo ISS live\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
+    )
+
+
+def watch_horizons_text(place: str = "") -> str:
+    where = (
+        f"Città salvata: <b>{_html.escape(place)}</b>."
+        if place
+        else "Se non scegli una città, uso Cuneo."
+    )
+    return _card(
+        "📡 <b>HORIZONS NASA</b>",
+        "Numeri JPL Horizons e Hipparcos, dallo stesso luogo dell'osservatorio.",
+        f"{where}\n"
+        "⭐ Stelle · 🪐 Pianeti · 🌙 Luna · ☄️ Comete · 🌠 Eventi · 📅 Prossimi\n\n"
+        "Horizons dà posizione, distanza e magnitudine. Non è un catalogo TLE.",
+    )
+
+
+def watch_eye_hub_text(place: str = "", level: str = "easy") -> str:
+    from services.skychart import eye_level
+
+    where = _html.escape(place) if place else "Cuneo"
+    cfg = eye_level(level)
+    return _card(
+        f"👁️ <b>CIELO OSSERVABILE — {where.upper()}</b>",
+        "Solo ciò che merita da qui, con il grado che scegli. Le carte restano le stesse sei.",
+        f"Grado adesso: <b>{cfg['emoji']} {cfg['it']}</b> — "
+        f"stelle mag ≤ {cfg['star']:.1f}, pianeti mag ≤ {cfg['planet']:.1f}, altezza ≥ {cfg['alt']:.0f}°.\n\n"
+        "✨ <b>FACILE</b> — pochi oggetti, luminosi e alti\n"
+        "👁️ <b>OCCHIO NUDO</b> — cielo buio senza strumenti\n"
+        "🔭 <b>BINOCOLO</b> — fino a magnitudine 8\n\n"
+        "🗺️ Carte · 🔭 Cosa osservare stasera. Se è giorno, le carte usano le 22:00.",
     )
 
 

@@ -12,6 +12,7 @@ import astronomy
 from services.astronomy import visibility_stars
 from services.moon import moon_now, next_quarters
 from services.skycatalog import SkyFrame, constellation_segments, visible_stars
+from services.skychart import eye_level
 from services.weather import wmo_label
 
 PLANET_SCAN = (
@@ -72,6 +73,7 @@ def tonight_picks(
     snap: dict[str, Any],
     *,
     weather: dict[str, Any] | None = None,
+    eye: str | None = None,
 ) -> tuple[list[dict[str, Any]], str, str, float | None]:
     current = weather.get("current") if isinstance(weather, dict) and isinstance(weather.get("current"), dict) else {}
     emoji, sky = wmo_label(current.get("weather_code"))
@@ -89,9 +91,12 @@ def tonight_picks(
             pts = max(1, pts - 1)
         return "⭐" * pts + "☆" * (5 - pts)
 
+    cfg = eye_level(eye)
+    min_alt = float(cfg["alt"])
+    planet_mag = float(cfg["planet"])
     picks: list[dict[str, Any]] = []
     moon = snap["moon"]
-    if moon["alt"] > 0:
+    if moon["alt"] > min_alt:
         illum = moon.get("illum")
         detail = str(moon.get("phase") or "Luna")
         if isinstance(illum, (int, float)):
@@ -107,11 +112,13 @@ def tonight_picks(
             }
         )
     for row in snap["planets"]:
-        if row["alt"] <= 8:
+        if row["alt"] <= min_alt:
             continue
         mag = row.get("mag") if isinstance(row.get("mag"), (int, float)) else None
+        if mag is not None and mag > planet_mag:
+            continue
         bar = score(row["alt"], mag)
-        if bar.count("⭐") < 2 and row["name"] in {"Urano", "Nettuno"}:
+        if row["name"] in {"Urano", "Nettuno"} and (mag is None or mag > planet_mag or bar.count("⭐") < 2):
             continue
         picks.append(
             {
@@ -124,6 +131,8 @@ def tonight_picks(
             }
         )
     for fig in snap["figures"][:3]:
+        if float(fig["alt"]) <= min_alt:
+            continue
         picks.append(
             {
                 "title": fig["name"],
