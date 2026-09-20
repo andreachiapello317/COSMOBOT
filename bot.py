@@ -194,6 +194,7 @@ from ui.keyboards import (
     oracle_question_keyboard,
     oracoli_keyboard,
     oracoli_mazzi_keyboard,
+    oracle_surprise_after_keyboard,
     sky_catalog_keyboard,
     deck_after_keyboard,
     life_keyboard,
@@ -2027,7 +2028,7 @@ def help_text() -> str:
         "<i>Due bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità) e Oracoli (tarocchi, I Ching, rune, Lenormand, "
-        "estrazione pietre).\n"
+        "sì/no, pietre).\n"
         "🔭 <b>ASTRO</b> — Cielo, Mondi, Vita, Missioni, Pietre "
         "(catalogo e laboratorio).\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
@@ -2819,15 +2820,18 @@ async def send_iching_cast(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     state["lines"] = lines
 
     await send_typing(update)
-    progress = ["☯️ <b>I sei lanci</b>", "", "Le linee si costruiscono dal basso verso l'alto.", ""]
-    await deliver_text(update, context, "\n".join(progress + ["🪙 Le monete sono in mano…"]))
-    for idx in range(1, 7):
-        progress.append(f"🪙 Lancio {idx}...")
-        await asyncio.sleep(0.38)
-        await deliver_text(update, context, "\n".join(progress))
-
-    await asyncio.sleep(0.25)
-    await deliver_text(update, context, "📖 Apro il libro dei mutamenti…")
+    animate = bool(state.pop("animate", True))
+    if animate:
+        progress = ["☯️ <b>I sei lanci</b>", "", "Le linee si costruiscono dal basso verso l'alto.", ""]
+        await deliver_text(update, context, "\n".join(progress + ["🪙 Le monete sono in mano…"]))
+        for idx in range(1, 7):
+            progress.append(f"🪙 Lancio {idx}...")
+            await asyncio.sleep(0.38)
+            await deliver_text(update, context, "\n".join(progress))
+        await asyncio.sleep(0.25)
+        await deliver_text(update, context, "📖 Apro il libro dei mutamenti…")
+    else:
+        await deliver_text(update, context, "☯️ Lancio le monete e apro il libro…")
     client = _http_client(context)
     try:
         book = await api_iching_book(client, context)
@@ -5290,7 +5294,7 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
             await show_oracle_question(update, context)
             return
         if action == "surprise":
-            await show_oracoli_hub(update, context)
+            await send_oracle_surprise(update, context)
             return
     if prefix == "leno":
         await show_lenormand_menu(update, context)
@@ -7612,27 +7616,9 @@ async def send_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await send_typing(update)
     await deliver_text(update, context, "🎲 Pesco nel sacco…")
     client = _http_client(context)
-    kind = random.choice(("tarot", "iching", "rune", "object", "planet", "mission", "moon", "exo", "stone"))
+    kind = random.choice(("object", "planet", "mission", "moon", "exo"))
     discover = None
-    if kind == "tarot":
-        try:
-            cards = await api_tarot_draw(client, count=1, include_minor=False)
-            name = str((cards[0] or {}).get("name") or "Carta")
-            name_it = await translate_to_italian(client, name)
-        except Exception:
-            name_it = "una carta (mazzo non disponibile)"
-        body = f"🃏 Tarocco\n\n<b>{e(name_it)}</b>"
-        discover = "tarot:menu"
-    elif kind == "iching":
-        hid = random.randint(1, 64)
-        body = f"☯️ Esagramma\n\n<b>Esagramma {hid}</b>\nApri I Ching per una consultazione vera."
-        discover = "iching:open"
-    elif kind == "rune":
-        drawn = draw_runes(1)
-        rune = drawn[0]
-        body = f"🪶 Runa\n\n<b>{e(rune['glyph'])} {e(rune['name'])}</b>"
-        discover = "home:rune"
-    elif kind == "planet":
+    if kind == "planet":
         item = random.choice(PLANETS)
         body = f"🪐 Pianeta\n\n{item['emoji']} <b>{e(item['it'])}</b>"
         discover = f"w:p:{item['id']}"
@@ -7658,10 +7644,6 @@ async def send_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             discover = "home:esopianeta"
         else:
             body = "🪐 Esopianeta\n\nArchivio non disponibile."
-    elif kind == "stone":
-        stone = random_stone()
-        body = f"💎 Pietra\n\n{stone['emoji']} <b>{e(stone['it'])}</b>\n{e(stone['formula'])} · {e(stone['mohs'])} Mohs"
-        discover = f"pt:s:{stone['id']}"
     else:
         from services.catalog import RANDOM_OBJECTS
 
@@ -7868,6 +7850,55 @@ async def cmd_missione(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     _cmd_begin(context, "home:missione")
     await send_missione(update, context)
     await delete_user_command(update)
+
+
+async def send_rune_surprise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    drawn = draw_runes(1)
+    rune = drawn[0]
+    orient = "capovolta" if rune["orientation"] == "reversed" else "diritta"
+    text = (
+        "🎲 <b>SORPRENDIMI · RUNE</b>\n"
+        "<i>Una runa, senza domanda. Specchio, non verdetto.</i>\n\n"
+        f"{rune['glyph']} <b>{e(rune['name'])}</b> · {e(orient)}\n"
+        f"{e(rune['meaning'])}\n\n"
+        "<i>Elder Futhark, 24 rune. Per una lettura con domanda, apri Rune.</i>"
+    )
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=oracle_surprise_after_keyboard("🪶 Rituale", "home:rune"),
+    )
+
+
+async def send_oracle_surprise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    pick = surprise_oracle()
+    await send_typing(update)
+    await deliver_text(update, context, "🎲 Pesco uno strumento e la lettura…")
+    if pick == "tarot":
+        state = _tarot_state(context)
+        state.clear()
+        state["spread"] = "day"
+        await send_tarot_draw(update, context)
+        return
+    if pick == "iching":
+        state = _iching_state(context)
+        state.clear()
+        state["question"] = "Cosa serve comprendere in questo momento?"
+        state["animate"] = False
+        await send_iching_cast(update, context)
+        return
+    if pick == "rune":
+        await send_rune_surprise(update, context)
+        return
+    if pick == "leno":
+        _leno_state(context).pop("question", None)
+        await send_lenormand_draw(update, context, "1")
+        return
+    if pick == "yes":
+        await send_yesno(update, context)
+        return
+    await send_stone_oracle(update, context)
 
 
 async def show_oracoli_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -8146,24 +8177,7 @@ async def on_ora_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await show_oracle_question(update, context)
         return
     if action == "surprise":
-        pick = surprise_oracle()
-        dispatch = {
-            "tarot": lambda: show_tarot_menu(update, context),
-            "iching": lambda: show_iching_intro(update, context),
-            "rune": lambda: show_rune_intro(update, context),
-            "leno": lambda: show_lenormand_menu(update, context),
-            "arch": lambda: send_deck_card(update, context, "arch"),
-            "anim": lambda: send_deck_card(update, context, "anim"),
-            "symb": lambda: send_deck_card(update, context, "symb"),
-            "elem": lambda: send_deck_card(update, context, "elem"),
-            "plan": lambda: send_deck_card(update, context, "plan"),
-            "lunar": lambda: send_lunar_oracle(update, context),
-            "yes": lambda: send_yesno(update, context),
-            "pietre": lambda: send_stone_oracle(update, context),
-        }
-        fn = dispatch.get(pick)
-        if fn:
-            await fn()
+        await send_oracle_surprise(update, context)
         return
 
 

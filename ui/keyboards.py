@@ -167,9 +167,17 @@ def oracoli_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🃏 Tarocchi", "tarot:menu"), kb_btn("☯️ I Ching", "iching:open")],
             [kb_btn("🪶 Rune", "home:rune"), kb_btn("🌿 Lenormand", "home:sibille")],
-            [kb_btn("🧿 Mazzi COSMOBOT", "ora:mazzi"), kb_btn("🪞 Sì / No", "ora:yes")],
-            [kb_btn("📖 Lettura", "home:lettura"), kb_btn("💎 Pietre", "pt:ora")],
+            [kb_btn("🪞 Sì / No", "ora:yes"), kb_btn("💎 Pietre", "pt:ora")],
             [kb_btn("🎲 Sorprendimi", "ora:surprise")],
+            nav_row(),
+        ]
+    )
+
+
+def oracle_surprise_after_keyboard(open_label: str, open_data: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🎲 Un altro", "ora:surprise"), kb_btn(open_label, open_data)],
             nav_row(),
         ]
     )

@@ -15,7 +15,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | Pulsante / mondo | Effetto | Fonte live |
 | --- | --- | --- |
 | 🔮 ORACOLO → Te stesso | Oroscopo (giorno / settimana / mese; senza segno usa **Bilancia**), tema natale guidato, specchio, compatibilità due segni | [freehoroscopeapi.com](https://freehoroscopeapi.com), [CosmyDay](https://cosmyday.com/api-docs) |
-| 🔮 ORACOLO → Oracoli | Tarocchi, I Ching, rune Elder Futhark, Lenormand, lettura, mazzi COSMOBOT, oracolo pietre | tarot API, Wilhelm 1924, dataset locali |
+| 🔮 ORACOLO → Oracoli | Tarocchi, I Ching, rune, Lenormand, sì/no, pietre. Sorprendimi pesca uno strumento e dà subito la lettura | tarot API, Wilhelm 1924, dataset locali |
 | 🔭 ASTRO → Cielo | Adesso, stelle, eventi, ISS, osserva da una città, Luna, APOD, asteroidi, meteore | skymap.sh, Skytime, WTIA, NASA, CosmyDay |
 | 🔭 ASTRO → Mondi | Esopianeti NASA, sistemi, salvataggi, cataloghi (nani, comete, profondo) | NASA TAP + Wikipedia |
 | 🔭 ASTRO → Vita | Come cerchiamo la vita, senza dichiararla | Wikipedia |

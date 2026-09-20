@@ -29,7 +29,7 @@ def oracolo_hub_text() -> str:
         "🔮 <b>ORACOLO</b>",
         "Bot di BOTSQUAD per guardarsi dentro. Simboli, non telescopio.",
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
-        "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, pietre (estrazione)\n\n"
+        "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n\n"
         "Il cielo misurato sta in 🔭 ASTRO.",
     )
 
@@ -77,10 +77,14 @@ def lettura_text() -> str:
 def oracoli_text() -> str:
     return _card(
         "🔮 <b>ORACOLI</b>",
-        "Il cassetto degli strumenti. Tradizione e mazzi nostri, tutti simbolici.",
-        "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n"
-        "🧿 Mazzi · 🪞 Sì/No · 📖 Lettura · 💎 Pietre\n"
-        "🎲 Sorprendimi — pesco io il metodo.",
+        "Sei strumenti, tutti simbolici. Nessun verdetto, nessuna astronomia.",
+        "🃏 <b>Tarocchi</b> — mazzo live, spread a scelta\n"
+        "☯️ <b>I Ching</b> — sei lanci, libro Wilhelm\n"
+        "🪶 <b>Rune</b> — Elder Futhark, 1 o 3\n"
+        "🌿 <b>Lenormand</b> — 36 sibille, 1/3/5/9\n"
+        "🪞 <b>Sì / No</b> — un'inclinazione, non un verdetto\n"
+        "💎 <b>Pietre</b> — estrazione simbolica, non mineralogia\n\n"
+        "🎲 <b>Sorprendimi</b> — pesco uno strumento e ti do subito la lettura.",
     )
 
 

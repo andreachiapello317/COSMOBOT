@@ -402,4 +402,4 @@ def yesno_from_tarot(reversed_card: bool, name: str) -> dict[str, str]:
 
 
 def surprise_oracle() -> str:
-    return random.choice(("tarot", "iching", "rune", "leno", "arch", "anim", "symb", "elem", "plan", "lunar", "yes", "pietre"))
+    return random.choice(("tarot", "iching", "rune", "leno", "yes", "pietre"))
