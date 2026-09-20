@@ -6,8 +6,10 @@ import calendar
 import html as _html
 import re
 from datetime import date, datetime, timezone
+from io import BytesIO
 
 import astronomy
+from PIL import Image, ImageDraw, ImageFont
 
 # Astronomy Engine: Time.ut è giorni da J2000.0, non il JD civile.
 JD_J2000 = 2451545.0
@@ -143,24 +145,93 @@ def shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
     return idx // 12, idx % 12 + 1
 
 
-_CAL_HEAD = ("lu", "ma", "me", "gi", "ve", "sa", "do")
+_CAL_HEAD = ("Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom")
+_CAL_COL = 4
 
 
 def format_month_calendar(year: int, month: int, today: date) -> str:
+    """Griglia ASCII di riserva. La carta vera è draw_month_calendar."""
     cal = calendar.Calendar(firstweekday=calendar.MONDAY)
     weeks = cal.monthdayscalendar(year, month)
-    lines = [" ".join(f"{head:>2} " for head in _CAL_HEAD)]
+    heads = "|" + "".join(f"{head:>{_CAL_COL}}" for head in _CAL_HEAD)
+    rule = "|" + "".join(f"{'---':>{_CAL_COL}}" for _ in _CAL_HEAD)
+    lines = [heads, rule]
     for week in weeks:
-        cells: list[str] = []
+        cells = ["|"]
         for day in week:
             if day == 0:
-                cells.append("   ")
-                continue
-            here = today.year == year and today.month == month and today.day == day
-            cells.append(f"{day:2d}·" if here else f"{day:2d} ")
-        lines.append(" ".join(cells))
+                cells.append(" " * _CAL_COL)
+            elif today.year == year and today.month == month and today.day == day:
+                cells.append(f"[{day:2d}]")
+            else:
+                cells.append(f"{day:{_CAL_COL}d}")
+        lines.append("".join(cells))
     title = f"{_MONTHS_IT[month - 1]} {year}"
     return f"<b>{_html.escape(title)}</b>\n<pre>{_html.escape(chr(10).join(lines))}</pre>"
+
+
+def _cal_font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    names = (
+        ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf")
+        if bold
+        else ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf")
+    )
+    for name in names:
+        for folder in (
+            "/usr/share/fonts/truetype/dejavu",
+            "/usr/share/fonts/truetype/liberation",
+        ):
+            try:
+                return ImageFont.truetype(f"{folder}/{name}", size)
+            except OSError:
+                continue
+    return ImageFont.load_default()
+
+
+def draw_month_calendar(year: int, month: int, today: date) -> bytes:
+    """Mese civile a colonne uguali. Lunedì in testa, oggi nel riquadro."""
+    cal = calendar.Calendar(firstweekday=calendar.MONDAY)
+    weeks = cal.monthdayscalendar(year, month)
+    cols, rows = 7, len(weeks)
+    left, top = 28, 92
+    width, height = 720, top + 56 + rows * 72 + 28
+    cell_w = (width - left * 2) / cols
+    cell_h = 68
+    img = Image.new("RGB", (width, height), (10, 12, 20))
+    draw = ImageDraw.Draw(img)
+    title_font = _cal_font(34, bold=True)
+    head_font = _cal_font(18, bold=True)
+    day_font = _cal_font(26, bold=True)
+    title = f"{_MONTHS_IT[month - 1]} {year}"
+    box = draw.textbbox((0, 0), title, font=title_font)
+    draw.text(((width - (box[2] - box[0])) / 2, 22), title, fill=(236, 239, 247), font=title_font)
+    for idx, head in enumerate(_CAL_HEAD):
+        x = left + idx * cell_w
+        hb = draw.textbbox((0, 0), head, font=head_font)
+        draw.text(
+            (x + (cell_w - (hb[2] - hb[0])) / 2, top - 28),
+            head,
+            fill=(168, 178, 198) if idx < 5 else (214, 168, 120),
+            font=head_font,
+        )
+    for r, week in enumerate(weeks):
+        for c, day in enumerate(week):
+            x0 = left + c * cell_w
+            y0 = top + r * cell_h
+            x1, y1 = x0 + cell_w - 8, y0 + cell_h - 8
+            if day == 0:
+                continue
+            is_today = today.year == year and today.month == month and today.day == day
+            if is_today:
+                draw.rounded_rectangle((x0, y0, x1, y1), radius=14, fill=(52, 92, 168))
+            label = str(day)
+            db = draw.textbbox((0, 0), label, font=day_font)
+            tw, th = db[2] - db[0], db[3] - db[1]
+            fill = (245, 247, 252) if is_today else ((210, 214, 226) if c < 5 else (230, 186, 140))
+            draw.text((x0 + (cell_w - 8 - tw) / 2, y0 + (cell_h - 8 - th) / 2 - 2), label, fill=fill, font=day_font)
+    out = BytesIO()
+    img.save(out, format="PNG", optimize=True)
+    return out.getvalue()
 
 
 def weekday_it(stamp: date) -> str:

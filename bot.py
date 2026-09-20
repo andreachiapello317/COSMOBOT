@@ -82,6 +82,7 @@ from services.i18n import compass_it, discovery_it, event_name_it, kp_label_it, 
 from services.eclipses import fetch_eclipses, kind_it, next_of, parse_peak
 from services.iss import fetch_iss_position, fetch_people_in_space, reverse_iss_place
 from services.tools import (
+    draw_month_calendar,
     format_coord_card,
     format_julian_card,
     format_month_calendar,
@@ -2686,19 +2687,42 @@ async def send_tool_clock(
     off_h = (offset.total_seconds() / 3600.0) if offset else 0.0
     sign = "+" if off_h >= 0 else "−"
     year, month = shift_month(local.year, local.month, shift)
-    cal = format_month_calendar(year, month, local.date())
     phase = moon_now(local)
     text = (
         f"🕐 <b>ORA E CALENDARIO — {e(name.upper())}</b>\n"
-        "<i>Fuso da Open-Meteo. Il calendario è il mese civile, non il giorno giuliano.</i>\n\n"
         f"Lì: <b>{local.strftime('%d/%m/%Y %H:%M:%S')}</b> · {e(weekday_it(local.date()))}\n"
         f"UTC: <code>{utc.strftime('%d/%m/%Y %H:%M:%S')}</code>\n"
         f"Fuso: <code>{e(tz_name)}</code> · UTC{sign}{abs(off_h):.0f}h\n"
-        f"Oggi: {phase.get('emoji') or '🌙'} {e(str(phase.get('name') or 'Luna'))}\n\n"
-        f"{cal}\n"
-        "<i>· = oggi. Lunedì in testa. Anno e mese dalle frecce.</i>"
+        f"Oggi: {phase.get('emoji') or '🌙'} {e(str(phase.get('name') or 'Luna'))}\n"
+        "<i>Riquadro = oggi. Lunedì in testa. Frecce per mese e anno.</i>"
     )
-    await reply_html(update, context, text, reply_markup=clock_calendar_keyboard())
+    markup = clock_calendar_keyboard()
+    try:
+        png = draw_month_calendar(year, month, local.date())
+    except Exception:
+        logger.exception("Calendario PNG")
+        await reply_html(
+            update,
+            context,
+            text + "\n\n" + format_month_calendar(year, month, local.date()),
+            reply_markup=markup,
+        )
+        return
+    ok = await deliver_photo_bytes(
+        update,
+        context,
+        png,
+        text,
+        filename=f"cal-{year}-{month:02d}.png",
+        reply_markup=markup,
+    )
+    if not ok:
+        await reply_html(
+            update,
+            context,
+            text + "\n\n" + format_month_calendar(year, month, local.date()),
+            reply_markup=markup,
+        )
 
 
 async def on_tool_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
