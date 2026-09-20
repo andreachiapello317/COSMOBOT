@@ -54,7 +54,8 @@ def all_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔮 ORACOLO", "bot:oracolo")],
             [kb_btn("🔭 ASTRO", "bot:astro")],
             [kb_btn("🌿 NATURA", "bot:geo")],
-            [kb_btn("🧮 CALC", "bot:calc")],
+            [kb_btn("🧮 MATEMATICA", "bot:calc")],
+            [kb_btn("🧭 BUSSOLA", "bot:bussola")],
             [kb_btn("📚 Aiuto", "home:aiuto")],
         ]
     )
@@ -392,6 +393,16 @@ def sky_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardMar
     return InlineKeyboardMarkup(rows)
 
 
+def math_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🧮 Calcolatrice", "calc:pad")],
+            [kb_btn("➗ Percentuale", "calc:pct"), kb_btn("🔄 Conversioni", "calc:conv")],
+            nav_row(),
+        ]
+    )
+
+
 def calc_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
@@ -400,6 +411,52 @@ def calc_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("1", "calc:1"), kb_btn("2", "calc:2"), kb_btn("3", "calc:3"), kb_btn("−", "calc:sub")],
             [kb_btn("0", "calc:0"), kb_btn(".", "calc:dot"), kb_btn("=", "calc:eq"), kb_btn("+", "calc:add")],
             [kb_btn("C", "calc:c"), kb_btn("⌫", "calc:bs"), kb_btn("(", "calc:lp"), kb_btn(")", "calc:rp")],
+            [kb_btn("🧮 Matematica", "calc:hub")],
+            nav_row(),
+        ]
+    )
+
+
+def math_percent_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("20% di 150", "calc:pex:of:20:150"), kb_btn("15 su 60", "calc:pex:ratio:15:60")],
+            [kb_btn("Aumenta 80 del 10%", "calc:pex:up:80:10"), kb_btn("Sconta 80 del 10%", "calc:pex:down:80:10")],
+            [kb_btn("✍️ Scrivi tu", "calc:pctask")],
+            nav_row(),
+        ]
+    )
+
+
+def math_convert_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("km → miglia", "calc:cv:km_mi"), kb_btn("miglia → km", "calc:cv:mi_km")],
+            [kb_btn("m → piedi", "calc:cv:m_ft"), kb_btn("piedi → m", "calc:cv:ft_m")],
+            [kb_btn("kg → libbre", "calc:cv:kg_lb"), kb_btn("libbre → kg", "calc:cv:lb_kg")],
+            [kb_btn("°C → °F", "calc:cv:c_f"), kb_btn("°F → °C", "calc:cv:f_c")],
+            nav_row(),
+        ]
+    )
+
+
+def compass_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("📍 Posizione GPS", "cmp:gps")],
+            [kb_btn("🧭 Bussola", "cmp:needle")],
+            [kb_btn("🎯 Verso un luogo", "cmp:to")],
+            nav_row(),
+        ]
+    )
+
+
+def compass_result_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("📍 Posizione", "cmp:gps"), kb_btn("🧭 Bussola", "cmp:needle")],
+            [kb_btn("🎯 Verso un luogo", "cmp:to")],
+            [kb_btn("📍 Cambia luogo", "cmp:city"), kb_btn("📡 Posizione Telegram", "cmp:share")],
             nav_row(),
         ]
     )

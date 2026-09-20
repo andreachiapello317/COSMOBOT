@@ -32,8 +32,16 @@ BOTS: tuple[dict[str, Any], ...] = (
     {
         "id": "calc",
         "emoji": "🧮",
-        "name": "CALC",
-        "tag": "Calcolatrice a pulsanti",
+        "name": "MATEMATICA",
+        "tag": "Calcolatrice, percentuali, conversioni",
+        "ready": True,
+        "worlds": (),
+    },
+    {
+        "id": "bussola",
+        "emoji": "🧭",
+        "name": "BUSSOLA",
+        "tag": "GPS, nord, direzione",
         "ready": True,
         "worlds": (),
     },
@@ -66,6 +74,8 @@ def parent_bot_token(token: str) -> str:
         return f"bot:{canonical_bot_id(raw.split(':', 1)[1])}"
     if raw.startswith("loc:go:natev"):
         return "bot:geo"
+    if raw.startswith(("loc:go:gps", "loc:go:compass", "loc:go:brfrom", "loc:go:brto")):
+        return "bot:bussola"
     oracolo = (
         "world:self",
         "world:div",
@@ -122,4 +132,6 @@ def parent_bot_token(token: str) -> str:
         return "bot:geo"
     if raw.startswith("calc:"):
         return "bot:calc"
+    if raw.startswith("cmp:"):
+        return "bot:bussola"
     return "bot:astro"

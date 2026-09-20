@@ -32,7 +32,16 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from dotenv import load_dotenv
-from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
+from telegram import (
+    BotCommand,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    Update,
+)
 
 from services.astronomy import stellarium_url, visibility_stars
 from services.catalog import (
@@ -127,7 +136,24 @@ from services.stones import (
 )
 from services.bots import parent_bot_token
 from services.stonephoto import confidence_label, guess_stones, identify_from_photo, read_photo_hints
-from services.calc import apply_key as calc_apply_key
+from services.calc import (
+    CONVERSIONS,
+    apply_key as calc_apply_key,
+    convert_value,
+    format_number as calc_format_number,
+    parse_percent_request,
+    percent_change,
+    percent_of,
+    percent_ratio,
+)
+from services.compass import (
+    fetch_declination,
+    fetch_elevation,
+    format_bearing,
+    format_compass,
+    format_gps,
+    reverse_place,
+)
 from services.weather import fetch_forecast, format_forecast, parse_forecast_request
 from services.earth import (
     fetch_eonet,
@@ -231,6 +257,11 @@ from ui.keyboards import (
     lettura_method_keyboard,
     oracle_question_keyboard,
     calc_keyboard,
+    compass_hub_keyboard,
+    compass_result_keyboard,
+    math_convert_keyboard,
+    math_hub_keyboard,
+    math_percent_keyboard,
     meteo_keyboard,
     meteo_span_keyboard,
     sky_result_keyboard,
@@ -341,6 +372,10 @@ from ui.texts import (
     world_pietre_text,
     pietre_hub_text,
     calc_hub_text,
+    compass_hub_text,
+    math_convert_text,
+    math_hub_text,
+    math_percent_text,
     meteo_span_text,
 )
 from telegram.constants import ChatAction, ParseMode
@@ -386,6 +421,9 @@ TELEGRAM_CAPTION_MAX = 1024
 LAST_BOT_MSG_KEY = "last_bot_msg"
 CIELO_LAST_KEY = "cielo_last"
 NATURA_LAST_KEY = "natura_last"
+BUSSOLA_LAST_KEY = "bussola_last"
+MATH_ASK_KEY = "math_ask"
+COMPASS_SHARE_KEY = "compass_share"
 MONDI_LIST_KEY = "mondi_list"
 MONDI_SYS_KEY = "mondi_sys"
 MONDI_LAST_KEY = "mondi_last"
@@ -1403,6 +1441,8 @@ def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     _stone_reset(context)
     context.user_data["cielo_ask"] = False
     context.user_data[METEO_ASK_KEY] = False
+    context.user_data[MATH_ASK_KEY] = None
+    context.user_data[COMPASS_SHARE_KEY] = False
 
 
 def _nav_should_skip(token: str) -> bool:
@@ -1449,7 +1489,7 @@ def nav_pop(context: ContextTypes.DEFAULT_TYPE) -> str | None:
 
 def _cmd_begin(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     _flows_reset(context)
-    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:calc", "bot:cosmo", "bot:next"}:
+    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:calc", "bot:bussola", "bot:cosmo", "bot:next"}:
         here = context.user_data.get(NAV_HERE_KEY)
         if here in {None, "home:menu"}:
             context.user_data[NAV_STACK_KEY] = ["home:menu"]
@@ -2159,7 +2199,7 @@ def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
         "🪐 <b>BOTSQUAD</b>\n"
-        "<i>Quattro bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
+        "<i>Cinque bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
@@ -2168,7 +2208,8 @@ def help_text() -> str:
         "(enciclopedia), In orbita (ISS e dati live). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
-        "🧮 <b>CALC</b> — calcolatrice a pulsanti.\n\n"
+        "🧮 <b>MATEMATICA</b> — calcolatrice, percentuali, conversioni.\n"
+        "🧭 <b>BUSSOLA</b> — posizione GPS, nord magnetico, direzione verso un luogo.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
         "nome del segno in chat.\n\n"
@@ -2211,8 +2252,14 @@ def _calc_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
     return state
 
 
-async def show_calc_hub(update: Update, context: ContextTypes.DEFAULT_TYPE, *, error: str = "") -> None:
+async def show_math_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     nav_mark(context, "bot:calc")
+    context.user_data[MATH_ASK_KEY] = None
+    await reply_html(update, context, math_hub_text(), reply_markup=math_hub_keyboard())
+
+
+async def show_calc_hub(update: Update, context: ContextTypes.DEFAULT_TYPE, *, error: str = "") -> None:
+    nav_mark(context, "calc:pad")
     state = _calc_state(context)
     await reply_html(
         update,
@@ -2222,16 +2269,91 @@ async def show_calc_hub(update: Update, context: ContextTypes.DEFAULT_TYPE, *, e
     )
 
 
+def _math_percent_label(kind: str, value: float) -> str:
+    pretty = calc_format_number(value)
+    if kind == "of":
+        return pretty
+    if kind == "ratio":
+        return f"{pretty} %"
+    return pretty
+
+
+async def show_math_percent(update: Update, context: ContextTypes.DEFAULT_TYPE, *, result: str = "") -> None:
+    nav_mark(context, "calc:pct")
+    context.user_data[MATH_ASK_KEY] = {"mode": "pct"}
+    await reply_html(update, context, math_percent_text(result), reply_markup=math_percent_keyboard())
+
+
+async def show_math_convert(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    kind: str = "",
+    result: str = "",
+) -> None:
+    nav_mark(context, "calc:conv")
+    context.user_data[MATH_ASK_KEY] = {"mode": "conv", "kind": kind} if kind else {"mode": "conv"}
+    label = ""
+    if kind and kind in CONVERSIONS:
+        src, dst, _mul, _add = CONVERSIONS[kind]
+        label = f"{src} → {dst}"
+    await reply_html(update, context, math_convert_text(label, result), reply_markup=math_convert_keyboard())
+
+
 async def on_calc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None or not query.data:
         return
     _remember_from_callback(update, context)
-    key = query.data.split(":", 1)[1] if ":" in query.data else ""
+    rest = query.data.split(":", 1)[1] if ":" in query.data else ""
+    parts = rest.split(":")
+    key = parts[0] if parts else ""
+    if key in {"hub", ""}:
+        await query.answer()
+        await show_math_hub(update, context)
+        return
+    if key == "pad":
+        await query.answer()
+        await show_calc_hub(update, context)
+        return
+    if key == "pct":
+        await query.answer()
+        await show_math_percent(update, context)
+        return
+    if key == "pctask":
+        await query.answer()
+        await show_math_percent(update, context)
+        return
+    if key == "pex" and len(parts) >= 4:
+        kind, a, b = parts[1], parts[2], parts[3]
+        try:
+            left, right = float(a), float(b)
+            if kind == "of":
+                value = percent_of(left, right)
+            elif kind == "ratio":
+                value = percent_ratio(left, right)
+            elif kind == "up":
+                value = percent_change(left, right, up=True)
+            else:
+                value = percent_change(left, right, up=False)
+            await query.answer()
+            await show_math_percent(update, context, result=_math_percent_label(kind, value))
+        except Exception:
+            await query.answer("Non calcolabile")
+            await show_math_percent(update, context, result="Non calcolabile.")
+        return
+    if key == "conv":
+        await query.answer()
+        await show_math_convert(update, context)
+        return
+    if key == "cv" and len(parts) >= 2 and parts[1] in CONVERSIONS:
+        await query.answer()
+        await show_math_convert(update, context, kind=parts[1])
+        return
     state = _calc_state(context)
     expr, just_eq, error = calc_apply_key(
         str(state.get("expr") or ""),
-        key,
+        rest,
         just_eq=bool(state.get("just_eq")),
     )
     state["expr"] = expr
@@ -2265,7 +2387,10 @@ async def on_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await show_geo_hub(update, context)
         return
     if action == "calc":
-        await show_calc_hub(update, context)
+        await show_math_hub(update, context)
+        return
+    if action == "bussola":
+        await show_bussola_hub(update, context)
         return
     await show_all_hub(update, context)
 
@@ -5630,9 +5755,27 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
             await show_geo_hub(update, context)
             return
         if action == "calc":
-            await show_calc_hub(update, context)
+            await show_math_hub(update, context)
+            return
+        if action == "bussola":
+            await show_bussola_hub(update, context)
             return
         await show_all_hub(update, context)
+        return
+    if prefix == "cmp":
+        await dispatch_compass(update, context, token)
+        return
+    if prefix == "calc":
+        if action == "pad":
+            await show_calc_hub(update, context)
+            return
+        if action == "pct":
+            await show_math_percent(update, context)
+            return
+        if action == "conv":
+            await show_math_convert(update, context)
+            return
+        await show_math_hub(update, context)
         return
     if prefix == "geo":
         await dispatch_geo(update, context, token)
@@ -6973,6 +7116,10 @@ async def show_place_picker(
         "skyq": "Da dove interroghi il cielo?",
         "luna": "Da dove calcolare alba e tramonto della Luna?",
         "natev": "Da quale città cerco eventi naturali vicini? La salvo per questa sezione.",
+        "gps": "Di quale luogo vuoi le coordinate GPS?",
+        "compass": "Da dove calcolo nord geografico e magnetico?",
+        "brfrom": "Da dove parti? Poi ti chiedo la destinazione.",
+        "brto": "Verso quale città o luogo?",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
     if step == "it":
@@ -7004,6 +7151,9 @@ async def apply_place(
     if purpose == "natev":
         _remember_natura_place(context, name, lat, lon)
         await send_natura_here(update, context)
+        return
+    if purpose in {"gps", "compass", "brfrom", "brto"}:
+        await apply_bussola_place(update, context, name, lat, lon, purpose)
         return
     _remember_cielo_place(context, name, lat, lon)
     if purpose == "cielo":
@@ -10857,6 +11007,9 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if context.user_data.get(METEO_ASK_KEY):
         await receive_meteo_span(update, context, text)
         return
+    if context.user_data.get(MATH_ASK_KEY):
+        await receive_math_text(update, context, text)
+        return
     if isinstance(stone, dict) and stone.get("search"):
         await receive_pietre_search(update, context, text)
         return
@@ -10924,7 +11077,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale.\n"
         "Scrivi un segno (es. <i>vergine</i>) per l'oroscopo, "
-        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA o 🧮 CALC.",
+        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧮 MATEMATICA o 🧭 BUSSOLA.",
         reply_markup=all_hub_keyboard(),
     )
 
@@ -10934,7 +11087,7 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update,
         context,
         "I comandi scritti non ci sono più: qui si va a pulsanti.\n"
-        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA o 🧮 CALC, oppure 📚 Aiuto.",
+        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧮 MATEMATICA o 🧭 BUSSOLA, oppure 📚 Aiuto.",
         reply_markup=all_hub_keyboard(),
     )
     await delete_user_command(update)
@@ -11114,6 +11267,329 @@ async def send_natura_world(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await reply_html(update, context, text, reply_markup=natura_world_keyboard())
 
 
+def _remember_bussola_place(
+    context: ContextTypes.DEFAULT_TYPE,
+    name: str,
+    lat: float,
+    lon: float,
+    *,
+    accuracy_m: float | None = None,
+    heading: float | None = None,
+    source: str = "città",
+) -> None:
+    context.user_data[BUSSOLA_LAST_KEY] = {
+        "name": name,
+        "lat": lat,
+        "lon": lon,
+        "accuracy_m": accuracy_m,
+        "heading": heading,
+        "source": source,
+    }
+
+
+def _has_bussola_place(context: ContextTypes.DEFAULT_TYPE) -> bool:
+    last = context.user_data.get(BUSSOLA_LAST_KEY)
+    return isinstance(last, dict) and last.get("lat") is not None
+
+
+def _bussola_place(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    last = context.user_data.get(BUSSOLA_LAST_KEY)
+    if isinstance(last, dict) and last.get("lat") is not None:
+        return last
+    return {
+        "name": DEFAULT_PLACE_NAME,
+        "lat": DEFAULT_LAT,
+        "lon": DEFAULT_LON,
+        "source": "predefinito",
+    }
+
+
+async def show_bussola_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "bot:bussola")
+    context.user_data[COMPASS_SHARE_KEY] = False
+    await reply_html(update, context, compass_hub_text(), reply_markup=compass_hub_keyboard())
+
+
+async def apply_bussola_place(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    name: str,
+    lat: float,
+    lon: float,
+    purpose: str,
+    *,
+    accuracy_m: float | None = None,
+    heading: float | None = None,
+    source: str = "città",
+) -> None:
+    if purpose == "brto" and _has_bussola_place(context):
+        origin = _bussola_place(context)
+        await send_bussola_bearing(
+            update,
+            context,
+            origin_name=str(origin.get("name") or "partenza"),
+            dest_name=name,
+            lat1=float(origin["lat"]),
+            lon1=float(origin["lon"]),
+            lat2=lat,
+            lon2=lon,
+        )
+        return
+    _remember_bussola_place(
+        context, name, lat, lon, accuracy_m=accuracy_m, heading=heading, source=source
+    )
+    if purpose == "brfrom":
+        await show_place_picker(update, context, "brto")
+        return
+    if purpose == "compass":
+        await send_bussola_needle(update, context)
+        return
+    await send_bussola_gps(update, context)
+
+
+async def _bussola_live(client: httpx.AsyncClient, lat: float, lon: float) -> tuple[float | None, float | None]:
+    elevation = None
+    declination = None
+    try:
+        elevation = await fetch_elevation(client, lat, lon)
+    except Exception:
+        logger.exception("quota Open-Meteo non disponibile")
+    try:
+        mag = await fetch_declination(client, lat, lon, altitude_m=elevation)
+        declination = mag.get("declination")
+    except Exception:
+        logger.exception("declinazione WMM non disponibile")
+    return elevation, declination
+
+
+async def send_bussola_gps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_bussola_place(context):
+        await show_place_picker(update, context, "gps")
+        return
+    place = _bussola_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, "📍 Leggo coordinate, quota e campo magnetico…")
+    lat, lon = float(place["lat"]), float(place["lon"])
+    elevation, declination = await _bussola_live(_http_client(context), lat, lon)
+    acc = place.get("accuracy_m")
+    head = place.get("heading")
+    text = format_gps(
+        name=str(place.get("name") or "Posizione"),
+        lat=lat,
+        lon=lon,
+        elevation_m=elevation,
+        declination=declination,
+        accuracy_m=float(acc) if acc is not None else None,
+        heading=float(head) if head is not None else None,
+        source=str(place.get("source") or "città"),
+    )
+    await reply_html(update, context, text, reply_markup=compass_result_keyboard(), preview=True)
+
+
+async def send_bussola_needle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_bussola_place(context):
+        await show_place_picker(update, context, "compass")
+        return
+    place = _bussola_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, "🧭 Calcolo nord geografico e magnetico…")
+    lat, lon = float(place["lat"]), float(place["lon"])
+    _elevation, declination = await _bussola_live(_http_client(context), lat, lon)
+    head = place.get("heading")
+    text = format_compass(
+        name=str(place.get("name") or "Posizione"),
+        lat=lat,
+        lon=lon,
+        declination=declination,
+        heading=float(head) if head is not None else None,
+    )
+    await reply_html(update, context, text, reply_markup=compass_result_keyboard())
+
+
+async def send_bussola_bearing(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    origin_name: str,
+    dest_name: str,
+    lat1: float,
+    lon1: float,
+    lat2: float,
+    lon2: float,
+) -> None:
+    await send_typing(update)
+    await deliver_text(update, context, "🎯 Calcolo distanza e direzione…")
+    _elevation, declination = await _bussola_live(_http_client(context), lat1, lon1)
+    text = format_bearing(
+        origin=origin_name,
+        dest=dest_name,
+        lat1=lat1,
+        lon1=lon1,
+        lat2=lat2,
+        lon2=lon2,
+        declination=declination,
+    )
+    await reply_html(update, context, text, reply_markup=compass_result_keyboard(), preview=True)
+
+
+async def ask_telegram_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+    if chat is None:
+        return
+    context.user_data[COMPASS_SHARE_KEY] = True
+    context.user_data[LOC_PURPOSE_KEY] = "gps"
+    context.user_data[LOC_ASK_KEY] = True
+    markup = ReplyKeyboardMarkup(
+        [[KeyboardButton("📍 Invia la posizione", request_location=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+    await context.bot.send_message(
+        chat_id=chat.id,
+        text=(
+            "📍 <b>POSIZIONE TELEGRAM</b>\n\n"
+            "Tocca <b>Invia la posizione</b> qui sotto, oppure la graffetta → Posizione. "
+            "Puoi anche scrivere una città."
+        ),
+        parse_mode=ParseMode.HTML,
+        reply_markup=markup,
+    )
+
+
+async def dispatch_compass(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    parts = token.split(":")
+    action = parts[1] if len(parts) > 1 else "hub"
+    if action in {"hub", ""}:
+        await show_bussola_hub(update, context)
+        return
+    if action == "gps":
+        if _has_bussola_place(context):
+            await send_bussola_gps(update, context)
+        else:
+            await show_place_picker(update, context, "gps")
+        return
+    if action == "needle":
+        if _has_bussola_place(context):
+            await send_bussola_needle(update, context)
+        else:
+            await show_place_picker(update, context, "compass")
+        return
+    if action == "to":
+        if _has_bussola_place(context):
+            await show_place_picker(update, context, "brto")
+        else:
+            await show_place_picker(update, context, "brfrom")
+        return
+    if action == "city":
+        await show_place_picker(update, context, "gps")
+        return
+    if action == "share":
+        await ask_telegram_location(update, context)
+        return
+    await show_bussola_hub(update, context)
+
+
+async def on_cmp_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    await query.answer()
+    await dispatch_compass(update, context, query.data)
+
+
+async def on_user_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if message is None or message.location is None:
+        return
+    loc = message.location
+    client = _http_client(context)
+    try:
+        name = await reverse_place(client, float(loc.latitude), float(loc.longitude))
+    except Exception:
+        name = "La tua posizione"
+    purpose = _loc_purpose(context)
+    if purpose not in {"gps", "compass", "brfrom", "brto"}:
+        purpose = "gps"
+    accuracy = float(loc.horizontal_accuracy) if loc.horizontal_accuracy is not None else None
+    heading = float(loc.heading) if getattr(loc, "heading", None) is not None else None
+    context.user_data[COMPASS_SHARE_KEY] = False
+    context.user_data[LOC_ASK_KEY] = False
+    chat = update.effective_chat
+    if chat is not None:
+        try:
+            await context.bot.send_message(
+                chat_id=chat.id,
+                text="📍 Posizione ricevuta.",
+                reply_markup=ReplyKeyboardRemove(),
+            )
+        except TelegramError:
+            pass
+    await delete_user_command(update)
+    await apply_bussola_place(
+        update,
+        context,
+        name,
+        float(loc.latitude),
+        float(loc.longitude),
+        purpose,
+        accuracy_m=accuracy,
+        heading=heading,
+        source="Telegram",
+    )
+
+
+async def receive_math_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    ask = context.user_data.get(MATH_ASK_KEY)
+    if not isinstance(ask, dict):
+        context.user_data[MATH_ASK_KEY] = None
+        await show_math_hub(update, context)
+        return
+    mode = str(ask.get("mode") or "")
+    if mode == "pct":
+        parsed = parse_percent_request(text)
+        await delete_user_command(update)
+        if parsed is None:
+            await show_math_percent(
+                update,
+                context,
+                result="Non l'ho capita. Prova: 20% di 150 · 15 su 60 · aumenta 80 del 10%.",
+            )
+            return
+        kind, value = parsed
+        await show_math_percent(update, context, result=_math_percent_label(kind, value))
+        return
+    if mode == "conv":
+        kind = str(ask.get("kind") or "")
+        raw = text.replace(",", ".").strip()
+        try:
+            number = float(raw.split()[0])
+        except (TypeError, ValueError, IndexError):
+            await delete_user_command(update)
+            await show_math_convert(update, context, kind=kind, result="Serve un numero.")
+            return
+        if kind not in CONVERSIONS:
+            await delete_user_command(update)
+            await show_math_convert(update, context, result="Prima scegli le unità.")
+            return
+        try:
+            out, src, dst = convert_value(kind, number)
+        except Exception:
+            await delete_user_command(update)
+            await show_math_convert(update, context, kind=kind, result="Conversione non valida.")
+            return
+        await delete_user_command(update)
+        await show_math_convert(
+            update,
+            context,
+            kind=kind,
+            result=f"{calc_format_number(number)} {src} = {calc_format_number(out)} {dst}",
+        )
+        return
+    context.user_data[MATH_ASK_KEY] = None
+    await show_math_hub(update, context)
+
+
 async def send_geo_quakes(update: Update, context: ContextTypes.DEFAULT_TYPE, feed: str) -> None:
     if feed not in {"day", "week", "sig"}:
         feed = "day"
@@ -11258,6 +11734,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_lett_action, pattern=r"^lett:"))
     application.add_handler(CallbackQueryHandler(on_bot_action, pattern=r"^bot:"))
     application.add_handler(CallbackQueryHandler(on_calc_action, pattern=r"^calc:"))
+    application.add_handler(CallbackQueryHandler(on_cmp_action, pattern=r"^cmp:"))
     application.add_handler(CallbackQueryHandler(on_sky_action, pattern=r"^sky:"))
     application.add_handler(CallbackQueryHandler(on_orb_action, pattern=r"^orb:"))
     application.add_handler(CallbackQueryHandler(on_geo_action, pattern=r"^geo:"))
@@ -11278,6 +11755,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_pt_action, pattern=r"^pt:"))
     application.add_handler(CallbackQueryHandler(on_cp_action, pattern=r"^cp:"))
     application.add_handler(MessageHandler(filters.PHOTO, on_pietre_photo))
+    application.add_handler(MessageHandler(filters.LOCATION, on_user_location))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))
     application.add_error_handler(on_error)

@@ -101,3 +101,65 @@ def apply_key(expr: str, key: str, *, just_eq: bool = False) -> tuple[str, bool,
         token = "0."
     next_expr = normalize_expr(current + token)
     return next_expr, False, None
+
+
+def percent_of(part: float, whole: float) -> float:
+    return whole * part / 100.0
+
+
+def percent_ratio(value: float, whole: float) -> float:
+    if whole == 0:
+        raise ZeroDivisionError("zero")
+    return value * 100.0 / whole
+
+
+def percent_change(value: float, pct: float, *, up: bool) -> float:
+    delta = value * pct / 100.0
+    return value + delta if up else value - delta
+
+
+def parse_percent_request(text: str) -> tuple[str, float] | None:
+    """Riconosce '20% di 150', '15 su 60', 'aumenta 80 del 10%', 'sconta 80 del 10%'."""
+    import re
+
+    raw = " ".join(str(text or "").strip().lower().replace(",", ".").split())
+    raw = raw.replace("%", " % ").replace("  ", " ")
+    m = re.search(r"aumenta\s+(-?\d+(?:\.\d+)?)\s+(?:del|di)\s+(-?\d+(?:\.\d+)?)\s*%?", raw)
+    if m:
+        return ("up", percent_change(float(m.group(1)), float(m.group(2)), up=True))
+    m = re.search(r"sconta\s+(-?\d+(?:\.\d+)?)\s+(?:del|di)\s+(-?\d+(?:\.\d+)?)\s*%?", raw)
+    if m:
+        return ("down", percent_change(float(m.group(1)), float(m.group(2)), up=False))
+    m = re.search(r"(-?\d+(?:\.\d+)?)\s*%\s*(?:di|of)\s*(-?\d+(?:\.\d+)?)", raw)
+    if m:
+        return ("of", percent_of(float(m.group(1)), float(m.group(2))))
+    m = re.search(
+        r"(-?\d+(?:\.\d+)?)\s+(?:su|è|e)\s+(?:che\s+)?(?:il\s+)?%?\s*(?:di\s+)?(-?\d+(?:\.\d+)?)",
+        raw,
+    )
+    if m:
+        return ("ratio", percent_ratio(float(m.group(1)), float(m.group(2))))
+    m = re.search(r"(-?\d+(?:\.\d+)?)\s+di\s+(-?\d+(?:\.\d+)?)", raw)
+    if m:
+        return ("ratio", percent_ratio(float(m.group(1)), float(m.group(2))))
+    return None
+
+
+CONVERSIONS: dict[str, tuple[str, str, float, float]] = {
+    # key: from, to, multiply, add (out = value * multiply + add)
+    "km_mi": ("km", "miglia", 0.621371, 0.0),
+    "mi_km": ("miglia", "km", 1.609344, 0.0),
+    "m_ft": ("m", "piedi", 3.280839895, 0.0),
+    "ft_m": ("piedi", "m", 0.3048, 0.0),
+    "kg_lb": ("kg", "libbre", 2.2046226218, 0.0),
+    "lb_kg": ("libbre", "kg", 0.45359237, 0.0),
+    "c_f": ("°C", "°F", 1.8, 32.0),
+    "f_c": ("°F", "°C", 5.0 / 9.0, -32.0 * 5.0 / 9.0),
+}
+
+
+def convert_value(kind: str, value: float) -> tuple[float, str, str]:
+    if kind not in CONVERSIONS:
+        raise ValueError("conversione sconosciuta")
+    src, dst, mul, add = CONVERSIONS[kind]
+    return value * mul + add, src, dst

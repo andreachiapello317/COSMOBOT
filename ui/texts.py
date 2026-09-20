@@ -15,11 +15,12 @@ def _card(title: str, intro: str, body: str = "") -> str:
 def all_hub_text() -> str:
     return _card(
         "🪐 <b>BOTSQUAD</b>",
-        "Quattro bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
+        "Cinque bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
         "🌿 <b>NATURA</b> — flora, fauna, pietre.\n"
-        "🧮 <b>CALC</b> — calcolatrice a pulsanti.\n\n"
+        "🧮 <b>MATEMATICA</b> — calcolatrice, percentuali, conversioni.\n"
+        "🧭 <b>BUSSOLA</b> — posizione GPS, nord, direzione.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
 
@@ -171,14 +172,58 @@ def meteo_span_text(place: str) -> str:
     )
 
 
+def math_hub_text() -> str:
+    return _card(
+        "🧮 <b>MATEMATICA</b>",
+        "Numeri, non oracoli e non cielo. La calcolatrice è una funzione, non tutto il bot.",
+        "🧮 <b>CALCOLATRICE</b> — tasti, come sul telefono\n"
+        "➗ <b>PERCENTUALE</b> — «20% di 150», sconti, aumenti\n"
+        "🔄 <b>CONVERSIONI</b> — km, miglia, metri, piedi, kg, libbre, °C, °F",
+    )
+
+
 def calc_hub_text(expr: str = "", error: str = "") -> str:
     shown = expr.strip() if expr and expr.strip() else "0"
     extra = f"\n\n⚠️ {_html.escape(error)}" if error else ""
     return (
-        "🧮 <b>CALC</b>\n"
-        "<i>Calcolatrice a pulsanti. Solo numeri, niente cielo e niente oracoli.</i>\n\n"
+        "🧮 <b>CALCOLATRICE</b>\n"
+        "<i>Una funzione di MATEMATICA. Solo aritmetica.</i>\n\n"
         f"<code>{_html.escape(shown)}</code>"
         f"{extra}"
+    )
+
+
+def math_percent_text(result: str = "") -> str:
+    extra = f"\n\nRisultato: <b>{_html.escape(result)}</b>" if result else ""
+    return _card(
+        "➗ <b>PERCENTUALE</b>",
+        "Tocca un esempio, oppure scrivi: 20% di 150 · 15 su 60 · aumenta 80 del 10% · sconta 80 del 10%.",
+        extra,
+    )
+
+
+def math_convert_text(kind: str = "", result: str = "") -> str:
+    wait = (
+        f"Scrivi il numero da convertire ({_html.escape(kind)})."
+        if kind
+        else "Scegli la coppia di unità, poi scrivi il numero."
+    )
+    extra = f"\n\n<b>{_html.escape(result)}</b>" if result else ""
+    return _card(
+        "🔄 <b>CONVERSIONI</b>",
+        wait,
+        extra,
+    )
+
+
+def compass_hub_text() -> str:
+    return _card(
+        "🧭 <b>BUSSOLA</b>",
+        "Posizione e direzione. Numeri da coordinate, non un navigatore stradale.",
+        "📍 <b>POSIZIONE GPS</b> — coordinate, quota del terreno, declinazione, mappa\n"
+        "🧭 <b>BUSSOLA</b> — nord geografico e nord magnetico in quel punto\n"
+        "🎯 <b>VERSO UN LUOGO</b> — distanza in linea d'aria e azimut\n\n"
+        "Puoi scrivere una città o mandare la posizione da Telegram.",
     )
 
 
