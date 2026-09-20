@@ -173,7 +173,7 @@ def world_watch_text(place: str = "") -> str:
         "🔭 <b>OSSERVATORIO</b>",
         "Cosa sta sopra di te, adesso. Stelle da Hipparcos; Sole, Luna, pianeti e comete da JPL Horizons.",
         f"{where}\n"
-        "🔭 Cielo di adesso — 6 carte, elenco e stasera; il grado sta sulla cartina\n"
+        "🔭 Cielo di adesso — 6 carte con grado sulla cartina, e cosa osservare stasera\n"
         "📡 Horizons NASA — stelle, luna, pianeti, comete, calcoli, eventi\n"
         "🛰️ Satelliti — ISS, equipaggio, Tiangong, Hubble, Terra, meteo\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
@@ -221,11 +221,11 @@ def watch_sky_pick_text(place: str = "", level: str = "full") -> str:
         )
     return _card(
         f"🔭 <b>CIELO DI ADESSO — {where.upper()}</b>",
-        "Come lo vuoi vedere. Il grado di visibilità sta sulla cartina.",
+        "Due porte. Sulla carta scorri stile e grado con le frecce.",
         f"{grade}\n\n"
-        "🗺️ <b>PROFESSIONALE</b> — sei carte PNG: classica, figure, atlante, polare, eclittica, sfera\n"
-        "📜 <b>ELENCO</b> — altezza, azimut, magnitudine\n"
-        "🔭 <b>STASERA</b> — cosa merita stanotte, con lo stesso grado\n\n"
+        "🗺️ <b>PROFESSIONALE</b> — sei carte PNG: classica, figure, atlante, polare, eclittica, sfera. "
+        "Frecce sopra per il disegno, frecce sotto per il grado.\n"
+        "🔭 <b>COSA OSSERVARE STASERA</b> — l'elenco di stanotte, a parte\n\n"
         "🌌 Tutto · ✨ Facile · 👁️ Occhio nudo · 🔭 Binocolo. "
         "Tutto è il cielo completo. Se non è Tutto e c'è ancora il Sole, uso le 22:00.",
     )

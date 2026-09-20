@@ -172,6 +172,7 @@ from services.skycatalog import SkyFrame, constellation_name, visible_stars as c
 from services.skychart import (
     DEFAULT_EYE_LEVEL,
     EYE_LEVELS,
+    EYE_ORDER,
     SKY_STYLES,
     draw_atlas_chart,
     draw_ecliptic_chart,
@@ -7397,14 +7398,11 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if action == "calc":
         await send_watch_calc(update, context)
         return
-    if action == "lim" and extra in EYE_LEVELS:
+    if action == "lim" and extra in {*EYE_LEVELS, "prev", "next"}:
         _eye_limit(context, extra)
         view = str(context.user_data.get(WATCH_EYE_VIEW_KEY) or "chart")
         if view == "tonight":
             await send_watch_tonight(update, context)
-            return
-        if view == "list":
-            await send_sky_now(update, context, style="list")
             return
         if view == "hub":
             await send_sky_now(update, context, style="pick")
@@ -7417,9 +7415,6 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             view = str(context.user_data.get(WATCH_EYE_VIEW_KEY) or "chart")
             if view == "tonight":
                 await send_watch_tonight(update, context)
-                return
-            if view == "list":
-                await send_sky_now(update, context, style="list")
                 return
             await send_sky_now(update, context, style="pro")
             return
@@ -7668,7 +7663,12 @@ def _eye_limit(context: ContextTypes.DEFAULT_TYPE, asked: str | None = None) -> 
     current = str(context.user_data.get(WATCH_EYE_LIM_KEY) or DEFAULT_EYE_LEVEL)
     if current not in EYE_LEVELS:
         current = DEFAULT_EYE_LEVEL
-    if asked in EYE_LEVELS:
+    if asked in {"next", "prev"}:
+        step = 1 if asked == "next" else -1
+        if current not in EYE_ORDER:
+            current = DEFAULT_EYE_LEVEL
+        current = EYE_ORDER[(EYE_ORDER.index(current) + step) % len(EYE_ORDER)]
+    elif asked in EYE_LEVELS:
         current = asked
     context.user_data[WATCH_EYE_LIM_KEY] = current
     return current
@@ -7696,22 +7696,14 @@ async def send_sky_now(
             reply_markup=watch_sky_pick_keyboard(),
         )
         return
-    if asked == "tonight":
+    if asked in {"tonight", "list"}:
+        if asked == "list":
+            await send_sky_now(update, context, style="pick")
+            return
         await send_watch_tonight(update, context)
         return
     tz, now = await _watch_clock(context, lat, lon)
     when, projected = (now, False) if not naked else _observe_when(lat, lon, now)
-    if asked == "list":
-        context.user_data[WATCH_EYE_VIEW_KEY] = "list"
-        await send_typing(update)
-        try:
-            body = format_sky_listing(place=name, lat=lat, lon=lon, when=when, eye=level)
-        except Exception:
-            logger.exception("Elenco cielo non generato")
-            await reply_offline(update, context)
-            return
-        await reply_html(update, context, body, reply_markup=watch_sky_list_keyboard(level))
-        return
     if asked == "pro":
         asked = None
     chosen = _sky_style(context, asked)
@@ -7728,7 +7720,8 @@ async def send_sky_now(
             f"pianeti mag ≤ {cfg['planet']:.1f} · alt ≥ {cfg['alt']:.0f}°"
         )
         extra = (
-            "Niente Sole. Urano e Nettuno solo se entrano nel grado scelto. "
+            "Niente Sole. Urano e Nettuno solo se entrano nel grado. "
+            "Frecce sopra: il disegno. Frecce sotto: il grado. "
             "Se è giorno, uso le 22:00."
         )
         typing = f"🔭 Disegno il cielo {cfg['it'].lower()} sopra {name}…"
@@ -7740,7 +7733,8 @@ async def send_sky_now(
         )
         extra = (
             "Stelle Hipparcos; Sole, Luna e pianeti da Astronomy Engine. "
-            f"Scorri le {len(SKY_STYLES)} carte: classica, figure, atlante, polare, eclittica, sfera."
+            "Frecce sopra: classica, figure, atlante, polare, eclittica, sfera. "
+            "Frecce sotto: Tutto, Facile, Occhio nudo, Binocolo."
         )
         typing = f"🗺️ Disegno la carta sopra {name} ({label})…"
     markup = watch_sky_keyboard(chosen, level)

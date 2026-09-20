@@ -444,11 +444,21 @@ def watch_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardM
     return InlineKeyboardMarkup(rows)
 
 
+def _eye_limit_arrows(level: str) -> list[InlineKeyboardButton]:
+    from services.skychart import eye_level
+
+    meta = eye_level(level)
+    return [
+        kb_btn("◀", "watch:lim:prev"),
+        kb_btn(f"{meta['emoji']} {meta['it']}", f"watch:lim:{level}"),
+        kb_btn("▶", "watch:lim:next"),
+    ]
+
+
 def watch_sky_pick_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🗺️ Professionale", "watch:now:pro")],
-            [kb_btn("📜 Elenco oggetti", "watch:now:list")],
             [kb_btn("🔭 Cosa osservare stasera", "watch:tonight")],
             nav_row(),
         ]
@@ -465,8 +475,7 @@ def watch_sky_keyboard(style: str, level: str = "full") -> InlineKeyboardMarkup:
                 kb_btn(sky_style_label(style), f"watch:now:{style}"),
                 kb_btn("▶", "watch:now:next"),
             ],
-            _eye_limit_row(level, "watch:lim"),
-            [kb_btn("📜 Elenco", "watch:now:list"), kb_btn("🔭 Stasera", "watch:tonight")],
+            _eye_limit_arrows(level),
             nav_row(),
         ]
     )
@@ -484,14 +493,7 @@ def watch_tonight_keyboard(level: str = "full") -> InlineKeyboardMarkup:
 
 
 def watch_sky_list_keyboard(level: str = "full") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("🗺️ Professionale", "watch:now:pro")],
-            _eye_limit_row(level, "watch:lim"),
-            [kb_btn("🔭 Stasera", "watch:tonight")],
-            nav_row(),
-        ]
-    )
+    return watch_sky_pick_keyboard()
 
 
 def watch_eye_keyboard(style: str, level: str = "full") -> InlineKeyboardMarkup:
