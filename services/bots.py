@@ -1,4 +1,4 @@
-"""Registro dei bot dentro un solo Telegram. COSMO è il primo; gli altri si aggiungono qui."""
+"""Registro dei bot dentro un solo Telegram. Mondi non mescolati."""
 
 from __future__ import annotations
 
@@ -6,28 +6,74 @@ from typing import Any
 
 BOTS: tuple[dict[str, Any], ...] = (
     {
-        "id": "cosmo",
-        "emoji": "🌌",
-        "name": "COSMO",
-        "tag": "Cielo, oracoli, pietre, mondi",
+        "id": "oracolo",
+        "emoji": "🔮",
+        "name": "ORACOLO",
+        "tag": "Te stesso e oracoli",
         "ready": True,
+        "worlds": ("self", "div"),
     },
     {
-        "id": "next",
-        "emoji": "➕",
-        "name": "Prossimo",
-        "tag": "Un bot nuovo, i suoi mondi",
-        "ready": False,
+        "id": "astro",
+        "emoji": "🔭",
+        "name": "ASTRO",
+        "tag": "Cielo, mondi, vita, missioni",
+        "ready": True,
+        "worlds": ("sky", "mondi", "vita", "miss", "pietre"),
     },
 )
 
+# Vecchi token: COSMO → ORACOLO, slot vuoto → ASTRO.
+ALIASES = {"cosmo": "oracolo", "next": "astro"}
+
+
+def canonical_bot_id(sid: str) -> str:
+    return str(ALIASES.get(sid) or sid)
+
 
 def bot_by_id(sid: str) -> dict[str, Any] | None:
+    key = canonical_bot_id(sid)
     for row in BOTS:
-        if row["id"] == sid:
+        if row["id"] == key:
             return row
     return None
 
 
 def ready_bots() -> list[dict[str, Any]]:
     return [row for row in BOTS if row.get("ready")]
+
+
+def parent_bot_token(token: str) -> str:
+    """Quale bot possiede questo schermo. Serve a Indietro e ai comandi diretti."""
+    raw = str(token or "")
+    if raw.startswith("bot:"):
+        return f"bot:{canonical_bot_id(raw.split(':', 1)[1])}"
+    oracolo = (
+        "world:self",
+        "world:div",
+        "natal:",
+        "cp:",
+        "tarot:",
+        "iching:",
+        "rune:",
+        "ora:",
+        "leno:",
+        "yn:",
+        "lett:",
+        "oq:",
+        "home:oroscopo",
+        "home:transits",
+        "home:specchio",
+        "home:rituale",
+        "home:lettura",
+        "home:oracoli",
+        "home:rune",
+        "home:sibille",
+        "pt:ora",
+        "pt:orx",
+        "pt:o3",
+        "pt:orcard",
+    )
+    if any(raw == key or raw.startswith(key) for key in oracolo):
+        return "bot:oracolo"
+    return "bot:astro"

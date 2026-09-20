@@ -50,8 +50,8 @@ def _pairs(items: list[InlineKeyboardButton]) -> list[list[InlineKeyboardButton]
 def all_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🌌 COSMO", "bot:cosmo")],
-            [kb_btn("➕ Prossimo bot", "bot:next")],
+            [kb_btn("🔮 ORACOLO", "bot:oracolo")],
+            [kb_btn("🔭 ASTRO", "bot:astro")],
         ]
     )
 
@@ -64,10 +64,19 @@ def esplora_keyboard() -> InlineKeyboardMarkup:
     return all_hub_keyboard()
 
 
-def cosmo_hub_keyboard() -> InlineKeyboardMarkup:
+def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔮 Te stesso", "world:self"), kb_btn("🔮 Oracoli", "world:div")],
+            [kb_btn("🔮 Te stesso", "world:self")],
+            [kb_btn("🔮 Oracoli", "world:div")],
+            nav_row(),
+        ]
+    )
+
+
+def astro_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
             [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🪐 Mondi", "world:mondi")],
             [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
             [kb_btn("💎 Pietre", "world:pietre")],
@@ -75,6 +84,10 @@ def cosmo_hub_keyboard() -> InlineKeyboardMarkup:
             nav_row(),
         ]
     )
+
+
+def cosmo_hub_keyboard() -> InlineKeyboardMarkup:
+    return oracolo_hub_keyboard()
 
 
 def world_self_keyboard() -> InlineKeyboardMarkup:

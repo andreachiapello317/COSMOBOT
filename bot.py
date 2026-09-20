@@ -121,6 +121,7 @@ from services.stones import (
     search_stones,
     stone_of_day,
 )
+from services.bots import parent_bot_token
 from services.stonephoto import confidence_label, guess_stones, identify_from_photo, read_photo_hints
 from services.lenormand import SPREADS as LENORMAND_SPREADS, draw_lenormand
 from services.oracles import (
@@ -180,8 +181,10 @@ from ui.keyboards import (
     sistemi_list_keyboard,
     ss_bodies_keyboard,
     all_hub_keyboard,
+    astro_hub_keyboard,
     cosmo_hub_keyboard,
     home_keyboard as section_home_keyboard,
+    oracolo_hub_keyboard,
     iss_keyboard,
     learn_keyboard,
     lenormand_after_keyboard,
@@ -240,12 +243,14 @@ from ui.keyboards import (
 )
 from ui.texts import (
     all_hub_text,
+    astro_hub_text,
     cosmo_hub_text,
     domanda_text,
     esplora_text,
     home_text,
     lettura_text,
     next_bot_text,
+    oracolo_hub_text,
     oracoli_text,
     rune_intro_text,
     world_div_text,
@@ -1304,11 +1309,11 @@ def nav_pop(context: ContextTypes.DEFAULT_TYPE) -> str | None:
 
 def _cmd_begin(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     _flows_reset(context)
-    if token not in {"home:menu", "bot:cosmo", "bot:next"}:
+    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:cosmo", "bot:next"}:
         here = context.user_data.get(NAV_HERE_KEY)
         if here in {None, "home:menu"}:
             context.user_data[NAV_STACK_KEY] = ["home:menu"]
-            context.user_data[NAV_HERE_KEY] = "bot:cosmo"
+            context.user_data[NAV_HERE_KEY] = parent_bot_token(token)
     nav_mark(context, token)
 
 
@@ -2014,8 +2019,9 @@ def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
         "📚 <b>ALL BOT</b>\n\n"
-        "/start è il portale. 🌌 COSMO ha i sette mondi. "
-        "Qui i comandi di COSMO che usi davvero.\n\n"
+        "/start è il portale. 🔮 ORACOLO = te stesso e oracoli. "
+        "🔭 ASTRO = cielo, mondi, vita, missioni. "
+        "Qui i comandi che usi davvero.\n\n"
         f"/oroscopo — senza segno uso {default_emoji} {default_it}\n"
         "/tema — natale guidato · /compatibilita — sinastria\n"
         "/oracoli — tarocchi, I Ching, rune, Lenormand, mazzi\n"
@@ -2040,19 +2046,22 @@ async def show_all_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await reply_html(update, context, all_hub_text(), reply_markup=all_hub_keyboard())
 
 
+async def show_oracolo_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "bot:oracolo")
+    await reply_html(update, context, oracolo_hub_text(), reply_markup=oracolo_hub_keyboard())
+
+
+async def show_astro_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "bot:astro")
+    await reply_html(update, context, astro_hub_text(), reply_markup=astro_hub_keyboard())
+
+
 async def show_cosmo_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    nav_mark(context, "bot:cosmo")
-    await reply_html(update, context, cosmo_hub_text(), reply_markup=cosmo_hub_keyboard())
+    await show_oracolo_hub(update, context)
 
 
 async def show_next_bot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    nav_mark(context, "bot:next")
-    await reply_html(
-        update,
-        context,
-        next_bot_text(),
-        reply_markup=InlineKeyboardMarkup([nav_row()]),
-    )
+    await show_astro_hub(update, context)
 
 
 async def on_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2062,11 +2071,11 @@ async def on_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     _remember_from_callback(update, context)
     action = query.data.split(":")[1] if ":" in query.data else ""
     await query.answer()
-    if action == "cosmo":
-        await show_cosmo_hub(update, context)
+    if action in {"oracolo", "cosmo"}:
+        await show_oracolo_hub(update, context)
         return
-    if action == "next":
-        await show_next_bot(update, context)
+    if action in {"astro", "next"}:
+        await show_astro_hub(update, context)
         return
     await show_all_hub(update, context)
 
@@ -5085,11 +5094,11 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         "pietre": (world_pietre_text, world_pietre_keyboard),
     }
     if prefix == "bot":
-        if action == "cosmo":
-            await show_cosmo_hub(update, context)
+        if action in {"oracolo", "cosmo"}:
+            await show_oracolo_hub(update, context)
             return
-        if action == "next":
-            await show_next_bot(update, context)
+        if action in {"astro", "next"}:
+            await show_astro_hub(update, context)
             return
         await show_all_hub(update, context)
         return

@@ -1,35 +1,45 @@
-"""Testi di interfaccia: ALL BOT e i mondi di COSMO. Non sono contenuti astronomici."""
+"""Testi di interfaccia: ALL BOT, ORACOLO e ASTRO. I mondi non si mescolano."""
 
 
 def all_hub_text() -> str:
     return (
         "🪐 <b>ALL BOT</b>\n\n"
-        "Un solo Telegram, tanti bot. Ognuno ha i suoi mondi, senza mescolarli.\n\n"
-        "🌌 <b>COSMO</b> — cielo, oracoli, pietre, esopianeti.\n"
-        "➕ <b>Prossimo</b> — lo apriamo dopo, con i suoi mondi.\n\n"
+        "Un solo Telegram, due bot. I mondi restano nel bot giusto.\n\n"
+        "🔮 <b>ORACOLO</b> — te stesso e gli oracoli.\n"
+        "🔭 <b>ASTRO</b> — cielo, mondi, vita, missioni.\n\n"
         "Entra in un bot. 🏠 Inizio torna sempre qui."
     )
 
 
 def home_text() -> str:
-    return cosmo_hub_text()
+    return all_hub_text()
+
+
+def oracolo_hub_text() -> str:
+    return (
+        "🔮 <b>ORACOLO</b>\n\n"
+        "Un bot di ALL BOT. Solo due mondi, entrambi simbolici.\n\n"
+        "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, compatibilità, specchio, rituale\n"
+        "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, pietre (estrazione)\n\n"
+        "Il cielo e i pianeti veri stanno in 🔭 ASTRO."
+    )
+
+
+def astro_hub_text() -> str:
+    return (
+        "🔭 <b>ASTRO</b>\n\n"
+        "Un bot di ALL BOT. Astronomia e cataloghi, niente oracoli.\n\n"
+        "🔭 <b>CIELO</b> — adesso, stelle, eventi, ISS\n"
+        "🪐 <b>MONDI</b> — esopianeti, sistemi, salvataggi\n"
+        "👽 <b>VITA</b> — come la cerchiamo, senza dichiararla\n"
+        "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n"
+        "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione\n\n"
+        "✨ COSMICO e 🎲 casuale pescano da questi mondi."
+    )
 
 
 def cosmo_hub_text() -> str:
-    return (
-        "🌌 <b>COSMO</b>\n\n"
-        "Un bot di ALL BOT. Esplorare sé stessi, il cielo e l'universo. "
-        "Sette mondi, un filo.\n\n"
-        "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, compatibilità, specchio, rituale\n"
-        "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, pietre\n"
-        "🔭 <b>CIELO</b> — cosa vedi adesso, stelle, eventi, cielo profondo\n"
-        "🪐 <b>MONDI</b> — esploratore: esopianeti, sistemi, salvataggi\n"
-        "👽 <b>VITA</b> — esopianeti, zona abitabile, SETI\n"
-        "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n"
-        "💎 <b>PIETRE</b> — minerali, gemme, laboratorio, collezione\n\n"
-        "✨ <b>COSMICO</b> — un pezzo da ogni mondo.\n"
-        "🎲 <b>CASUALE</b> — carta, cielo o sonda."
-    )
+    return oracolo_hub_text()
 
 
 def esplora_text() -> str:
@@ -37,11 +47,7 @@ def esplora_text() -> str:
 
 
 def next_bot_text() -> str:
-    return (
-        "➕ <b>PROSSIMO BOT</b>\n\n"
-        "Qui nasce il secondo bot, con i suoi mondi — non quelli di COSMO.\n"
-        "Dimmi il tema e lo costruiamo nello stesso Telegram."
-    )
+    return astro_hub_text()
 
 
 def domanda_text() -> str:
