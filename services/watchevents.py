@@ -147,6 +147,24 @@ def tonight_picks(
     return picks[:8], emoji, sky, cloud_f
 
 
+WEEKDAY_IT = ("lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica")
+
+
+def human_when(when: datetime, now: datetime) -> str:
+    local = when
+    clock = local.strftime("%H:%M")
+    wd = WEEKDAY_IT[local.weekday()]
+    date = local.strftime("%d/%m")
+    if local.date() == now.date():
+        return f"oggi alle {clock}"
+    if local.date() == (now.date() + timedelta(days=1)):
+        return f"domani {wd} alle {clock}"
+    days = max(0, (local.date() - now.date()).days)
+    if days < 7:
+        return f"{wd} {date} alle {clock} (tra {days} giorni)"
+    return f"{wd} {date} alle {clock}"
+
+
 def upcoming_events(lat: float, lon: float, when: datetime, tz: ZoneInfo) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     for row in next_quarters(when, 4):

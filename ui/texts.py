@@ -190,10 +190,16 @@ def watch_horizons_text(place: str = "") -> str:
     )
     return _card(
         "📡 <b>HORIZONS NASA</b>",
-        "Numeri JPL Horizons e Hipparcos, dallo stesso luogo dell'osservatorio.",
+        "Cosa sta sopra di te, in italiano. I numeri arrivano da JPL Horizons e Hipparcos.",
         f"{where}\n"
-        "⭐ Stelle · 🪐 Pianeti · 🌙 Luna · ☄️ Comete · 🌠 Eventi · 📅 Prossimi\n\n"
-        "Horizons dà posizione, distanza e magnitudine. Non è un catalogo TLE.",
+        "⭐ <b>STELLE</b> — le più luminose sopra, verso dove guardare\n"
+        "🪐 <b>PIANETI</b> — chi è sopra, se è facile, quando sorge\n"
+        "🌙 <b>LUNA</b> — fase, dove sta, prossimi quarti\n"
+        "☄️ <b>COMETE</b> — le numerate, se Horizons risponde\n"
+        "🌠 <b>EVENTI</b> — solo se da qui sono osservabili adesso\n"
+        "📅 <b>PROSSIMI</b> — quarti, eclissi lunari, congiunzioni calcolate\n\n"
+        "Tocca un pianeta o una cometa per la scheda: distanza, luce, costellazione. "
+        "Non è un catalogo di satelliti.",
     )
 
 

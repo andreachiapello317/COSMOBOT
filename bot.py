@@ -166,7 +166,7 @@ from services.weather import (
     parse_forecast_request,
 )
 from services.moon import moon_now, next_quarters
-from services.skycatalog import SkyFrame, visible_stars as catalog_stars
+from services.skycatalog import SkyFrame, constellation_name, visible_stars as catalog_stars
 from services.skychart import (
     DEFAULT_EYE_LEVEL,
     EYE_LEVELS,
@@ -184,7 +184,7 @@ from services.skychart import (
     format_sun_moon_earth,
     sky_style_label,
 )
-from services.watchevents import snapshot, tonight_picks, upcoming_events
+from services.watchevents import human_when, snapshot, tonight_picks, upcoming_events
 from services.horizons import (
     BODIES,
     COMETS,
@@ -200,6 +200,9 @@ from services.horizons import (
     format_observer_list,
     format_rts_list,
     cardinal_from_az,
+    cardinal_long,
+    height_it,
+    mag_it,
 )
 from services.earth import (
     fetch_eonet,
@@ -6920,8 +6923,9 @@ async def send_eventi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"🌠 <b>EVENTI — {e(name.upper())}</b>",
         f"📅 {e(format_day_it(now))} · {now.strftime('%H:%M')}",
         "",
-        "Solo ciò che la mappa dice osservabile da questa città. "
-        "Niente calendario mondiale.",
+        "Solo fenomeni che da questa città sono sopra l'orizzonte adesso "
+        "(o un'eclissi lunare se al picco la Luna è sopra). "
+        "Non è un calendario mondiale.",
         "",
     ]
     if isinstance(sun_res, dict):
@@ -7494,16 +7498,17 @@ async def send_horizons_list(
         return
     note = {
         "planets": (
-            "Altezza, RA/DEC, magnitudine, distanza e elongazione: tabella observer Horizons. "
-            "Non dico se li vedi a occhio nudo."
+            "JPL Horizons da questo luogo. "
+            "La magnitudine è una scala di luminosità: più è bassa, più è facile. "
+            "Il meteo non è in questa scheda."
         ),
         "rocks": (
-            "Cerere, Pallade, Giunone, Vesta e Apophis: Horizons, stessi numeri della NASA. "
-            "Magnitudine 8 o 9 non è visibile a occhio nudo."
+            "Cerere, Pallade, Giunone, Vesta e Apophis da JPL Horizons. "
+            "Oltre mag 8 non è occhio nudo: serve almeno un binocolo o un telescopio."
         ),
         "comet": (
-            "Comete numerate da Horizons, dallo stesso luogo. "
-            "Se una riga manca, Horizons non ha risposto o il nome è ambiguo: non invento la posizione."
+            "Solo comete numerate a cui Horizons risponde. "
+            "Se una riga manca, il nome è ambiguo o Horizons è muto: non invento la posizione."
         ),
     }.get(kind, "JPL Horizons.")
     text = format_observer_list(
@@ -7800,19 +7805,22 @@ async def send_watch_moon(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         f"{phase['emoji']} <b>{e(str(phase['name']))}</b>",
     ]
     if isinstance(phase.get("illum"), (int, float)):
-        lines.append(f"💡 Illuminata al <b>{phase['illum']:.0f}%</b>")
+        lines.append(
+            f"Il Sole ne illumina il <b>{phase['illum']:.0f}%</b> del disco, "
+            "visto da qui."
+        )
     if row:
         text = format_body_card(meta=MOON_BODY["lun"], place=name, when=now, tz=tz, row=row)
         extra = "\n".join(text.splitlines()[3:])
         lines.extend(["", extra])
     else:
-        lines.append("Horizons non ha dato altezza e distanza adesso.")
+        lines.append("Horizons non ha dato dove sta la Luna adesso.")
     lines.append("")
     lines.append("📅 <b>PROSSIMI QUARTI</b>")
     for item in quarters:
-        when = item["when"].astimezone(tz)
-        lines.append(f"{item['emoji']} {e(item['name'])}  {when.strftime('%d/%m %H:%M')}")
-    lines.extend(["", "<i>Fase: Astronomy Engine. Posizione: Horizons se risponde.</i>"])
+        stamp = item["when"].astimezone(tz)
+        lines.append(f"{item['emoji']} {e(item['name'])} — {e(human_when(stamp, now))}")
+    lines.extend(["", "<i>Fase: Astronomy Engine. Dove sta: Horizons se risponde.</i>"])
     await reply_html(
         update,
         context,
@@ -7918,20 +7926,21 @@ async def send_watch_next(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data[WATCH_EVENTS_KEY] = events
     lines = [
         f"📅 <b>PROSSIMI EVENTI — {e(name.upper())}</b>",
-        "Solo fenomeni che so calcolare: quarti lunari, eclissi lunari visibili da qui, "
-        "congiunzioni e opposizioni entro due settimane.",
+        "Solo ciò che so calcolare da qui: quarti di Luna, eclissi lunari "
+        "se la Luna è sopra al picco, congiunzioni e opposizioni entro due settimane.",
         "",
     ]
     if not events:
         lines.append("Nei prossimi giorni non esce un fenomeno calcolabile da questa città.")
     for idx, item in enumerate(events, start=1):
         when = item["when"]
-        lines.append(
-            f"{idx}. {item['emoji']} <b>{e(item['title'])}</b>\n"
-            f"{when.strftime('%d/%m %H:%M')}"
-        )
+        detail = str(item.get("detail") or "").strip()
+        lines.append(f"{idx}. {item['emoji']} <b>{e(item['title'])}</b>")
+        lines.append(f"   {e(human_when(when, now))}")
+        if detail:
+            lines.append(f"   {e(detail)}")
         lines.append("")
-    lines.append("Tocca un numero per il dettaglio. Niente passaggi ISS inventati.")
+    lines.append("Tocca un numero per la scheda. Non invento passaggi ISS.")
     await reply_html(update, context, "\n".join(lines), reply_markup=watch_next_keyboard(len(events)))
 
 
@@ -7944,26 +7953,28 @@ async def send_watch_next_detail(
     if not isinstance(events, list) or index < 0 or index >= len(events):
         await send_watch_next(update, context)
         return
-    name, _lat, _lon = _cielo_place(context)
+    name, lat, lon = _cielo_place(context)
     item = events[index]
     when = item["when"]
+    _tz, now = await _watch_clock(context, lat, lon)
     lines = [
         f"{item['emoji']} <b>{e(item['title'])}</b>",
         f"📍 {e(name)}",
-        f"📅 {when.strftime('%d/%m/%Y')} · {when.strftime('%H:%M')}",
+        f"📅 {e(human_when(when, now))}",
         "",
         e(str(item.get("detail") or "")),
     ]
     bodies = item.get("bodies") or []
     if bodies:
         lines.append("")
-        lines.append(" · ".join(e(str(b)) for b in bodies))
+        lines.append("Corpi: " + " · ".join(e(str(b)) for b in bodies))
     if isinstance(item.get("alt"), (int, float)):
-        card = cardinal_from_az(item.get("az") if isinstance(item.get("az"), (int, float)) else None)
-        az_bit = f" · az {item['az']:.0f}° {card}" if isinstance(item.get("az"), (int, float)) else ""
-        lines.append(f"Altezza {item['alt']:.0f}°{az_bit}")
+        look = ""
+        if isinstance(item.get("az"), (int, float)):
+            look = f", verso {cardinal_long(item['az'])}"
+        lines.append(height_it(float(item["alt"])).capitalize() + look + ".")
     if isinstance(item.get("sep"), (int, float)):
-        lines.append(f"Separazione {item['sep']:.1f}°")
+        lines.append(f"In cielo distano {item['sep']:.1f}° l'uno dall'altro.")
     await reply_html(update, context, "\n".join(lines), reply_markup=watch_next_keyboard(len(events)))
 
 
@@ -8696,25 +8707,36 @@ async def send_sky_stars(
         f"⭐ <b>STELLE — {e(name.upper())}</b>",
         f"📅 {e(format_day_it(now))} · {now.strftime('%H:%M')}",
         "",
+        "Le più luminose sopra di te. Catalogo Hipparcos, non Horizons.",
+        "",
     ]
     if night:
-        lines.append("🌌 È notte: il cielo si può leggere.")
+        lines.append("🌌 È notte: queste si possono cercare.")
     else:
-        lines.append("☀️ È giorno: le stelle ci sono, ma la luce le copre. Le elenco lo stesso.")
-    lines.append(f"☀️ Sole {sun_alt:.0f}°")
+        lines.append(
+            f"☀️ È giorno (Sole a {sun_alt:.0f}°): le stelle ci sono, "
+            "ma la luce le copre. Le elenco lo stesso."
+        )
     lines.append("")
-    lines.append("🔭 <b>PIÙ LUMINOSE SOPRA</b>")
+    lines.append("🔭 <b>LE PIÙ FACILI SOPRA</b>")
     if stars_up:
         for star in stars_up:
-            label = star["name"] or f"mag {star['mag']:.1f}"
-            card = cardinal_from_az(star["az"])
+            label = star["name"] or f"stella mag {star['mag']:.1f}"
+            look = f", verso {cardinal_long(star['az'])}" if isinstance(star.get("az"), (int, float)) else ""
+            seen = mag_it(float(star["mag"]), up=True)
+            con = constellation_name(str(star.get("con") or ""))
+            con_bit = f" · nella {con}" if con else ""
             lines.append(
-                f"⭐ {e(label)}  mag {star['mag']:.1f} · alt {star['alt']:.0f}° · az {star['az']:.0f}° {card}"
+                f"⭐ <b>{e(label)}</b> — {height_it(float(star['alt']))}{look}."
             )
+            extra = seen + con_bit
+            if extra:
+                lines.append(extra)
+            lines.append("")
     else:
         lines.append("<i>Nessuna stella del catalogo è sopra l'orizzonte.</i>")
-    lines.append("")
-    lines.append("✨ <b>FIGURE SOPRA</b>")
+        lines.append("")
+    lines.append("✨ <b>COSTELLAZIONI ALTE</b>")
     if snap_figures:
         lines.append(", ".join(e(fig["name"]) for fig in snap_figures[:8]))
     else:
@@ -8722,8 +8744,8 @@ async def send_sky_stars(
     lines.extend(
         [
             "",
-            "<i>Catalogo Hipparcos mag ≤ 5.2 (d3-celestial). "
-            "Non è Horizons e non è Wikipedia. La carta sta in Cielo di adesso.</i>",
+            "<i>Hipparcos mag ≤ 5.2. La carta disegnata sta in Cielo di adesso. "
+            "Le schede enciclopedia stanno in Studia lo spazio.</i>",
         ]
     )
     await reply_html(

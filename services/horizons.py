@@ -203,6 +203,14 @@ def parse_observer_rows(result: str) -> list[dict[str, Any]]:
     elong_i = _header_index(header, "s-o-t")
     phase_i = _header_index(header, "s-t-o")
     cnst_i = _header_index(header, "cnst")
+    r_i = None
+    deldot_i = None
+    for idx, name in enumerate(header):
+        key = name.strip().lower()
+        if key == "r":
+            r_i = idx
+        elif key == "deldot":
+            deldot_i = idx
     for line in body.splitlines():
         raw = line.strip().rstrip(",")
         if not raw:
@@ -229,6 +237,8 @@ def parse_observer_rows(result: str) -> list[dict[str, Any]]:
             "illum": _num(parts[illu_i]) if illu_i is not None and illu_i < len(parts) else None,
             "ang_diam": _num(parts[diam_i]) if diam_i is not None and diam_i < len(parts) else None,
             "delta_au": _num(parts[delta_i]) if delta_i is not None and delta_i < len(parts) else None,
+            "r_au": _num(parts[r_i]) if r_i is not None and r_i < len(parts) else None,
+            "deldot": _num(parts[deldot_i]) if deldot_i is not None and deldot_i < len(parts) else None,
             "elong": _num(parts[elong_i]) if elong_i is not None and elong_i < len(parts) else None,
             "phase": _num(parts[phase_i]) if phase_i is not None and phase_i < len(parts) else None,
             "lead": lead,
@@ -260,26 +270,115 @@ def cnst_it(code: str) -> str:
     return CNST_IT.get(key, key)
 
 
+CARD_SHORT = ("N", "NE", "E", "SE", "S", "SO", "O", "NO")
+CARD_LONG = ("nord", "nord-est", "est", "sud-est", "sud", "sud-ovest", "ovest", "nord-ovest")
+AU_KM = 149597870.7
+
+
 def cardinal_from_az(az: float | None) -> str:
     if az is None:
         return ""
-    names = ("N", "NE", "E", "SE", "S", "SO", "O", "NO")
     idx = int((az + 22.5) % 360 // 45)
-    return names[idx]
+    return CARD_SHORT[idx]
+
+
+def cardinal_long(az: float | None) -> str:
+    if az is None:
+        return ""
+    idx = int((az + 22.5) % 360 // 45)
+    return CARD_LONG[idx]
 
 
 def _lead_it(code: str) -> str:
     if code == "/L":
-        return "sorge prima del Sole (cielo del mattino)"
+        return "cielo del mattino: sorge prima del Sole"
     if code == "/T":
-        return "tramonta dopo il Sole (cielo della sera)"
+        return "cielo della sera: tramonta dopo il Sole"
     return ""
 
 
 def _side(alt: float | None) -> str:
     if alt is None:
-        return "—"
-    return "↑ sopra" if alt > 0 else "↓ sotto"
+        return "posizione non arrivata"
+    return "sopra l'orizzonte" if alt > 0 else "sotto l'orizzonte"
+
+
+def height_it(alt: float | None) -> str:
+    if alt is None:
+        return "altezza non arrivata"
+    if alt < 0:
+        return f"sotto l'orizzonte ({alt:.0f}°)"
+    if alt < 15:
+        return f"basso sull'orizzonte ({alt:.0f}°)"
+    if alt < 40:
+        return f"a mezza altezza ({alt:.0f}°)"
+    return f"alto in cielo ({alt:.0f}°)"
+
+
+def mag_it(mag: float | None, *, up: bool) -> str:
+    if mag is None:
+        return ""
+    if mag <= 2:
+        how = "luminoso: in cielo buio si prende a occhio nudo"
+    elif mag <= 4.5:
+        how = "in cielo buio si vede a occhio nudo"
+    elif mag <= 8:
+        how = "serve un binocolo"
+    else:
+        how = "solo telescopio"
+    if not up:
+        how = how + ", quando sarà sopra"
+    return f"{how} (mag {mag:.1f})"
+
+
+def dist_it(delta_au: float) -> str:
+    km = float(delta_au) * AU_KM
+    if km < 2_000_000:
+        near = f"{km / 1000:.0f} mila km"
+    elif km < 1_000_000_000:
+        near = f"{km / 1_000_000:.1f} milioni di km"
+    else:
+        near = f"{km / 1_000_000_000:.2f} miliardi di km"
+    return f"{near} ({delta_au:.3f} UA)"
+
+
+def light_it(delta_au: float) -> str:
+    minutes = float(delta_au) * LIGHT_MIN_PER_AU
+    if minutes >= 60:
+        return f"la luce ci mette {minutes / 60:.1f} ore"
+    return f"la luce ci mette {minutes:.1f} minuti"
+
+
+def elong_it(elong: float | None, lead: str) -> str:
+    if elong is None:
+        return _lead_it(lead)
+    if elong < 15:
+        where = "ancora attaccato al Sole, visibile solo nel crepuscolo"
+    elif elong < 45:
+        where = "non lontano dal Sole"
+    elif elong < 90:
+        where = "abbastanza lontano dal Sole"
+    else:
+        where = "lontano dal Sole, cielo buio"
+    extra = _lead_it(lead)
+    return f"{where} (elongazione {elong:.0f}°)" + (f" · {extra}" if extra else "")
+
+
+def motion_it(deldot: float | None) -> str:
+    """Horizons dà deldot in UA/giorno. Fuori da 0.00005–0.15 è una colonna sbagliata."""
+    if deldot is None:
+        return ""
+    value = float(deldot)
+    if abs(value) < 0.00005 or abs(value) > 0.15:
+        return ""
+    km_s = value * AU_KM / 86400.0
+    if value < 0:
+        return f"si avvicina (~{abs(km_s):.1f} km/s)"
+    return f"si allontana (~{km_s:.1f} km/s)"
+
+
+def _cap(text: str) -> str:
+    return text[:1].upper() + text[1:] if text else text
 
 
 def _astro_time(when: datetime) -> astronomy.Time:
@@ -297,6 +396,14 @@ def _astro_time(when: datetime) -> astronomy.Time:
 def _round_when(when: datetime) -> datetime:
     utc = when.astimezone(timezone.utc)
     return utc.replace(minute=(utc.minute // 5) * 5, second=0, microsecond=0)
+
+
+def _helio_au(body: astronomy.Body, moment: astronomy.Time) -> float | None:
+    try:
+        vec = astronomy.HelioVector(body, moment)
+        return (float(vec.x) ** 2 + float(vec.y) ** 2 + float(vec.z) ** 2) ** 0.5
+    except Exception:
+        return None
 
 
 def observer_from_engine(command: str, lat: float, lon: float, when: datetime, *, elev_km: float = 0.05) -> dict[str, Any]:
@@ -322,6 +429,7 @@ def observer_from_engine(command: str, lat: float, lon: float, when: datetime, *
         "mag": float(ill.mag) if ill.mag is not None else None,
         "illum": float(fraction) * 100.0 if isinstance(fraction, (int, float)) else None,
         "delta_au": float(eq.dist),
+        "r_au": _helio_au(body, moment),
         "elong": float(elong.elongation),
         "phase": float(getattr(ill, "phase_angle", 0.0) or 0.0),
         "lead": lead,
@@ -419,7 +527,7 @@ async def fetch_observer(
                     "START_TIME": f"'{stamp}'",
                     "STOP_TIME": f"'{end.strftime('%Y-%m-%d %H:%M')}'",
                     "STEP_SIZE": "1m",
-                    "QUANTITIES": "'4,9,10,13,20,23,24,29'",
+                    "QUANTITIES": "'4,9,10,13,19,20,23,24,29'",
                     "ANG_FORMAT": "DEG",
                     "CSV_FORMAT": "YES",
                     "CAL_FORMAT": "CAL",
@@ -433,6 +541,7 @@ async def fetch_observer(
             extra = observer_from_engine(command, lat, lon, rounded, elev_km=elev_km)
             row.setdefault("ra", extra.get("ra"))
             row.setdefault("dec", extra.get("dec"))
+            row.setdefault("r_au", extra.get("r_au"))
         return _cache_set(cache_key, row)
     except HorizonsError:
         row = observer_from_engine(command, lat, lon, rounded, elev_km=elev_km)
@@ -502,6 +611,23 @@ def _e(text: str) -> str:
     return html.escape(text)
 
 
+def _sort_items(
+    items: list[tuple[str, dict[str, Any] | None]],
+) -> list[tuple[str, dict[str, Any] | None]]:
+    def key(pair: tuple[str, dict[str, Any] | None]) -> tuple[int, float, float]:
+        _name, row = pair
+        if row is None:
+            return (2, 99.0, 0.0)
+        alt = row.get("alt")
+        mag = row.get("mag")
+        up = 0 if isinstance(alt, (int, float)) and alt > 0 else 1
+        brightness = float(mag) if isinstance(mag, (int, float)) else 99.0
+        height = -float(alt) if isinstance(alt, (int, float)) else 0.0
+        return (up, brightness, height)
+
+    return sorted(items, key=key)
+
+
 def format_observer_list(
     *,
     title: str,
@@ -517,27 +643,48 @@ def format_observer_list(
         f"{title} — {_e(place.upper())}",
         f"📅 {_e(local.strftime('%d/%m/%Y'))} · {local.strftime('%H:%M')} ora locale",
         "",
-        "Posizioni dal luogo che hai dato. Horizons se risponde, altrimenti calcolo locale.",
+        "Dal tuo punto: dove sta, verso dove guardare, se è facile. "
+        "Tocca un nome per la scheda completa.",
         "",
     ]
-    up = 0
     used_engine = False
-    for key, row in items:
+    above: list[str] = []
+    below: list[str] = []
+    missing: list[str] = []
+    for key, row in _sort_items(items):
         meta = catalog[key]
         if row is None:
-            lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b>  <i>niente dati adesso</i>")
+            missing.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b> — Horizons non ha risposto.")
             continue
         if row.get("source") == "engine":
             used_engine = True
         alt = row.get("alt")
+        block = _pretty_row(meta, row)
         if isinstance(alt, (int, float)) and alt > 0:
-            up += 1
-        lines.append(_pretty_row(meta, row))
+            above.append(block)
+        else:
+            below.append(block)
+    if above:
+        lines.append("⬆️ <b>SOPRA DI TE ADESSO</b>")
         lines.append("")
-    if not any(row for _key, row in items):
+        lines.extend(above)
+    if below:
+        lines.append("⬇️ <b>SOTTO L'ORIZZONTE</b>")
+        lines.append("Ora non si vedono. Resta utile sapere se tornano al mattino o alla sera.")
+        lines.append("")
+        lines.extend(below)
+    if missing:
+        lines.append("⚠️ <b>SENZA DATI</b>")
+        lines.extend(missing)
+        lines.append("")
+    if not above and not below and not missing:
         lines.append("Nessun corpo è arrivato. Riprova tra un minuto.")
-    else:
-        lines.append(f"Sopra l'orizzonte adesso: {up}.")
+    elif above:
+        names = []
+        for key, row in _sort_items(items):
+            if row and isinstance(row.get("alt"), (int, float)) and row["alt"] > 0:
+                names.append(catalog[key]["it"])
+        lines.append(f"Sopra adesso: {', '.join(names)}.")
     if used_engine:
         note = note + " Qualche riga è calcolata in locale (Astronomy Engine)."
     lines.extend(["", f"<i>{_e(note)}</i>"])
@@ -545,31 +692,26 @@ def format_observer_list(
 
 
 def _pretty_row(meta: dict[str, str], row: dict[str, Any]) -> str:
-    alt = row.get("alt")
-    az = row.get("az")
-    mag = row.get("mag")
-    delta = row.get("delta_au")
-    elong = row.get("elong")
-    illum = row.get("illum")
-    cnst = cnst_it(str(row.get("cnst") or ""))
-    head = f"{meta['emoji']} <b>{_e(meta['it'])}</b>  {_side(alt if isinstance(alt, (int, float)) else None)}"
+    alt = row.get("alt") if isinstance(row.get("alt"), (int, float)) else None
+    az = row.get("az") if isinstance(row.get("az"), (int, float)) else None
+    mag = row.get("mag") if isinstance(row.get("mag"), (int, float)) else None
+    up = alt is not None and alt > 0
+    look = f", verso {cardinal_long(az)}" if az is not None else ""
+    sentence = f"{meta['emoji']} <b>{_e(meta['it'])}</b> — {height_it(alt)}{look}."
     bits: list[str] = []
-    if isinstance(alt, (int, float)):
-        card = cardinal_from_az(az if isinstance(az, (int, float)) else None)
-        az_bit = f", az {az:.0f}° {card}" if isinstance(az, (int, float)) else ""
-        bits.append(f"altezza {alt:.0f}°{az_bit}")
-    if isinstance(mag, (int, float)):
-        bits.append(f"mag {mag:.1f}")
-    if isinstance(delta, (int, float)):
-        bits.append(f"{delta:.3f} UA")
-    if isinstance(illum, (int, float)):
-        bits.append(f"illum. {illum:.0f}%")
-    if isinstance(elong, (int, float)):
-        lead = _lead_it(str(row.get("lead") or ""))
-        bits.append(f"elongazione {elong:.0f}°" + (f", {lead}" if lead else ""))
+    is_sun = meta.get("it") == "Sole" or meta.get("command") == "10"
+    seen = "" if is_sun else mag_it(mag, up=up)
+    if seen:
+        bits.append(seen)
+    cnst = cnst_it(str(row.get("cnst") or ""))
     if cnst:
         bits.append(f"in {cnst}")
-    return head + ("\n" + " · ".join(bits) if bits else "")
+    elong = row.get("elong") if isinstance(row.get("elong"), (int, float)) else None
+    sun = "" if is_sun else elong_it(elong, str(row.get("lead") or ""))
+    if sun:
+        bits.append(sun)
+    extra = "\n" + " · ".join(bits) if bits else ""
+    return sentence + extra + "\n"
 
 
 def format_distances(
@@ -582,33 +724,35 @@ def format_distances(
 ) -> str:
     local = when.astimezone(tz)
     lines = [
-        f"📏 <b>DISTANZE — {_e(place.upper())}</b>",
+        f"📏 <b>QUANTO SONO LONTANI — {_e(place.upper())}</b>",
         f"📅 {_e(local.strftime('%d/%m/%Y'))} · {local.strftime('%H:%M')}",
         "",
-        "Delta Horizons (UA dal tuo punto). I minuti di luce sono 8,32 × UA: conversione, non un'altra misura.",
+        "Distanza in linea d'aria da te, non dal Sole. Dal più vicino al più lontano.",
         "",
     ]
     ranked: list[tuple[float, str]] = []
     for key, row in items:
         meta = catalog[key]
         if row is None or not isinstance(row.get("delta_au"), (int, float)):
-            lines.append(f"{meta['emoji']} {meta['it']} — niente distanza adesso")
+            lines.append(f"{meta['emoji']} {meta['it']} — distanza non arrivata")
             continue
         delta = float(row["delta_au"])
-        minutes = delta * LIGHT_MIN_PER_AU
-        if minutes >= 60:
-            light = f"{minutes / 60:.2f} h di luce"
-        else:
-            light = f"{minutes:.1f} min di luce"
-        ranked.append((delta, f"{meta['emoji']} <b>{_e(meta['it'])}</b>  {delta:.3f} UA · {light}"))
+        move = motion_it(row.get("deldot") if isinstance(row.get("deldot"), (int, float)) else None)
+        ranked.append(
+            (
+                delta,
+                f"{meta['emoji']} <b>{_e(meta['it'])}</b>\n"
+                f"{dist_it(delta)} · {light_it(delta)}"
+                + (f" · {move}" if move else ""),
+            )
+        )
     ranked.sort(key=lambda item: item[0])
-    lines.extend(text for _delta, text in ranked)
-    lines.extend(
-        [
-            "",
-            "<i>JPL Horizons observer table, quantità 20 (delta). "
-            "Non è la distanza dal Sole: è dal luogo che hai dato.</i>",
-        ]
+    for _delta, text in ranked:
+        lines.append(text)
+        lines.append("")
+    lines.append(
+        "<i>JPL Horizons, quantità 20 (delta). "
+        "1 UA = distanza media Terra–Sole. I minuti di luce sono 8,32 × UA.</i>"
     )
     return "\n".join(lines)
 
@@ -621,16 +765,16 @@ def format_rts_list(
     catalog: dict[str, dict[str, str]],
 ) -> str:
     lines = [
-        f"⬆️ <b>ALBA E TRAMONTO DEI PIANETI — {_e(place.upper())}</b>",
-        "Orari Horizons rise / transit / set, convertiti nell'ora della città.",
+        f"⬆️ <b>QUANDO SORGONO E TRAMONTANO — {_e(place.upper())}</b>",
+        "Orari di oggi da questa città: sorge, passa più alto, tramonta.",
         "",
     ]
-    labels = {"r": "alba", "t": "transito", "s": "tramonto"}
+    labels = {"r": "sorge", "t": "più alto", "s": "tramonta"}
     any_ok = False
     for key, rows in items:
         meta = catalog[key]
         if not rows:
-            lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b>  <i>niente orari adesso</i>")
+            lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b> — orari non arrivati")
             continue
         any_ok = True
         bits: list[str] = []
@@ -639,14 +783,20 @@ def format_rts_list(
             if ev not in labels:
                 continue
             bits.append(f"{labels[ev]} {_local(row.get('when'), tz)}")
-        lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b>  " + (" · ".join(bits) if bits else "nessun evento RTS in 24 h"))
+        if bits:
+            lines.append(f"{meta['emoji']} <b>{_e(meta['it'])}</b>\n" + " · ".join(bits))
+        else:
+            lines.append(
+                f"{meta['emoji']} <b>{_e(meta['it'])}</b> — "
+                "in queste 24 ore non sorge né tramonta (resta sotto o resta sopra)."
+            )
+        lines.append("")
     if not any_ok:
-        lines.append("Niente alba/tramonto dei pianeti per questo giorno.")
+        lines.append("Niente orari per questo giorno.")
     lines.extend(
         [
-            "",
-            "<i>R_T_S_ONLY di Horizons, orizzonte geometrico del luogo. "
-            "Un pianeta basso può restare invisibile anche se è 'sopra'.</i>",
+            "<i>Horizons R_T_S_ONLY, orizzonte geometrico. "
+            "Basso sull'orizzonte può restare invisibile anche se è «sopra».</i>",
         ]
     )
     return "\n".join(lines)
@@ -661,57 +811,65 @@ def format_body_card(
     row: dict[str, Any],
 ) -> str:
     local = when.astimezone(tz)
-    alt = row.get("alt")
-    az = row.get("az")
-    mag = row.get("mag")
-    delta = row.get("delta_au")
-    illum = row.get("illum")
-    elong = row.get("elong")
-    phase = row.get("phase")
-    diam = row.get("ang_diam")
+    alt = row.get("alt") if isinstance(row.get("alt"), (int, float)) else None
+    az = row.get("az") if isinstance(row.get("az"), (int, float)) else None
+    mag = row.get("mag") if isinstance(row.get("mag"), (int, float)) else None
+    delta = row.get("delta_au") if isinstance(row.get("delta_au"), (int, float)) else None
+    r_au = row.get("r_au") if isinstance(row.get("r_au"), (int, float)) else None
+    illum = row.get("illum") if isinstance(row.get("illum"), (int, float)) else None
+    elong = row.get("elong") if isinstance(row.get("elong"), (int, float)) else None
+    phase = row.get("phase") if isinstance(row.get("phase"), (int, float)) else None
+    diam = row.get("ang_diam") if isinstance(row.get("ang_diam"), (int, float)) else None
+    deldot = row.get("deldot") if isinstance(row.get("deldot"), (int, float)) else None
     cnst = cnst_it(str(row.get("cnst") or ""))
     target = str(row.get("target") or meta["it"])
+    up = alt is not None and alt > 0
+    look = f", verso {cardinal_long(az)}" if az is not None else ""
+    is_sun = meta.get("it") == "Sole" or meta.get("command") == "10"
     lines = [
         f"{meta['emoji']} <b>{_e(meta['it'].upper())} — {_e(place.upper())}</b>",
         f"<i>{_e(target)}</i>",
         f"📅 {_e(local.strftime('%d/%m/%Y'))} · {local.strftime('%H:%M')}",
         "",
-        f"{_side(alt if isinstance(alt, (int, float)) else None)}",
+        f"{_cap(height_it(alt))}{look}.",
     ]
-    if isinstance(alt, (int, float)):
-        card = cardinal_from_az(az if isinstance(az, (int, float)) else None)
-        az_bit = f" · azimut {az:.1f}° {card}" if isinstance(az, (int, float)) else ""
-        lines.append(f"Altezza {alt:.1f}°{az_bit}")
+    seen = "" if is_sun else mag_it(mag, up=up)
+    if seen:
+        lines.append(_cap(seen) + ".")
+    if cnst:
+        lines.append(f"Si trova nella costellazione {cnst}.")
+    sun = "" if is_sun else elong_it(elong, str(row.get("lead") or ""))
+    if sun:
+        lines.append(_cap(sun) + ".")
+    lines.append("")
+    if delta is not None:
+        move = motion_it(deldot)
+        lines.append(f"📏 Da te: {dist_it(delta)} · {light_it(delta)}" + (f" · {move}" if move else ""))
+    if r_au is not None and meta.get("it") != "Sole":
+        lines.append(f"☀️ Dal Sole: {dist_it(r_au)}")
+    if isinstance(illum, (int, float)):
+        lines.append(f"🌕 Disco illuminato dal Sole: {illum:.0f}%")
+    if isinstance(diam, (int, float)) and diam > 0:
+        lines.append(f"📐 Quanto appare grande: {diam:.1f} secondi d'arco")
+    if isinstance(phase, (int, float)):
+        lines.append(f"Angolo Sole–oggetto–tu: {phase:.0f}°")
     ra = row.get("ra")
     dec = row.get("dec")
     if isinstance(ra, (int, float)) and isinstance(dec, (int, float)):
         hours = int(ra)
         mins = int(abs(ra - hours) * 60)
-        lines.append(f"RA {hours:02d}h {mins:02d}m · DEC {dec:+.2f}°")
-    visible = "sì" if isinstance(alt, (int, float)) and alt > 0 else "no"
-    lines.append(f"Sopra l'orizzonte: {visible}")
-    if isinstance(mag, (int, float)):
-        lines.append(f"Magnitudine apparente {mag:.2f}")
-    if isinstance(illum, (int, float)):
-        lines.append(f"Disco illuminato {illum:.1f}%")
-    if isinstance(delta, (int, float)):
-        minutes = delta * LIGHT_MIN_PER_AU
-        light = f"{minutes / 60:.2f} h" if minutes >= 60 else f"{minutes:.1f} min"
-        lines.append(f"Distanza {delta:.4f} UA · luce {light}")
-    if isinstance(diam, (int, float)):
-        lines.append(f"Diametro apparente {diam:.2f}″")
-    if isinstance(elong, (int, float)):
-        lead = _lead_it(str(row.get("lead") or ""))
-        lines.append(f"Elongazione solare {elong:.1f}°" + (f" · {lead}" if lead else ""))
-    if isinstance(phase, (int, float)):
-        lines.append(f"Angolo di fase {phase:.1f}°")
-    if cnst:
-        lines.append(f"Costellazione (IAU): {cnst}")
+        lines.append("")
+        lines.append(
+            f"Coordinate per puntare: RA {hours:02d}h {mins:02d}m · DEC {dec:+.1f}°"
+        )
+    if isinstance(alt, (int, float)) and isinstance(az, (int, float)):
+        lines.append(f"Altezza {alt:.1f}° · azimut {az:.0f}° ({cardinal_from_az(az)})")
+    src = "JPL Horizons" if row.get("source") == "horizons" else "calcolo locale (Astronomy Engine)"
     lines.extend(
         [
             "",
-            "<i>JPL Horizons, efemeride observer da queste coordinate. "
-            "Non dico se lo vedi a occhio nudo: serve cielo buio e meteo, che qui non misuro.</i>",
+            f"<i>{src}, dal tuo punto. "
+            "La magnitudine dice quanto è luminoso, non se il meteo te lo lascia vedere.</i>",
         ]
     )
     return "\n".join(lines)
