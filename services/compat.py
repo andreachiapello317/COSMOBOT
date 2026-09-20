@@ -152,7 +152,7 @@ def format_point_compat(kind: str, a: str, b: str) -> str:
     return "\n".join(
         [
             f"❤️ <b>{title}</b>",
-            blurb,
+            f"<i>{blurb}</i>",
             "",
             f"{ea} <b>{ia}</b>  ·  {eb} <b>{ib}</b>",
             "",

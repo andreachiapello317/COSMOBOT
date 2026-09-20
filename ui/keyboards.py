@@ -102,13 +102,21 @@ def world_self_keyboard() -> InlineKeyboardMarkup:
 
 def compat_hub_keyboard(*, has_natal: bool = False, has_syn: bool = False) -> InlineKeyboardMarkup:
     rows = [
-        [kb_btn("☀️ Soli", "cp:go:signs"), kb_btn("🌙 Lune", "cp:go:moon")],
-        [kb_btn("♀️♂️ Venere·Marte", "cp:go:vm"), kb_btn("⬆️ Ascendenti", "cp:go:asc")],
-        [kb_btn("☿️ Mercurio", "cp:go:merc"), kb_btn("🔥 Elementi", "cp:go:el")],
+        [kb_btn("♈ Due segni", "cp:go:signs")],
+        [kb_btn("✨ Confronti avanzati", "cp:adv")],
+    ]
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
+
+
+def compat_advanced_keyboard(*, has_natal: bool = False, has_syn: bool = False) -> InlineKeyboardMarkup:
+    rows = [
+        [kb_btn("🌙 Lune", "cp:go:moon"), kb_btn("⬆️ Ascendenti", "cp:go:asc")],
+        [kb_btn("♀️♂️ Venere e Marte", "cp:go:vm")],
         [kb_btn("☀️🌙⬆️ Big Three", "cp:go:b3")],
     ]
     if has_natal:
-        rows.append([kb_btn("🌌 Sinastria (due temi)", "cp:syn")])
+        rows.append([kb_btn("🌌 Due temi (sinastria)", "cp:syn")])
     if has_syn:
         rows.append([kb_btn("🏠 Overlay case", "cp:ov")])
     rows.append(nav_row())
@@ -132,7 +140,13 @@ def compat_element_keyboard(which: str) -> InlineKeyboardMarkup:
 
 
 def compat_after_keyboard(*, has_natal: bool = False, has_syn: bool = False) -> InlineKeyboardMarkup:
-    return compat_hub_keyboard(has_natal=has_natal, has_syn=has_syn)
+    rows = [
+        [kb_btn("♈ Altri due segni", "cp:go:signs"), kb_btn("✨ Avanzate", "cp:adv")],
+    ]
+    if has_syn:
+        rows.append([kb_btn("🏠 Overlay case", "cp:ov")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
 
 
 def world_div_keyboard() -> InlineKeyboardMarkup:

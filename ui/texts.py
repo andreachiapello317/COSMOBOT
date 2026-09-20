@@ -102,19 +102,37 @@ def world_self_text() -> str:
 
 
 def compat_hub_text(*, has_natal: bool, has_syn: bool = False) -> str:
-    extra = (
-        "🌌 <b>Sinastria</b> — due temi live, aspetti tra le carte.\n"
+    natal = (
+        "Se hai il tema, il tuo segno lo riempio io."
         if has_natal
-        else "Per sinastria e overlay serve il 🌌 tema salvato.\n"
+        else "Scegli due segni. Per i due temi completi serve il tema salvato."
     )
-    overlay = "🏠 <b>Overlay</b> — i loro pianeti nelle tue case.\n" if has_syn else ""
     return _card(
         "❤️ <b>COMPATIBILITÀ</b>",
-        "Due carte a confronto. Nessuna percentuale, nessuna previsione.",
-        "☀️ Soli · 🌙 Lune · ⬆️ Ascendenti · ☿️ Mercurio\n"
-        "♀️♂️ Venere e Marte · 🔥 Elementi · ☀️🌙⬆️ Big Three\n"
+        "Due segni, e basta. Nessuna percentuale, nessuna previsione.",
+        "♈ <b>Due segni</b> — i due Soli, il confronto classico.\n"
+        "✨ <b>Avanzate</b> — Lune, ascendenti, Venere e Marte, Big Three; "
+        "sinastria se hai il tema.\n\n"
+        f"{natal}",
+    )
+
+
+def compat_advanced_text(*, has_natal: bool, has_syn: bool = False) -> str:
+    extra = (
+        "🌌 <b>Due temi</b> — sinastria live sul tuo tema salvato.\n"
+        if has_natal
+        else "La sinastria sui due temi si sblocca con il 🌌 tema salvato.\n"
+    )
+    overlay = "🏠 Overlay delle case: dopo una sinastria.\n" if has_syn else ""
+    return _card(
+        "✨ <b>CONFRONTI AVANZATI</b>",
+        "Stessi segni, un altro punto della carta. Solo se lo conosci.",
+        "🌙 <b>Lune</b> — come vi sentite e vi accudite.\n"
+        "⬆️ <b>Ascendenti</b> — come vi incontrate.\n"
+        "♀️♂️ <b>Venere e Marte</b> — gusto e slancio.\n"
+        "☀️🌙⬆️ <b>Big Three</b> — sole, luna, ascendente.\n"
         f"{extra}{overlay}\n"
-        "Se hai il tema, i tuoi punti li prendo dalla carta.",
+        "Tradizione, non un test di coppia.",
     )
 
 

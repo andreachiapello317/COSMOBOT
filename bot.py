@@ -220,6 +220,7 @@ from ui.keyboards import (
     world_miss_keyboard,
     world_mondi_keyboard,
     world_self_keyboard,
+    compat_advanced_keyboard,
     compat_after_keyboard,
     compat_element_keyboard,
     compat_hub_keyboard,
@@ -261,6 +262,7 @@ from ui.texts import (
     sistemi_text,
     world_mondi_text,
     world_self_text,
+    compat_advanced_text,
     compat_hub_text,
     world_sky_text,
     world_vita_text,
@@ -8944,7 +8946,7 @@ async def _compat_my_sun(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def _compat_kb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> InlineKeyboardMarkup:
-    return compat_hub_keyboard(
+    return compat_after_keyboard(
         has_natal=await _compat_has_natal(update),
         has_syn=isinstance(_compat_state(context).get("chart_b"), dict),
     )
@@ -8967,6 +8969,17 @@ async def show_compat_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context,
         compat_hub_text(has_natal=has_natal, has_syn=has_syn),
         reply_markup=compat_hub_keyboard(has_natal=has_natal, has_syn=has_syn),
+    )
+
+
+async def show_compat_advanced(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    has_natal = await _compat_has_natal(update)
+    has_syn = isinstance(_compat_state(context).get("chart_b"), dict)
+    await reply_html(
+        update,
+        context,
+        compat_advanced_text(has_natal=has_natal, has_syn=has_syn),
+        reply_markup=compat_advanced_keyboard(has_natal=has_natal, has_syn=has_syn),
     )
 
 
@@ -9007,7 +9020,16 @@ async def show_compat_slot(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await finish_compat_mode(update, context)
         return
     label = dict(slots)[nxt]
-    text = f"❤️ <b>COMPATIBILITÀ</b>\n\nScegli {label}."
+    intros = {
+        "signs": ("DUE SEGNI", "I due Soli: identità, ciò che ognuno vuole esprimere."),
+        "moon": ("DUE LUNE", "Come vi sentite e di cosa avete bisogno."),
+        "asc": ("DUE ASCENDENTI", "Come vi presentate e vi incontrate."),
+        "merc": ("DUE MERCURI", "Come parlate e discutete."),
+        "vm": ("VENERE E MARTE", "Gusto e slancio: un segno alla volta."),
+        "b3": ("BIG THREE", "Sole, Luna, Ascendente: tre porte, non un verdetto."),
+    }
+    title, intro = intros.get(mode, ("COMPATIBILITÀ", "Scegli un segno."))
+    text = f"❤️ <b>{title}</b>\n<i>{intro}</i>\n\nScegli {label}."
     if picks:
         filled = ", ".join(f"{COMPAT_SIGNS[v][1]} {COMPAT_SIGNS[v][0]}" for v in picks.values() if v in COMPAT_SIGNS)
         if filled:
@@ -9165,6 +9187,9 @@ async def dispatch_compat(update: Update, context: ContextTypes.DEFAULT_TYPE, to
         _compat_state(context)["step"] = None
     if action in {"hub", ""}:
         await show_compat_hub(update, context)
+        return
+    if action == "adv":
+        await show_compat_advanced(update, context)
         return
     if action == "go" and extra in {*COMPAT_SLOTS, "el"}:
         await start_compat_mode(update, context, extra)
