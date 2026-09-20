@@ -4,8 +4,9 @@ StelleBot — bot Telegram informativo (e un po' ironico) su oroscopo,
 astrologia, pianeti, stelle e astronomia.
 
 Tutto il contenuto "di fatto" arriva da API live. I testi fissi nel codice
-sono solo interfaccia (comandi, etichette, messaggi di errore), mai oroscopi
-o curiosità astronomiche inventate.
+sono solo interfaccia (pulsanti, etichette, messaggi di errore), mai oroscopi
+o curiosità astronomiche inventate. Il menu Telegram è vuoto: si naviga
+a pulsanti. Resta solo /start per aprire BOTSQUAD.
 
 Avvio:
   - senza WEBHOOK_URL  -> polling (sviluppo locale)
@@ -31,7 +32,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from dotenv import load_dotenv
-from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
 
 from services.astronomy import stellarium_url, visibility_stars
 from services.catalog import (
@@ -284,7 +285,7 @@ from telegram.ext import (
 # Configurazione facile da cambiare
 # ---------------------------------------------------------------------------
 
-# Segno usato da /oroscopo quando l'utente non ne passa uno.
+# Segno usato dall'oroscopo quando l'utente non ne passa uno.
 # Valori ammessi: aries, taurus, gemini, cancer, leo, virgo, libra,
 # scorpio, sagittarius, capricorn, aquarius, pisces.
 DEFAULT_SIGN = "libra"
@@ -2021,20 +2022,17 @@ def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
         "🪐 <b>BOTSQUAD</b>\n"
-        "<i>Due bot, un Telegram. ORACOLO guarda dentro; ASTRO guarda fuori.</i>\n\n"
-        "/start è il portale. 🔮 ORACOLO = te stesso e oracoli. "
-        "🔭 ASTRO = cielo, mondi, vita, missioni. "
-        "Qui i comandi che usi davvero.\n\n"
-        f"/oroscopo — senza segno uso {default_emoji} {default_it}\n"
-        "/tema — natale guidato · /compatibilita — due segni\n"
-        "/oracoli — tarocchi, I Ching, rune, Lenormand, mazzi\n"
-        "/pietre — laboratorio e catalogo · /pietra — oracolo\n"
-        "/cielo — cosa vedi adesso · /osserva — da una città\n"
-        "/mondi — esopianeti NASA · /quiz · /cosmico · /random\n"
-        "/luna · /apod · /iss\n\n"
-        "Il resto (stelle, missioni, nani, comete, mazzi…) è nei mondi "
-        "o si scrive ancora come comando.\n\n"
-        "⬅️ <b>Indietro</b> torna al menu precedente.\n"
+        "<i>Due bot, un Telegram. Tutto a pulsanti: non servono comandi da scrivere.</i>\n\n"
+        "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
+        "compatibilità) e Oracoli (tarocchi, I Ching, rune, Lenormand, "
+        "estrazione pietre).\n"
+        "🔭 <b>ASTRO</b> — Cielo, Mondi, Vita, Missioni, Pietre "
+        "(catalogo e laboratorio).\n\n"
+        f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
+        f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
+        "nome del segno in chat.\n\n"
+        "⬅️ <b>Indietro</b> torna al menu precedente. "
+        "🏠 <b>Inizio</b> è sempre BOTSQUAD.\n"
         f"Se un'API cade: <i>{e(STARS_OFFLINE)}</i>"
     )
 
@@ -2198,7 +2196,7 @@ async def on_oroscopo_period(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     parts = query.data.split(":")
     if len(parts) != 3 or parts[0] != "horo":
-        await query.answer("Bottone stanco. Riprova con /oroscopo.")
+        await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
         return
     _, sign, period = parts
     if sign not in ZODIAC or period not in HORO_PERIODS:
@@ -2519,7 +2517,7 @@ async def on_tarot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.answer("Mazzo in movimento…")
         await send_tarot_draw(update, context)
         return
-    await query.answer("Bottone stanco. Riprova con /tarocchi.")
+        await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
 
 
 # ---------------------------------------------------------------------------
@@ -2969,7 +2967,7 @@ async def on_iching_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         _flows_reset(context)
         await reply_html(update, context, start_text(), reply_markup=home_keyboard())
         return
-    await query.answer("Bottone stanco. Riprova con /iching.")
+        await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
 
 
 # ---------------------------------------------------------------------------
@@ -3604,7 +3602,7 @@ async def save_natal_profile(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await reply_html(
         update,
         context,
-        "💾 Tema salvato. La prossima volta /tema apre il tuo profilo.",
+        "💾 Tema salvato. La prossima volta: ORACOLO → Te stesso → Tema natale.",
         reply_markup=natal_nav_keyboard(),
     )
 
@@ -3772,7 +3770,7 @@ async def on_natal_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.answer()
         await show_natal_transits(update, context)
         return
-    await query.answer("Bottone stanco. Riprova con /tema.")
+        await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
 
 
 async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -3974,6 +3972,11 @@ async def on_home_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if action == "stelle":
         await query.answer()
         await show_stelle_menu(update, context)
+        return
+    if action == "aiuto":
+        await query.answer()
+        _cmd_begin(context, "home:aiuto")
+        await reply_html(update, context, help_text(), reply_markup=back_home_keyboard())
         return
     await query.answer()
 
@@ -4963,7 +4966,7 @@ async def on_osserva_action(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await query.answer()
         await show_osserva_picker(update, context)
         return
-    await query.answer("Bottone stanco. Riprova con /osserva.")
+        await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
 
 
 async def show_rune_intro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -5062,7 +5065,7 @@ async def on_rune_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.answer("Le rune cadono…")
         await send_rune_draw(update, context, int(extra))
         return
-    await query.answer("Bottone stanco. Riprova con /rune.")
+        await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
 
 
 async def show_domanda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -5652,6 +5655,7 @@ async def _resume_home(update: Update, context: ContextTypes.DEFAULT_TYPE, actio
         await show_pietre_hub(update, context)
         return
     if action == "aiuto":
+        nav_mark(context, "home:aiuto")
         await reply_html(update, context, help_text(), reply_markup=back_home_keyboard())
         return
     await reply_html(update, context, start_text(), reply_markup=home_keyboard())
@@ -9332,7 +9336,7 @@ async def cmd_compatibilita(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Domanda tarocchi in corso, oppure un segno trattato come /oroscopo."""
+    """Domanda tarocchi in corso, oppure un segno trattato come oroscopo."""
     message = update.effective_message
     if message is None or not message.text:
         return
@@ -9393,9 +9397,10 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await reply_html(
         update,
         context,
-        "Ho letto il messaggio, ma non è un segno zodiacale né un comando.\n"
-        "Scrivi ad esempio <i>vergine</i>, oppure /oroscopo bilancia, "
-        "oppure /cielo, /stelle, /tarocchi o /osserva.",
+        "Ho letto il messaggio, ma non è un segno zodiacale.\n"
+        "Scrivi un segno (es. <i>vergine</i>) per l'oroscopo, "
+        "oppure tocca i pulsanti: 🔮 ORACOLO o 🔭 ASTRO.",
+        reply_markup=all_hub_keyboard(),
     )
 
 
@@ -9403,9 +9408,11 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await reply_html(
         update,
         context,
-        "Quel comando non è nella mappa celeste. Prova /aiuto prima che Mercurio "
-        "faccia di nuovo il furbo.",
+        "I comandi scritti non ci sono più: qui si va a pulsanti.\n"
+        "Tocca 🔮 ORACOLO o 🔭 ASTRO, oppure 📚 Aiuto.",
+        reply_markup=all_hub_keyboard(),
     )
+    await delete_user_command(update)
 
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -9429,23 +9436,10 @@ async def post_init(application: Application) -> None:
         follow_redirects=True,
     )
     try:
-        await application.bot.set_my_commands(
-            [
-                BotCommand("start", "BOTSQUAD — i bot"),
-                BotCommand("oroscopo", "Oroscopo giorno / settimana / mese"),
-                BotCommand("tema", "Tema natale"),
-                BotCommand("oracoli", "Tarocchi, I Ching, rune…"),
-                BotCommand("pietre", "Laboratorio e catalogo"),
-                BotCommand("cielo", "Cosa vedi adesso"),
-                BotCommand("mondi", "Esopianeti e sistemi"),
-                BotCommand("compatibilita", "Due segni"),
-                BotCommand("cosmico", "Un pezzo da ogni mondo"),
-                BotCommand("random", "Sorprendimi"),
-                BotCommand("aiuto", "Manuale breve"),
-            ]
-        )
+        await application.bot.delete_my_commands()
+        await application.bot.set_my_commands([])
     except TelegramError as exc:
-        logger.warning("Impossibile impostare i comandi del menu: %s", exc)
+        logger.warning("Impossibile svuotare i comandi del menu Telegram: %s", exc)
     logger.info("StelleBot inizializzato")
 
 
@@ -9466,67 +9460,6 @@ def build_application(token: str) -> Application:
     )
 
     application.add_handler(CommandHandler("start", cmd_start))
-    application.add_handler(CommandHandler(["tema", "natale", "temanatale"], cmd_tema))
-    application.add_handler(CommandHandler("oroscopo", cmd_oroscopo))
-    application.add_handler(CommandHandler(["tarocchi", "tarot", "tarocco"], cmd_tarocchi))
-    application.add_handler(CommandHandler(["iching", "yijing"], cmd_iching))
-    application.add_handler(CommandHandler(["rune", "runee"], cmd_rune))
-    application.add_handler(CommandHandler(["esplora", "explore"], cmd_esplora))
-    application.add_handler(CommandHandler("pietre", cmd_pietre))
-    application.add_handler(CommandHandler("pietra", cmd_pietra))
-    application.add_handler(CommandHandler(["compatibilita", "compat", "sinastria"], cmd_compatibilita))
-    application.add_handler(CommandHandler(["oracoli", "oracolo"], cmd_oracoli))
-    application.add_handler(CommandHandler(["lettura", "domanda"], cmd_lettura))
-    application.add_handler(CommandHandler(["sibille", "lenormand"], cmd_sibille))
-    application.add_handler(CommandHandler(["sino", "siono", "yesno"], cmd_sino))
-    application.add_handler(CommandHandler(["archetipi", "archetipo"], cmd_archetipi))
-    application.add_handler(CommandHandler(["animali", "animale"], cmd_animali))
-    application.add_handler(CommandHandler(["simboli", "simbolo"], cmd_simboli))
-    application.add_handler(CommandHandler(["elementi", "elemento"], cmd_elementi))
-    application.add_handler(CommandHandler(["oracoloplanetario", "orop"], cmd_oracoloplanetario))
-    application.add_handler(CommandHandler(["oracololunare", "lunare"], cmd_oracololunare))
-    application.add_handler(CommandHandler(["oracolodande", "domande"], cmd_oracolodande))
-    application.add_handler(CommandHandler(["iss", "stazione"], cmd_iss))
-    application.add_handler(CommandHandler(["cosmico", "momento"], cmd_cosmico))
-    application.add_handler(CommandHandler(["sole", "alba"], cmd_sole))
-    application.add_handler(CommandHandler(["eventi", "calendario"], cmd_eventi))
-    application.add_handler(CommandHandler(["transiti", "transito"], cmd_transiti))
-    application.add_handler(CommandHandler(["asteroidi", "asteroid"], cmd_asteroidi))
-    application.add_handler(CommandHandler(["meteore", "sciami"], cmd_meteore))
-    application.add_handler(CommandHandler(["spazio", "sky"], cmd_spazio))
-    application.add_handler(CommandHandler("osserva", cmd_osserva))
-    application.add_handler(CommandHandler("cielo", cmd_cielo))
-    application.add_handler(CommandHandler(["costellazioni", "costellazione"], cmd_costellazioni))
-    application.add_handler(CommandHandler(["nani", "pianetinani"], cmd_nani))
-    application.add_handler(CommandHandler(["comete", "cometa"], cmd_comete))
-    application.add_handler(CommandHandler(["profondo", "cieloprofondo", "messier"], cmd_profondo))
-    application.add_handler(CommandHandler(["pianeta", "pianetiwiki"], cmd_pianeta))
-    application.add_handler(CommandHandler(["lune", "lunae"], cmd_lune))
-    application.add_handler(CommandHandler("sistema", cmd_sistema))
-    application.add_handler(CommandHandler(["sistemi", "sistemistellari"], cmd_sistemi))
-    application.add_handler(CommandHandler(["mondi", "mondo"], cmd_mondi))
-    application.add_handler(CommandHandler(["cosmo", "universo"], cmd_cosmo))
-    application.add_handler(CommandHandler(["buchineri", "buchi"], cmd_buchineri))
-    application.add_handler(CommandHandler(["galassia", "galassie"], cmd_galassia))
-    application.add_handler(CommandHandler(["eclissi", "eclisse"], cmd_eclissi))
-    application.add_handler(CommandHandler(["missioni", "missionee"], cmd_missioni))
-    application.add_handler(CommandHandler(["astronauta", "astronauti"], cmd_astronauta))
-    application.add_handler(CommandHandler(["satelliti", "satellite"], cmd_satelliti))
-    application.add_handler(CommandHandler(["sonde", "sonda"], cmd_sonde))
-    application.add_handler(CommandHandler(["impara", "lezione"], cmd_impara))
-    application.add_handler(CommandHandler("quiz", cmd_quiz))
-    application.add_handler(CommandHandler(["esopianeta", "exo"], cmd_esopianeta))
-    application.add_handler(CommandHandler(["abitabile", "hz"], cmd_abitabile))
-    application.add_handler(CommandHandler("vita", cmd_vita))
-    application.add_handler(CommandHandler(["specchio", "mirror"], cmd_specchio))
-    application.add_handler(CommandHandler(["rituale", "ritual"], cmd_rituale))
-    application.add_handler(CommandHandler(["random", "sorprendimi"], cmd_random))
-    application.add_handler(CommandHandler(["missione", "sfida"], cmd_missione))
-    application.add_handler(CommandHandler("luna", cmd_luna))
-    application.add_handler(CommandHandler("pianeti", cmd_pianeti))
-    application.add_handler(CommandHandler("apod", cmd_apod))
-    application.add_handler(CommandHandler("stelle", cmd_stelle))
-    application.add_handler(CommandHandler(["aiuto", "help"], cmd_aiuto))
     application.add_handler(CallbackQueryHandler(on_oroscopo_period, pattern=r"^horo:"))
     application.add_handler(CallbackQueryHandler(on_tarot_action, pattern=r"^tarot:"))
     application.add_handler(CallbackQueryHandler(on_iching_action, pattern=r"^iching:"))

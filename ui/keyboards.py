@@ -52,6 +52,7 @@ def all_hub_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🔮 ORACOLO", "bot:oracolo")],
             [kb_btn("🔭 ASTRO", "bot:astro")],
+            [kb_btn("📚 Aiuto", "home:aiuto")],
         ]
     )
 

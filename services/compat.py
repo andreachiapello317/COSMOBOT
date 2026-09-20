@@ -103,10 +103,41 @@ def _pair_note(el_a: str, el_b: str) -> str:
 
 
 POINT_META = {
-    "signs": ("☀️ DUE SOLI", "Identità e ciò che si vuole esprimere."),
-    "moon": ("🌙 DUE LUNE", "Bisogni, umore, come ci si accudisce."),
-    "asc": ("⬆️ DUE ASCENDENTI", "Come ci si presenta e si entra in relazione."),
-    "merc": ("☿️ DUE MERCURI", "Parole, ritmo mentale, come si discute."),
+    "signs": (
+        "☀️ DUE SEGNI",
+        "I due Soli: ciò che ognuno vuole essere e far vedere. "
+        "È il confronto più semplice, quello da oroscopo. Non dice come dormite o come vi incontrate.",
+    ),
+    "moon": (
+        "🌙 DUE LUNE",
+        "Le due Lune: bisogni, umore, dove si torna a casa. "
+        "Due Lune vicine si capiscono senza spiegare; due Lune lontane si accudiscono in modi diversi.",
+    ),
+    "asc": (
+        "⬆️ DUE ASCENDENTI",
+        "I due Ascendenti: la porta, il primo gesto, come si entra in una stanza. "
+        "Non è chi siete dentro: è come vi riconoscete al primo sguardo.",
+    ),
+    "merc": (
+        "☿️ DUE MERCURI",
+        "I due Mercuri: parole, ritmo, come si discute. "
+        "Utile se vi perdete nelle chat; non sostituisce Sole e Luna.",
+    ),
+}
+
+B3_ROW = {
+    "sun": (
+        "☀️ Soli — identità",
+        "Cosa volete mostrare. Due Soli dicono se la luce che cercate è la stessa.",
+    ),
+    "moon": (
+        "🌙 Lune — casa",
+        "Dove vi riposate. Due Lune dicono se vi accudite o vi spiazzate.",
+    ),
+    "asc": (
+        "⬆️ Ascendenti — porta",
+        "Come vi incontrate. Due porte dicono se il primo gesto è familiare o straniero.",
+    ),
 }
 
 ELEMENTS = {
@@ -163,7 +194,7 @@ def format_point_compat(kind: str, a: str, b: str) -> str:
             f"Angolo: {glyph} {ang_name} ({steps * 30}°)",
             ang_note,
             "",
-            "<i>Tradizione astrologica, non astronomia e non un verdetto. "
+            "<i>Scheda di tradizione astrologica, non astronomia e non un verdetto. "
             "Niente percentuali.</i>",
         ]
     )
@@ -175,14 +206,14 @@ def format_elements(a: str, b: str) -> str:
     return "\n".join(
         [
             "❤️ <b>DUE ELEMENTI</b>",
-            "Temperamenti, non due oroscopi.",
+            "<i>Quattro temperamenti della tradizione: fuoco, terra, aria, acqua. "
+            "Non sono due oroscopi e non sono un test di coppia.</i>",
             "",
             f"{ea} <b>{na}</b>  ·  {eb} <b>{nb}</b>",
             "",
             _pair_note(a, b),
             "",
-            "<i>Fuoco, terra, aria, acqua: schema tradizionale. "
-            "Non è chimica e non è un test di coppia.</i>",
+            "<i>Schema classico, non chimica.</i>",
         ]
     )
 
@@ -190,7 +221,8 @@ def format_elements(a: str, b: str) -> str:
 def format_venus_mars(av: str, am: str, bv: str, bm: str) -> str:
     lines = [
         "❤️ <b>VENERE E MARTE</b>",
-        "Gusto e slancio, nella tradizione: come ci si piace e come si insegue.",
+        "<i>Scheda dell'attrazione, nella tradizione: Venere è il gusto, Marte lo slancio. "
+        "Non è una previsione sessuale e non è un punteggio.</i>",
         "",
     ]
     pairs = (
@@ -208,7 +240,7 @@ def format_venus_mars(av: str, am: str, bv: str, bm: str) -> str:
         lines.append(f"{ela}+{elb} · {glyph} {ang_name} ({steps * 30}°)")
         lines.append(_pair_note(ela, elb))
         lines.append("")
-    lines.append("<i>Non è una previsione sessuale né un punteggio. È uno schema tradizionale.</i>")
+    lines.append("<i>Quattro incroci tradizionali. Due persone restano più di quattro segni.</i>")
     return "\n".join(lines)
 
 
@@ -222,24 +254,27 @@ def format_big_three(
 ) -> str:
     lines = [
         "❤️ <b>BIG THREE</b>",
-        "Sole, Luna, Ascendente: tre porte, non un verdetto.",
+        "<i>Sole, Luna e Ascendente calcolati da data, ora e luogo (Swiss Ephemeris). "
+        "Tre porte: identità, casa, primo incontro. Non è un verdetto.</i>",
         "",
     ]
     rows = (
-        ("☀️ Soli — identità", asun, bsun),
-        ("🌙 Lune — bisogni", amoon, bmoon),
-        ("⬆️ Ascendenti — incontro", aasc, basc),
+        ("sun", asun, bsun),
+        ("moon", amoon, bmoon),
+        ("asc", aasc, basc),
     )
-    for title, a, b in rows:
+    for kind, a, b in rows:
+        title, note = B3_ROW[kind]
         ia, ea, ela, _m = SIGNS[a]
         ib, eb, elb, _n = SIGNS[b]
         steps, ang_name, glyph, ang_note = _angle(a, b)
         lines.append(f"<b>{title}</b>")
+        lines.append(f"<i>{note}</i>")
         lines.append(f"{ea} {ia}  ·  {eb} {ib}")
         lines.append(f"{ela}+{elb} · {glyph} {ang_name} ({steps * 30}°)")
         lines.append(ang_note)
         lines.append("")
-    lines.append("<i>Tre confronti tradizionali. Due persone restano più di sei segni.</i>")
+    lines.append("<i>Due carte vive, tre confronti. Niente percentuali.</i>")
     return "\n".join(lines)
 
 
@@ -300,7 +335,8 @@ def format_overlays(chart_a: dict[str, Any], chart_b: dict[str, Any]) -> str:
     pb = chart_b.get("planets") if isinstance(chart_b.get("planets"), dict) else {}
     lines = [
         "❤️ <b>OVERLAY DELLE CASE</b>",
-        "I pianeti dell'altra persona nelle tue case (cuspidi live).",
+        "<i>I pianeti dell'altra carta cadono nelle tue case (cuspidi Placidus live). "
+        "Dice dove l'altra persona ti tocca, non se siete destinati.</i>",
         "",
     ]
     shown = 0

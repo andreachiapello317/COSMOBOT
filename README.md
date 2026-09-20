@@ -8,96 +8,38 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 
 ## Cosa fa
 
-| Comando | Effetto | Fonte live |
+Tutto è a **pulsanti**. Il menu comandi di Telegram è vuoto. L’unico slash che resta è `/start` (il bottone Start di Telegram): apre **BOTSQUAD**. Qualunque altro `/comando` viene ignorato e rimanda ai pulsanti. **📚 Aiuto** sta sul portale.
+
+`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO** ha Te stesso e Oracoli. **🔭 ASTRO** ha Cielo, Mondi, Vita, Missioni e il catalogo Pietre (l’estrazione simbolica resta in Oracoli). Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
+
+| Pulsante / mondo | Effetto | Fonte live |
 | --- | --- | --- |
-| `/start` | Presenta il bot e i comandi | — |
-| `/tema` | Tema natale guidato: data, ora, luogo → Big Three, pianeti, case, aspetti | [CosmyDay `/natal`](https://cosmyday.com/api-docs) |
-| `/compatibilita` | Due segni (elementi, modalità, angolo) o sinastria sul tema salvato | CosmyDay per i temi; i segni sono tradizione |
-| `/oroscopo [segno]` | Chiede giorno / settimana / mese con i bottoni. Senza segno usa **Bilancia** | [freehoroscopeapi.com](https://freehoroscopeapi.com) daily, weekly, monthly |
-| `/oracoli` | Hub del reparto: tradizionali + mazzi COSMOBOT | — |
-| `/lettura` | Scrivi la situazione, poi scegli tarocchi / I Ching / rune / Lenormand / sorprendimi | riusa i rituali |
-| `/tarocchi` | 1/3 carte, amore, lavoro, domanda, carta del giorno, Croce Celtica | [freehoroscopeapi.com/tarot](https://freehoroscopeapi.com/tarot) |
-| `/iching` | Consultazione I Ching: domanda, sei lanci, esagramma, linee mutevoli, trasformato | [Wilhelm 1924 JSON](https://github.com/jesshewitt/i-ching) (libro pubblico live) |
-| `/sibille` | Petit Lenormand 1/3/5/9 carte + combinazioni | dataset `services/lenormand.py` |
-| `/sino` | Sì/No simbolico (tarocco, runa o I Ching) | stesse fonti, non un verdetto |
-| `/archetipi` `/animali` `/simboli` `/elementi` `/oracoloplanetario` | Mazzi originali COSMOBOT | `services/oracles.py` |
-| `/oracololunare` | Messaggio coerente con la fase | sunrisesunset.io + testo simbolico |
-| `/oracolodande` | Una domanda introspettiva, poi rifletti | dataset interno |
-| `/asteroidi` | Menu: NEO vicini, asteroidi noti (Wikipedia), o Ceres/Vesta/Pallade/Giunone nel tema | [NASA NeoWs](https://api.nasa.gov) + [Horizons](https://ssd.jpl.nasa.gov/horizons) + Wikipedia |
-| `/meteore` | Prossimo sciame e calendario dei picchi | [Skytime meteor-showers](https://skytime.live/api/docs) |
-| `/spazio` | Briefing del giorno: Luna, pianeti, eventi, sciami, cielo osservabile | CosmyDay events + Skytime + skymap.sh + sunrisesunset.io |
-| `/osserva` | Elenco dettagliato da una città (Luna, pianeti, costellazioni) | [skymap.sh](https://skymap.sh) + geocoding CosmyDay |
-| `/cielo [città]` | Cosa vedi **ADESSO**: mappa testuale, ↑/↓/👁, città memorizzata | skymap.sh + sunrisesunset.io + Skytime |
-| `/stelle` | Menu stelle: casuale, del giorno, visibili ora, tipi (giganti, nane, pulsar…) | Wikipedia/Wikidata + skymap.sh; APOD resta un bottone |
-| `/costellazioni` | Del giorno, casuale, visibili stasera, schede mitologiche | Wikipedia + asterismi skymap.sh |
-| `/nani` | Plutone, Cerere, Eris, Haumea, Makemake | Wikipedia + Wikidata |
-| `/comete` | Selezione (Halley, 67P, NEOWISE…) | Wikipedia — non il dump JPL |
-| `/profondo` | Messier, NGC, nebulose, quasar, SN 1987A | Wikipedia + Wikidata |
-| `/pianeta` | Scheda di un pianeta (massa, diametro, gravità, missioni) | Wikipedia + Wikidata + NASA Images |
-| `/lune` | Europa, Titano, Encelado e le altre | Wikipedia + Wikidata |
-| `/buchineri` | Cos'è un buco nero + Sgr A*, M87*, Cygnus X-1 | Wikipedia + NASA Images |
-| `/galassia` | Via Lattea, Andromeda, confronto distanze | Wikidata P2583 |
-| `/eclissi` | Prossima solare, prossima lunare, countdown, picco | [Skytime eclipses](https://skytime.live/api/docs) |
-| `/alba` | Alba, tramonto, durata, crepuscolo civile/astronomico | sunrisesunset.io (`/sole` è lo stesso) |
-| `/missioni` | Artemis, Webb, Clipper, JUICE, Voyager… | Wikipedia |
-| `/astronauta` | Schede di astronauti storici | Wikipedia |
-| `/satelliti` | Hubble, Webb, Chandra, ISS | Wikipedia + WTIA per la ISS |
-| `/sonde` | Voyager, New Horizons, Cassini, Juno… | Wikipedia |
-| `/impara` | Mini-lezioni: Sistema Solare, stelle, buchi neri, galassie, missioni, esopianeti | Wikipedia |
-| `/quiz` | Facile / medio / difficile / esperto + classifica personale | Wikipedia, Wikidata, NASA TAP |
-| `/mondi` | Esploratore: filtri TAP, mondo del giorno, casuale, salvataggi, vita, missioni→mondi | NASA TAP + Wikipedia |
-| `/sistemi` | Alberi di sistemi (TRAPPIST-1, binari, multipli, HZ) | NASA TAP `hostname` |
-| `/cosmo` | Mappa stelle / sistemi / mondi / galassie / nebulose / buchi neri | cataloghi già usati |
-| `/sistema` | Scelta: Sistema Solare (Wikidata) o sistemi extrasolari (TAP) | Wikipedia + TAP |
-| `/esopianeta` | Menu: casuale, simile alla Terra, infernale, estremo, oceanico (modello), recente | [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu) tabella `ps` |
-| `/abitabile` | Candidati in zona abitabile (modello Teq/raggio, non vita) | stesso archivio TAP |
-| `/vita` | Come cerchiamo la vita: oceani, SETI, biosignature | Wikipedia |
-| `/specchio` | Domanda introspettiva + riflessione | pratica simbolica |
-| `/rituale` | Intenzione / rilascio / chiusura secondo la fase lunare | fase live sunrisesunset.io |
-| `/random` | Pesca casuale: tarocco, I Ching, runa, pianeta, missione, oggetto | le API già usate |
-| `/missione` | Missione del giorno (Orione, Luna, APOD, quiz…) | calendario locale |
-| `/rune` | Rituale Elder Futhark: domanda, 1 o 3 rune, upright/reversed | dataset interno (`services/runes.py`) |
-| `/iss` | Posizione live della ISS + mappa | [Where the ISS at?](https://wheretheiss.at/w/developer) |
-| `/cosmico` | Un pezzo da ogni mondo: te stesso, cielo, carta, esopianeta, missione | API in parallelo |
-| `/esplora` | I sette mondi | — |
-| `/pietre` | Mondo delle pietre: enciclopedia, laboratorio, collezione, museo | catalogo locale + Wikipedia |
-| `/pietra` | Oracolo simbolico delle pietre (non è mineralogia) | catalogo locale |
-| `/domanda` | Una domanda, poi scegli tarocchi, I Ching o rune | riusa i workflow esistenti |
-| `/eventi` | Prossimi eventi del cielo | CosmyDay + Skytime |
-| `/sole` | Come `/alba` | sunrisesunset.io |
-| `/transiti` | Cielo di oggi sul tema salvato | CosmyDay |
-| `/luna` | Fase, illuminazione, moonrise/moonset + spiegazione del giorno | [sunrisesunset.io](https://sunrisesunset.io/api/) + [CosmyDay](https://api.cosmyday.com/content/moon) |
-| `/pianeti` | Posizioni attuali dei pianeti principali sopra Roma | [CosmyDay `/natal`](https://cosmyday.com/api-docs) (Swiss Ephemeris) |
-| `/apod` | Astronomy Picture of the Day (foto o video) | [NASA APOD](https://api.nasa.gov) |
-| `/aiuto` | Elenco comandi | — |
+| 🔮 ORACOLO → Te stesso | Oroscopo (giorno / settimana / mese; senza segno usa **Bilancia**), tema natale guidato, specchio, compatibilità due segni | [freehoroscopeapi.com](https://freehoroscopeapi.com), [CosmyDay](https://cosmyday.com/api-docs) |
+| 🔮 ORACOLO → Oracoli | Tarocchi, I Ching, rune Elder Futhark, Lenormand, lettura, mazzi COSMOBOT, oracolo pietre | tarot API, Wilhelm 1924, dataset locali |
+| 🔭 ASTRO → Cielo | Adesso, stelle, eventi, ISS, osserva da una città, Luna, APOD, asteroidi, meteore | skymap.sh, Skytime, WTIA, NASA, CosmyDay |
+| 🔭 ASTRO → Mondi | Esopianeti NASA, sistemi, salvataggi, cataloghi (nani, comete, profondo) | NASA TAP + Wikipedia |
+| 🔭 ASTRO → Vita | Come cerchiamo la vita, senza dichiararla | Wikipedia |
+| 🔭 ASTRO → Missioni | Sonde, quiz, missione del giorno | Wikipedia + calendario locale |
+| 🔭 ASTRO → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |
+| ✨ COSMICO / 🎲 casuale | Un pezzo dai mondi di ASTRO | le API già usate |
 
-Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come `/oroscopo`. Puoi anche scrivere `/oroscopo vergine settimanale` per saltare la scelta.
+Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come oroscopo.
 
-`/tema` (o `/natale`) chiede data, ora e città una alla volta, geocodifica con CosmyDay e calcola Sole, Luna, Ascendente, pianeti, case e aspetti. Puoi salvare il tema e poi vedere i transiti di oggi rispetto alla carta.
+**Tema natale** chiede data, ora e città una alla volta, geocodifica con CosmyDay e calcola Sole, Luna, Ascendente, pianeti, case e aspetti.
 
-`/compatibilita` (o `/compat`, `/sinastria`) sta in 🔮 **ORACOLO / Te stesso**. Prima i due segni (Soli). Poi, se vuoi, Lune, ascendenti, Venere e Marte, Big Three; con il tema salvato anche la sinastria. È astrologia tradizionale, non astronomia. Niente percentuali.
+**Compatibilità** sta in 🔮 ORACOLO / Te stesso. Prima i due segni (Soli). Poi, se vuoi, Lune, ascendenti, Venere e Marte, Big Three. È astrologia tradizionale, non astronomia. Niente percentuali.
 
-`/tarocchi` (o `/tarot`) è una lettura guidata: scegli lo spread, (se serve) scrivi la domanda, poi **PESCA LE CARTE**. L’API decide quali carte escono; dritta/rovesciata è casuale; i testi sono i significati ufficiali, tradotti e letti insieme. Lo storico resta sul server (su Render free può azzerarsi al riavvio).
+**Tarocchi**: scegli lo spread, (se serve) scrivi la domanda, poi **PESCA LE CARTE**. L’API decide quali carte escono; dritta/rovesciata è casuale; i testi sono i significati ufficiali, tradotti e letti insieme.
 
-`/iching` (o `/yijing`) è un rituale diverso: prima la domanda, poi **SONO PRONTO**, conferma, **LANCIA LE MONETE**. Le sei linee si costruiscono dal basso verso l’alto (metodo delle tre monete: 6/7/8/9). Il bot mostra esagramma, linee mutevoli e — se ci sono — l’esagramma trasformato. I testi (giudizio, immagine, linee) arrivano dal libro Wilhelm 1924 in JSON pubblico e vengono tradotti; le monete si lanciano in locale.
+**I Ching**: prima la domanda, poi **SONO PRONTO**, conferma, **LANCIA LE MONETE**. Le sei linee si costruiscono dal basso verso l’alto (metodo delle tre monete: 6/7/8/9). I testi arrivano dal libro Wilhelm 1924 in JSON pubblico.
 
-`/asteroidi` apre un menu: **vicini alla Terra** (NASA NeoWs), **asteroidi noti** (Wikipedia: Vesta, Bennu…), oppure **nel tema natale** (Ceres, Vesta, Pallade, Giunone da Horizons). Per il tema serve una carta salvata o appena calcolata.
+**Cielo** è astronomia reale (↑ sopra, ↓ sotto, 👁 mag ≤ 6). **Oracoli** è esperienza simbolica. **Pietre** è autonomo: mineralogia da catalogo, folklore tenuto a parte. Non si mescolano.
 
-`/meteore` mostra il prossimo sciame (picco e ZHR) e quelli in arrivo. `/spazio` è il briefing del giorno. `/osserva` chiede la città e elenca cosa c’è sopra l’orizzonte. `/cielo` è la mappa testuale di **adesso** (↑ sopra, ↓ sotto, 👁 mag ≤ 6), con città memorizzata; `/cielo Milano` geocodifica al volo. `/stelle` e `/costellazioni` mescolano schede Wikipedia e visibilità live. `/nani`, `/comete` e `/profondo` sono cataloghi curati: JPL Horizons ha milioni di oggetti, qui non li scarico in blocco.
+Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 
-`/mondi` è l'esploratore: filtri TAP (terrestri, oceanici come modello, ghiacciati, infernali, multi-stella, orbite eccentriche…), mondo del giorno, casuale, sistemi, «e se ci fosse vita?» (Wikipedia vs speculazione), missioni→corpi, e una lista di mondi salvati sul server. `/sistemi` apre gli alberi (TRAPPIST-1 incluso). `/cosmo` sta sopra: stelle, sistemi, mondi, galassie, nebulose, buchi neri. I mondi **generati** sono etichettati come finti.
+Su ogni schermata (tranne la home) c’è **⬅️ Indietro**: torna al menu precedente. **🏠 Inizio** è sempre BOTSQUAD.
 
-`/esopianeta` apre i filtri NASA (casuale, simile alla Terra, infernale, estremo, oceanico come **modello**, recente). `/abitabile` è il filtro zona abitabile: Teq e raggio, **non** una dichiarazione di vita. `/specchio` sta in 🔮 ORACOLO / Te stesso. `/rituale` e `/transiti` restano come comando, non nel menu di Te stesso.
-
-Il mondo **🔭 CIELO** è astronomia reale. Il mondo **🔮 ORACOLI** è esperienza simbolica. Il mondo **💎 PIETRE** è autonomo: mineralogia e geologia da catalogo pubblico, folklore tenuto a parte. Non si mescolano.
-
-`/pietre` apre l’universo: schede (scienza / geologia / storia / simbolismo), colori, ambienti, laboratorio guidato, confronto, giochi, museo, collezione, pietre dallo spazio. `/pietra` è l’oracolo dichiarato come gioco. Una foto nel laboratorio (pietra al centro, tavolo uniforme) prima legge il colore (vincolo duro), poi confronta l’immagine con le miniature Wikipedia del catalogo e, se c’è `HF_TOKEN`, con CLIP zero-shot. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati. La rarità è di catalogo, non una quotazione.
-
-`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO** ha Te stesso e Oracoli. **🔭 ASTRO** ha Cielo, Mondi, Vita, Missioni e il catalogo Pietre (l’estrazione simbolica resta in Oracoli). Ogni scheda ha una riga di presentazione. I mondi non si mescolano. I comandi lunghi (`/nani`, `/archetipi`…) restano se li scrivi. `/esplora` è BOTSQUAD. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` pesca dai mondi di ASTRO: se una API cade, le altre restano.
-
-Su ogni schermata (tranne la home) c’è **⬅️ Indietro**: torna al menu precedente, senza ripassare da Inizio. **🏠 Inizio** resta sempre disponibile.
-
-In chat il bot tiene **un solo messaggio**: ogni comando modifica (o sostituisce) la risposta precedente, senza accodarne di nuove. Il comando che hai scritto (`/luna`, `/oroscopo`…) viene cancellato appena la risposta è pronta.
+In chat il bot tiene **un solo messaggio**: ogni pulsante modifica (o sostituisce) la risposta precedente. Se scrivi `/start` o un testo, il messaggio utente viene cancellato appena la risposta è pronta.
 
 I feed in inglese vengono tradotti in italiano al volo. Se un’API non risponde il bot dice:
 
@@ -150,7 +92,7 @@ Avvio:
 python bot.py
 ```
 
-Nei log deve comparire `Avvio in modalità POLLING`. Apri Telegram, cerca il bot, manda `/start` e prova `/oroscopo`, `/luna`, `/pianeti`, `/apod`, `/stelle`.
+Nei log deve comparire `Avvio in modalità POLLING`. Apri Telegram, cerca il bot, manda `/start` e usa i pulsanti (ORACOLO, ASTRO, Aiuto). Il menu comandi di Telegram deve essere vuoto.
 
 Per fermarlo: `Ctrl+C`.
 
@@ -236,7 +178,7 @@ Se in locale hai testato il webhook e vuoi tornare al polling, togli `WEBHOOK_UR
 In cima a `bot.py`:
 
 ```python
-DEFAULT_SIGN = "libra"        # segno di /oroscopo senza argomenti
+DEFAULT_SIGN = "libra"        # segno di default dell'oroscopo
 DEFAULT_LAT = 41.9028         # Roma, per Luna e pianeti
 DEFAULT_LON = 12.4964
 ```

@@ -16,7 +16,7 @@ def all_hub_text() -> str:
         "Due bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, carte, rune, rituali.\n"
         "🔭 <b>ASTRO</b> — cielo vero, pianeti, missioni, pietre.\n\n"
-        "Entra in un bot. 🏠 Inizio torna sempre qui.",
+        "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
 
 
