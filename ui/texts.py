@@ -47,7 +47,7 @@ def astro_hub_text() -> str:
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
         "☀️ <b>CIELO</b> — luna, sole, terra e uno schema a emoji\n"
         "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
-        "🔭 <b>OSSERVATORIO</b> — cielo di adesso (emoji / PNG / elenco), stelle, Horizons, stasera\n"
+        "🔭 <b>OSSERVATORIO</b> — cielo di adesso (PNG o elenco), stelle, Horizons, stasera\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
@@ -174,7 +174,7 @@ def world_watch_text(place: str = "") -> str:
         "🔭 <b>OSSERVATORIO</b>",
         "Cosa sta sopra di te, adesso. Stelle da Hipparcos; Sole, Luna, pianeti e comete da JPL Horizons.",
         f"{where}\n"
-        "🔭 Cielo di adesso (emoji, professionale, elenco) · ⭐ Stelle · 🪐 Pianeti · 🌙 Luna\n"
+        "🔭 Cielo di adesso (professionale o elenco) · ⭐ Stelle · 🪐 Pianeti · 🌙 Luna\n"
         "☄️ Comete · 🛰️ Satelliti (ISS live) · 🌠 Eventi · 🔭 Stasera · 📅 Prossimi\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
     )
@@ -184,11 +184,10 @@ def watch_sky_pick_text(place: str = "") -> str:
     where = _html.escape(place) if place else "Cuneo"
     return _card(
         f"🔭 <b>CIELO DI ADESSO — {where.upper()}</b>",
-        "Come lo vuoi vedere. Stessi oggetti, tre modi.",
-        "🌌 <b>EMOJI</b> — planetario in chat: stelle, linee, pianeti\n"
-        "🗺️ <b>PROFESSIONALE</b> — PNG: classica, figure, atlante (scorri)\n"
+        "Come lo vuoi vedere. Stessi oggetti, due modi.",
+        "🗺️ <b>PROFESSIONALE</b> — sei carte PNG: classica, figure, atlante, polare, eclittica, sfera\n"
         "📜 <b>ELENCO</b> — altezza, azimut, magnitudine\n\n"
-        "L'emoji arriva subito. La PNG è la carta precisa.",
+        "Sulla PNG scorri i sei disegni con ◀ ▶.",
     )
 
 

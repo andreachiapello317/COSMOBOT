@@ -164,10 +164,12 @@ from services.skycatalog import SkyFrame, visible_stars as catalog_stars
 from services.skychart import (
     SKY_STYLES,
     draw_atlas_chart,
+    draw_ecliptic_chart,
     draw_figure_chart,
+    draw_planisphere,
+    draw_polar_chart,
     draw_sky_chart,
     format_cielo_terra,
-    format_emoji_planetarium,
     format_sky_listing,
     format_sun_moon_earth,
     sky_style_label,
@@ -306,7 +308,6 @@ from ui.keyboards import (
     watch_bodies_keyboard,
     watch_next_keyboard,
     watch_result_keyboard,
-    watch_sky_emoji_keyboard,
     watch_sky_keyboard,
     watch_sky_list_keyboard,
     watch_sky_pick_keyboard,
@@ -2359,7 +2360,7 @@ def help_text() -> str:
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città, default Cuneo, niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (luna, sole, terra e schema a emoji), Meteo, Osservatorio "
-        "(cielo di adesso: emoji, PNG o elenco; stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
+        "(cielo di adesso: PNG professionale o elenco; stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
@@ -7529,24 +7530,13 @@ async def send_sky_now(
     _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     asked = style or "pick"
-    if asked in {"pick", ""}:
+    if asked in {"pick", "", "emoji"}:
         await reply_html(
             update,
             context,
             watch_sky_pick_text(name),
             reply_markup=watch_sky_pick_keyboard(),
         )
-        return
-    if asked == "emoji":
-        await send_typing(update)
-        tz, now = await _watch_clock(context, lat, lon)
-        try:
-            body = format_emoji_planetarium(place=name, lat=lat, lon=lon, when=now)
-        except Exception:
-            logger.exception("Planetario emoji non generato")
-            await reply_offline(update, context)
-            return
-        await reply_html(update, context, body, reply_markup=watch_sky_emoji_keyboard())
         return
     if asked == "list":
         await send_typing(update)
@@ -7573,12 +7563,15 @@ async def send_sky_now(
     markup = watch_sky_keyboard(chosen)
     await deliver_text(update, context, f"🗺️ Disegno la carta sopra {name} ({label})…")
     try:
-        if chosen == "figures":
-            png = draw_figure_chart(place=name, lat=lat, lon=lon, when=now)
-        elif chosen == "atlas":
-            png = draw_atlas_chart(place=name, lat=lat, lon=lon, when=now)
-        else:
-            png = draw_sky_chart(place=name, lat=lat, lon=lon, when=now)
+        drawers = {
+            "figures": draw_figure_chart,
+            "atlas": draw_atlas_chart,
+            "polar": draw_polar_chart,
+            "ecliptic": draw_ecliptic_chart,
+            "sphere": draw_planisphere,
+        }
+        drawer = drawers.get(chosen, draw_sky_chart)
+        png = drawer(place=name, lat=lat, lon=lon, when=now)
     except Exception:
         logger.exception("Carta del cielo non generata")
         await reply_offline(update, context)
@@ -7586,7 +7579,7 @@ async def send_sky_now(
     caption = (
         f"{head}\n"
         "Stelle Hipparcos; Sole, Luna e pianeti da Astronomy Engine. "
-        "Scorri classica, figure e atlante."
+        f"Scorri le {len(SKY_STYLES)} carte: classica, figure, atlante, polare, eclittica, sfera."
     )
     ok = await deliver_photo_bytes(
         update,
