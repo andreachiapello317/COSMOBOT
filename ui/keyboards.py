@@ -233,7 +233,7 @@ def geo_after_keyboard(kind: str) -> InlineKeyboardMarkup:
 def astro_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("☀️ Cielo", "world:sky"), kb_btn("🌤️ Meteo", "loc:go:meteo")],
+            [kb_btn("☀️ Cielo", "world:sky"), kb_btn("🌤️ Meteo", "wx:hub")],
             [kb_btn("🔭 Osservatorio", "world:watch")],
             [kb_btn("🚀 Studia lo spazio", "world:mondi")],
             [kb_btn("🛰️ In orbita", "world:orbit")],

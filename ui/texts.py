@@ -46,7 +46,7 @@ def astro_hub_text() -> str:
         "🔭 <b>ASTRO</b>",
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
         "☀️ <b>CIELO</b> — luna, sole, terra e uno schema a emoji\n"
-        "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
+        "🌤️ <b>METEO</b> — Cuneo (o l'ultima città), oggi e domani; puoi cambiare giorni\n"
         "🔭 <b>OSSERVATORIO</b> — cielo di adesso, cielo osservabile, stelle, Horizons, stasera\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"

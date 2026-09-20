@@ -158,7 +158,13 @@ from services.compass import (
     reverse_place,
 )
 from services.geoapp import clean_purpose, install_geo_http, register_pin_handler
-from services.weather import fetch_forecast, fetch_now_conditions, format_forecast, parse_forecast_request
+from services.weather import (
+    fetch_forecast,
+    fetch_now_conditions,
+    format_forecast,
+    looks_like_forecast_span,
+    parse_forecast_request,
+)
 from services.moon import moon_now, next_quarters
 from services.skycatalog import SkyFrame, visible_stars as catalog_stars
 from services.skychart import (
@@ -534,6 +540,7 @@ NAV_SKIP_PREFIXES = (
     "cp:src:",
     "calc:",
     "wx:d:",
+    "loc:city:",
     "sq:ans:",
 )
 NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
@@ -1500,6 +1507,7 @@ def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     _oq_reset(context)
     _stone_reset(context)
     context.user_data["cielo_ask"] = False
+    context.user_data[LOC_ASK_KEY] = False
     context.user_data[METEO_ASK_KEY] = False
     context.user_data[MATH_ASK_KEY] = None
     context.user_data[COMPASS_SHARE_KEY] = False
@@ -2361,7 +2369,7 @@ def help_text() -> str:
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città, default Cuneo, niente carte).\n"
-        "🔭 <b>ASTRO</b> — Cielo (luna, sole, terra e schema a emoji), Meteo, Osservatorio "
+        "🔭 <b>ASTRO</b> — Cielo (luna, sole, terra e schema a emoji), Meteo (Cuneo, oggi e domani), Osservatorio "
         "(cielo di adesso e cielo osservabile a occhio nudo, stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
@@ -5966,6 +5974,31 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
     if prefix == "watch" and action == "now":
         await send_sky_now(update, context)
         return
+    if prefix == "wx":
+        _ensure_cielo_place(context)
+        name, lat, lon = _cielo_place(context)
+        if action == "ask":
+            await show_meteo_span(update, context, name=name)
+            return
+        if action == "d" and extra.isdigit():
+            await send_weather(
+                update,
+                context,
+                name=name,
+                lat=lat,
+                lon=lon,
+                span=parse_forecast_request(f"{extra} giorni"),
+            )
+            return
+        span = context.user_data.get(METEO_SPAN_KEY)
+        if not isinstance(span, dict):
+            span = parse_forecast_request("")
+        await send_weather(update, context, name=name, lat=lat, lon=lon, span=span)
+        return
+    if prefix == "loc":
+        purpose = extra if action == "go" and extra else _loc_purpose(context)
+        await show_place_picker(update, context, purpose or "cielo")
+        return
     if prefix == "world" and action in {"mondi", "space"}:
         await reply_html(update, context, world_mondi_text(), reply_markup=world_mondi_keyboard())
         return
@@ -6562,6 +6595,9 @@ async def on_nav_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         if query.message is not None:
             kind = "text" if query.message.text else "photo"
             _remember_bot_msg(context, query.message.message_id, kind)
+        context.user_data[LOC_ASK_KEY] = False
+        context.user_data[METEO_ASK_KEY] = False
+        context.user_data["cielo_ask"] = False
         token = nav_pop(context)
         if not token:
             nav_clear(context)
@@ -6759,9 +6795,7 @@ async def cmd_eventi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def send_eventi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Solo fenomeni che la mappa dice osservabili dalla città salvata. Altrimenti nulla."""
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     await send_typing(update)
     await deliver_text(update, context, f"🌠 Cosa si vede da {name}…")
@@ -7382,9 +7416,7 @@ async def send_horizons_list(
     *,
     kind: str,
 ) -> None:
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     catalogs = {"planets": PLANETS, "rocks": ROCKS, "comet": COMETS}
     titles = {
@@ -7436,9 +7468,7 @@ async def send_horizons_list(
 
 
 async def send_horizons_distances(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     await send_typing(update)
     await deliver_text(update, context, f"📏 Misuro le distanze Horizons da {name}…")
@@ -7458,9 +7488,7 @@ async def send_horizons_distances(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def send_horizons_rts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     await send_typing(update)
     await deliver_text(update, context, f"⬆️ Calcolo alba e tramonto dei pianeti da {name}…")
@@ -7490,9 +7518,7 @@ async def send_horizons_rts(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 async def send_horizons_body(update: Update, context: ContextTypes.DEFAULT_TYPE, key: str) -> None:
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     meta = BODIES.get(key)
     if meta is None:
         await show_watch_hub(update, context)
@@ -7686,9 +7712,7 @@ async def send_sky_eye(
 
 
 async def send_watch_moon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     await send_typing(update)
     await deliver_text(update, context, f"🌙 Horizons sulla Luna da {name}…")
@@ -7728,9 +7752,7 @@ async def send_watch_moon(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def send_watch_sats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     name, _lat, _lon = _cielo_place(context)
     await send_typing(update)
     await deliver_text(update, context, "🛰️ Chiedo la ISS…")
@@ -7771,9 +7793,7 @@ async def send_watch_sats(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     await send_typing(update)
     await deliver_text(update, context, f"🔭 Scelgo cosa merita da {name}…")
@@ -7818,9 +7838,7 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def send_watch_next(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not _has_cielo_place(context):
-        await show_place_picker(update, context, "watch")
-        return
+    _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
     await send_typing(update)
     await deliver_text(update, context, f"📅 Calcolo i prossimi fenomeni da {name}…")
@@ -7970,7 +7988,10 @@ async def apply_place(
         await send_sole(update, context, name=name, lat=lat, lon=lon)
         return
     if purpose == "meteo":
-        await show_meteo_span(update, context, name=name)
+        span = context.user_data.get(METEO_SPAN_KEY)
+        if not isinstance(span, dict):
+            span = parse_forecast_request("")
+        await send_weather(update, context, name=name, lat=lat, lon=lon, span=span)
         return
     if purpose == "osserva":
         await send_osserva(update, context, name=name, lat=lat, lon=lon)
@@ -8024,8 +8045,7 @@ async def on_wx_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await send_luna_here(update, context, name=name, lat=lat, lon=lon)
         return
     if action == "ask":
-        context.user_data[METEO_ASK_KEY] = True
-        await reply_html(update, context, meteo_span_text(name), reply_markup=meteo_span_keyboard())
+        await show_meteo_span(update, context, name=name)
         return
     if action == "d" and extra.isdigit():
         span = parse_forecast_request(f"{extra} giorni")
@@ -8083,7 +8103,9 @@ async def on_loc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def show_meteo_span(update: Update, context: ContextTypes.DEFAULT_TYPE, *, name: str) -> None:
+    context.user_data[LOC_ASK_KEY] = False
     context.user_data[METEO_ASK_KEY] = True
+    nav_mark(context, "wx:ask")
     await reply_html(update, context, meteo_span_text(name), reply_markup=meteo_span_keyboard())
 
 
@@ -8106,27 +8128,36 @@ async def send_weather(
     span: dict[str, Any] | None = None,
 ) -> None:
     _remember_cielo_place(context, name, lat, lon)
+    context.user_data[LOC_ASK_KEY] = False
     context.user_data[METEO_ASK_KEY] = False
+    nav_mark(context, "wx:hub")
     chosen = span if isinstance(span, dict) else parse_forecast_request("")
     context.user_data[METEO_SPAN_KEY] = chosen
     days = int(chosen.get("days") or 2)
     indices = chosen.get("indices") if isinstance(chosen.get("indices"), list) else list(range(days))
     label = str(chosen.get("label") or "oggi e domani")
     await send_typing(update)
-    await deliver_text(update, context, f"🌤️ Scarico il meteo di {name} ({label})…")
+    await deliver_text(
+        update,
+        context,
+        f"🌤️ Scarico il meteo di {name} ({label})…",
+        reply_markup=meteo_keyboard(),
+    )
     client = _http_client(context)
     try:
         data = await fetch_forecast(client, lat, lon, forecast_days=max(days, 2))
+        body = format_forecast(data, name=name, days=days, indices=indices, label=label)
     except Exception:
         logger.exception("Meteo Open-Meteo non disponibile")
-        await reply_offline(update, context)
+        await reply_html(
+            update,
+            context,
+            "🌤️ <b>METEO</b>\n\n"
+            "Open-Meteo non ha risposto. Riprova, cambia i giorni, o scegli un'altra città.",
+            reply_markup=meteo_keyboard(),
+        )
         return
-    await reply_html(
-        update,
-        context,
-        format_forecast(data, name=name, days=days, indices=indices, label=label),
-        reply_markup=meteo_keyboard(),
-    )
+    await reply_html(update, context, body, reply_markup=meteo_keyboard())
 
 
 async def send_sky_oracle(
@@ -11998,6 +12029,11 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     text = message.text.strip()
     stone = context.user_data.get(STONE_STATE_KEY)
     if context.user_data.get(LOC_ASK_KEY):
+        if _loc_purpose(context) == "meteo" and looks_like_forecast_span(text):
+            context.user_data[LOC_ASK_KEY] = False
+            _ensure_cielo_place(context)
+            await receive_meteo_span(update, context, text)
+            return
         await receive_place_city(update, context, text)
         return
     if context.user_data.get(METEO_ASK_KEY):
@@ -12797,14 +12833,14 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_orb_action, pattern=r"^orb:"))
     application.add_handler(CallbackQueryHandler(on_geo_action, pattern=r"^geo:"))
     application.add_handler(CallbackQueryHandler(on_world_action, pattern=r"^world:"))
-    application.add_handler(CallbackQueryHandler(on_sheet_action, pattern=r"^w:"))
+    application.add_handler(CallbackQueryHandler(on_wx_action, pattern=r"^wx:"))
+    application.add_handler(CallbackQueryHandler(on_sheet_action, pattern=r"^w:[a-z]:"))
     application.add_handler(CallbackQueryHandler(on_aster_action, pattern=r"^aster:"))
     application.add_handler(CallbackQueryHandler(on_quiz_action, pattern=r"^quiz:"))
     application.add_handler(CallbackQueryHandler(on_miss_action, pattern=r"^miss:"))
     application.add_handler(CallbackQueryHandler(on_home_action, pattern=r"^home:"))
     application.add_handler(CallbackQueryHandler(on_cielo_action, pattern=r"^cielo:"))
     application.add_handler(CallbackQueryHandler(on_loc_action, pattern=r"^loc:"))
-    application.add_handler(CallbackQueryHandler(on_wx_action, pattern=r"^wx:"))
     application.add_handler(CallbackQueryHandler(on_st_action, pattern=r"^st:"))
     application.add_handler(CallbackQueryHandler(on_co_action, pattern=r"^co:"))
     application.add_handler(CallbackQueryHandler(on_ev_action, pattern=r"^ev:"))

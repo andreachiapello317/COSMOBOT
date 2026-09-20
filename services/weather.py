@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import html
+import re
 from typing import Any
 
 import httpx
@@ -70,14 +72,9 @@ def _day_label(iso: str) -> str:
         return raw or "—"
 
 
-def parse_forecast_request(text: str, *, today: Any = None) -> dict[str, Any]:
-    """Quanti o quali giorni. Vuoto = oggi e domani. Non inventa il tempo, solo la finestra."""
-    from datetime import date, timedelta
-
-    if today is None:
-        today = date.today()
+def _fold_span_text(text: str) -> str:
     raw = " ".join(str(text or "").strip().lower().split())
-    compact = (
+    return (
         raw.replace("à", "a")
         .replace("è", "e")
         .replace("é", "e")
@@ -85,6 +82,59 @@ def parse_forecast_request(text: str, *, today: Any = None) -> dict[str, Any]:
         .replace("ò", "o")
         .replace("ù", "u")
     )
+
+
+def looks_like_forecast_span(text: str) -> bool:
+    """True se l'utente ha scritto una finestra di giorni, non una città."""
+    compact = _fold_span_text(text)
+    if not compact:
+        return False
+    if compact in {
+        "oggi",
+        "adesso",
+        "ora",
+        "domani",
+        "oggi e domani",
+        "oggi+domani",
+        "default",
+        "settimana",
+        "una settimana",
+        "7 giorni",
+        "sette giorni",
+        "due settimane",
+        "14 giorni",
+        "quattordici giorni",
+    }:
+        return True
+    if re.fullmatch(r"\d{1,2}", compact) or "giorn" in compact:
+        return True
+    weekdays = {
+        "lunedi",
+        "lun",
+        "martedi",
+        "mar",
+        "mercoledi",
+        "mer",
+        "giovedi",
+        "gio",
+        "venerdi",
+        "ven",
+        "sabato",
+        "sab",
+        "domenica",
+        "dom",
+    }
+    tokens = re.findall(r"[a-z]+", compact)
+    return any(token in weekdays for token in tokens)
+
+
+def parse_forecast_request(text: str, *, today: Any = None) -> dict[str, Any]:
+    """Quanti o quali giorni. Vuoto = oggi e domani. Non inventa il tempo, solo la finestra."""
+    from datetime import date, timedelta
+
+    if today is None:
+        today = date.today()
+    compact = _fold_span_text(text)
     if not compact or compact in {"oggi e domani", "oggi+domani", "default"}:
         return {"days": 2, "indices": [0, 1], "label": "oggi e domani"}
     if compact in {"oggi", "adesso", "ora"}:
@@ -95,8 +145,6 @@ def parse_forecast_request(text: str, *, today: Any = None) -> dict[str, Any]:
         return {"days": 7, "indices": list(range(7)), "label": "7 giorni"}
     if compact in {"due settimane", "14 giorni", "quattordici giorni"}:
         return {"days": 14, "indices": list(range(14)), "label": "14 giorni"}
-
-    import re
 
     number = re.search(r"\b(\d{1,2})\b", compact)
     if number and ("giorn" in compact or compact == number.group(1)):
@@ -209,7 +257,7 @@ def format_forecast(
     emoji, sky = wmo_label(current.get("weather_code"))
     tz = str(data.get("timezone") or "—")
     lines = [
-        f"🌤️ <b>METEO — {name.upper()}</b>",
+        f"🌤️ <b>METEO — {html.escape(name.upper())}</b>",
         f"<i>Open-Meteo · fuso {tz} · {label}</i>",
         "",
         "🌡️ <b>ADESSO</b>",
