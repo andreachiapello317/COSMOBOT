@@ -47,7 +47,7 @@ def astro_hub_text() -> str:
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
         "☀️ <b>CIELO</b> — luna, sole, terra e uno schema a emoji\n"
         "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
-        "🔭 <b>OSSERVATORIO</b> — cielo di adesso (PNG o elenco), stelle, Horizons, stasera\n"
+        "🔭 <b>OSSERVATORIO</b> — cielo di adesso, cielo osservabile, stelle, Horizons, stasera\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
@@ -174,7 +174,7 @@ def world_watch_text(place: str = "") -> str:
         "🔭 <b>OSSERVATORIO</b>",
         "Cosa sta sopra di te, adesso. Stelle da Hipparcos; Sole, Luna, pianeti e comete da JPL Horizons.",
         f"{where}\n"
-        "🔭 Cielo di adesso (professionale o elenco) · ⭐ Stelle · 🪐 Pianeti · 🌙 Luna\n"
+        "🔭 Cielo di adesso · 👁️ Cielo osservabile (occhio nudo) · ⭐ Stelle · 🪐 Pianeti · 🌙 Luna\n"
         "☄️ Comete · 🛰️ Satelliti (ISS live) · 🌠 Eventi · 🔭 Stasera · 📅 Prossimi\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
     )

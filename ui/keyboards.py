@@ -397,6 +397,7 @@ def world_watch_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔭 Cielo di adesso", "watch:now")],
+            [kb_btn("👁️ Cielo osservabile", "watch:eye")],
             [kb_btn("⭐ Stelle", "watch:stelle"), kb_btn("🪐 Pianeti", "watch:planets")],
             [kb_btn("🌙 Luna", "watch:luna"), kb_btn("☄️ Comete", "watch:comet")],
             [kb_btn("🛰️ Satelliti", "watch:sats"), kb_btn("🌠 Eventi", "watch:eventi")],
@@ -417,7 +418,7 @@ def sky_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardMar
 
 def watch_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
     rows = [list(row) for row in extra if row]
-    rows.append([kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")])
+    rows.append([kb_btn("📍 Cambia città", "watch:city")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
@@ -427,7 +428,7 @@ def watch_sky_pick_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🗺️ Professionale", "watch:now:pro")],
             [kb_btn("📜 Elenco oggetti", "watch:now:list")],
-            [kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")],
+            [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
     )
@@ -445,7 +446,7 @@ def watch_sky_keyboard(style: str) -> InlineKeyboardMarkup:
             ],
             [kb_btn("📜 Elenco", "watch:now:list"), kb_btn("🔭 Modo", "watch:now:pick")],
             [kb_btn("🔄 Rigenera", f"watch:now:{style}")],
-            [kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")],
+            [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
     )
@@ -456,7 +457,25 @@ def watch_sky_list_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🗺️ Professionale", "watch:now:pro")],
             [kb_btn("🔄 Rigenera", "watch:now:list"), kb_btn("🔭 Modo", "watch:now:pick")],
-            [kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")],
+            [kb_btn("📍 Cambia città", "watch:city")],
+            nav_row(),
+        ]
+    )
+
+
+def watch_eye_keyboard(style: str) -> InlineKeyboardMarkup:
+    from services.skychart import sky_style_label
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                kb_btn("◀", "watch:eye:prev"),
+                kb_btn(sky_style_label(style), f"watch:eye:{style}"),
+                kb_btn("▶", "watch:eye:next"),
+            ],
+            [kb_btn("🔄 Rigenera", f"watch:eye:{style}")],
+            [kb_btn("🔭 Stasera", "watch:tonight")],
+            [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
     )
