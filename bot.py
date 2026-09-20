@@ -2362,7 +2362,7 @@ def help_text() -> str:
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città, default Cuneo, niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (luna, sole, terra e schema a emoji), Meteo, Osservatorio "
-        "(cielo di adesso: PNG professionale o elenco; stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
+        "(cielo di adesso e cielo osservabile a occhio nudo, stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
