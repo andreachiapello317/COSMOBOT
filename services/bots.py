@@ -33,7 +33,7 @@ BOTS: tuple[dict[str, Any], ...] = (
         "id": "tool",
         "emoji": "🧰",
         "name": "STRUMENTI",
-        "tag": "Calcolatrice, bussola, coordinate",
+        "tag": "Calcolatrice, conversioni, bussola",
         "ready": True,
         "worlds": (),
     },

@@ -81,7 +81,15 @@ from services.imagine import format_imaginary, generate_world
 from services.i18n import compass_it, discovery_it, event_name_it, kp_label_it, star_it
 from services.eclipses import fetch_eclipses, kind_it, next_of, parse_peak
 from services.iss import fetch_iss_position, fetch_people_in_space, reverse_iss_place
-from services.tools import format_coord_card, format_julian_card, parse_coord_pair, parse_tool_date
+from services.tools import (
+    format_coord_card,
+    format_julian_card,
+    format_month_calendar,
+    parse_coord_pair,
+    parse_tool_date,
+    shift_month,
+    weekday_it,
+)
 from services.sats import GROUPS as SAT_GROUPS
 from services.sats import (
     SATS,
@@ -151,14 +159,12 @@ from services.stones import (
 from services.bots import parent_bot_token
 from services.stonephoto import confidence_label, guess_stones, identify_from_photo, read_photo_hints
 from services.calc import (
+    CONV_GROUPS,
     CONVERSIONS,
     apply_key as calc_apply_key,
+    conversion_label,
     convert_value,
     format_number as calc_format_number,
-    parse_percent_request,
-    percent_change,
-    percent_of,
-    percent_ratio,
 )
 from services.squadquiz import pick_local_question, topic_label, worlds as quiz_worlds
 from services.compass import (
@@ -167,6 +173,7 @@ from services.compass import (
     format_bearing,
     format_compass,
     format_gps,
+    search_place,
     reverse_place,
 )
 from services.geoapp import clean_purpose, install_geo_http, register_pin_handler
@@ -329,6 +336,7 @@ from ui.keyboards import (
     lettura_method_keyboard,
     oracle_question_keyboard,
     calc_keyboard,
+    clock_calendar_keyboard,
     compass_hub_keyboard,
     compass_result_keyboard,
     quiz_hub_keyboard,
@@ -521,6 +529,7 @@ WATCH_EYE_VIEW_KEY = "watch_eye_view"
 NATURA_LAST_KEY = "natura_last"
 BUSSOLA_LAST_KEY = "bussola_last"
 MATH_ASK_KEY = "math_ask"
+TOOL_CAL_KEY = "tool_cal_shift"
 COMPASS_SHARE_KEY = "compass_share"
 MONDI_LIST_KEY = "mondi_list"
 MONDI_SYS_KEY = "mondi_sys"
@@ -2410,7 +2419,8 @@ def help_text() -> str:
         "Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
-        "🧰 <b>STRUMENTI</b> — calcolatrice, percentuali, conversioni, bussola, coordinate, giorno giuliano, che ora è.\n"
+        "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
+        "giorno giuliano, ora e calendario.\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, natura, strumenti.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
@@ -2449,8 +2459,10 @@ async def show_geo_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 def _calc_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
     state = context.user_data.get(CALC_STATE_KEY)
     if not isinstance(state, dict):
-        state = {"expr": "", "just_eq": False}
+        state = {"expr": "", "just_eq": False, "pad": "bas", "deg": True}
         context.user_data[CALC_STATE_KEY] = state
+    state.setdefault("pad", "bas")
+    state.setdefault("deg", True)
     return state
 
 
@@ -2467,27 +2479,17 @@ async def show_math_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def show_calc_hub(update: Update, context: ContextTypes.DEFAULT_TYPE, *, error: str = "") -> None:
     nav_mark(context, "calc:pad")
     state = _calc_state(context)
+    deg = bool(state.get("deg", True))
     await reply_html(
         update,
         context,
-        calc_hub_text(str(state.get("expr") or ""), error),
-        reply_markup=calc_keyboard(),
+        calc_hub_text(str(state.get("expr") or ""), error, deg=deg),
+        reply_markup=calc_keyboard(str(state.get("pad") or "bas"), deg=deg),
     )
 
 
-def _math_percent_label(kind: str, value: float) -> str:
-    pretty = calc_format_number(value)
-    if kind == "of":
-        return pretty
-    if kind == "ratio":
-        return f"{pretty} %"
-    return pretty
-
-
 async def show_math_percent(update: Update, context: ContextTypes.DEFAULT_TYPE, *, result: str = "") -> None:
-    nav_mark(context, "calc:pct")
-    context.user_data[MATH_ASK_KEY] = {"mode": "pct"}
-    await reply_html(update, context, math_percent_text(result), reply_markup=math_percent_keyboard())
+    await show_calc_hub(update, context)
 
 
 async def show_math_convert(
@@ -2495,18 +2497,31 @@ async def show_math_convert(
     context: ContextTypes.DEFAULT_TYPE,
     *,
     kind: str = "",
+    group: str = "",
     result: str = "",
 ) -> None:
     nav_mark(context, "calc:conv")
-    context.user_data[MATH_ASK_KEY] = {"mode": "conv", "kind": kind} if kind else {"mode": "conv"}
-    label = ""
-    if kind and kind in CONVERSIONS:
-        src, dst, _mul, _add = CONVERSIONS[kind]
-        label = f"{src} → {dst}"
-    await reply_html(update, context, math_convert_text(label, result), reply_markup=math_convert_keyboard())
+    if kind and kind in CONVERSIONS and not group:
+        for key, (_title, keys) in CONV_GROUPS.items():
+            if kind in keys:
+                group = key
+                break
+    context.user_data[MATH_ASK_KEY] = {"mode": "conv", "kind": kind, "group": group}
+    label = conversion_label(kind) if kind else ""
+    await reply_html(
+        update,
+        context,
+        math_convert_text(label, result, group),
+        reply_markup=math_convert_keyboard(group),
+    )
 
 
-async def dispatch_tool(update: Update, context: ContextTypes.DEFAULT_TYPE, action: str) -> None:
+async def dispatch_tool(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    action: str,
+    extra: str = "",
+) -> None:
     if action in {"hub", "", "home"}:
         await show_tool_hub(update, context)
         return
@@ -2516,10 +2531,11 @@ async def dispatch_tool(update: Update, context: ContextTypes.DEFAULT_TYPE, acti
     if action == "jd":
         await send_tool_jd(update, context)
         return
-    if action == "clock":
+    if action in {"clock", "cal"}:
         _ensure_cielo_place(context)
         name, lat, lon = _cielo_place(context)
-        await send_tool_clock(update, context, name=name, lat=lat, lon=lon)
+        delta = {"prev": -1, "next": 1, "now": 0}.get(extra)
+        await send_tool_clock(update, context, name=name, lat=lat, lon=lon, month_delta=delta)
         return
     await show_tool_hub(update, context)
 
@@ -2535,14 +2551,24 @@ async def send_tool_coord(
     nav_mark(context, "tool:coord")
     context.user_data[MATH_ASK_KEY] = {"mode": "coord"}
     if lat is None or lon is None:
-        _ensure_cielo_place(context)
-        name, lat, lon = _cielo_place(context)
+        if _has_bussola_place(context):
+            place = _bussola_place(context)
+            name = str(place.get("name") or name or "Cuneo")
+            lat, lon = float(place["lat"]), float(place["lon"])
+        else:
+            _ensure_cielo_place(context)
+            name, lat, lon = _cielo_place(context)
+    _remember_cielo_place(context, name or "Cuneo", float(lat), float(lon))
+    _remember_bussola_place(context, name or "Cuneo", float(lat), float(lon), source="punto")
     text = format_coord_card(name or "Cuneo", float(lat), float(lon))
     await reply_html(
         update,
         context,
         text,
-        reply_markup=tool_result_keyboard("coord", [_tarot_btn("📍 Cambia città", "loc:go:coord")]),
+        reply_markup=tool_result_keyboard(
+            "coord",
+            [_tarot_btn("📍 Via, numero o coordinate", "loc:go:coord")],
+        ),
     )
 
 
@@ -2566,8 +2592,17 @@ async def send_tool_clock(
     name: str,
     lat: float,
     lon: float,
+    month_delta: int | None = None,
 ) -> None:
     nav_mark(context, "tool:clock")
+    if month_delta is None:
+        shift = int(context.user_data.get(TOOL_CAL_KEY) or 0)
+    elif month_delta == 0:
+        shift = 0
+        context.user_data[TOOL_CAL_KEY] = 0
+    else:
+        shift = int(context.user_data.get(TOOL_CAL_KEY) or 0) + month_delta
+        context.user_data[TOOL_CAL_KEY] = shift
     await send_typing(update)
     tz_name = await api_timezone_name(_http_client(context), lat, lon)
     try:
@@ -2580,19 +2615,20 @@ async def send_tool_clock(
     offset = local.utcoffset()
     off_h = (offset.total_seconds() / 3600.0) if offset else 0.0
     sign = "+" if off_h >= 0 else "−"
+    year, month = shift_month(local.year, local.month, shift)
+    cal = format_month_calendar(year, month, local.date())
+    phase = moon_now(local)
     text = (
-        f"🕐 <b>CHE ORA È — {e(name.upper())}</b>\n"
-        "<i>Fuso da Open-Meteo. Non è un orologio atomico.</i>\n\n"
-        f"Lì: <b>{local.strftime('%d/%m/%Y %H:%M:%S')}</b>\n"
+        f"🕐 <b>ORA E CALENDARIO — {e(name.upper())}</b>\n"
+        "<i>Fuso da Open-Meteo. Il calendario è il mese civile, non il giorno giuliano.</i>\n\n"
+        f"Lì: <b>{local.strftime('%d/%m/%Y %H:%M:%S')}</b> · {e(weekday_it(local.date()))}\n"
         f"UTC: <code>{utc.strftime('%d/%m/%Y %H:%M:%S')}</code>\n"
-        f"Fuso: <code>{e(tz_name)}</code> · UTC{sign}{abs(off_h):.0f}h"
+        f"Fuso: <code>{e(tz_name)}</code> · UTC{sign}{abs(off_h):.0f}h\n"
+        f"Oggi: {phase.get('emoji') or '🌙'} {e(str(phase.get('name') or 'Luna'))}\n\n"
+        f"{cal}\n"
+        "<i>* = oggi. Le settimane partono da lunedì.</i>"
     )
-    await reply_html(
-        update,
-        context,
-        text,
-        reply_markup=tool_result_keyboard("clock", [_tarot_btn("📍 Cambia città", "loc:go:clock")]),
-    )
+    await reply_html(update, context, text, reply_markup=clock_calendar_keyboard())
 
 
 async def on_tool_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2600,9 +2636,11 @@ async def on_tool_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if query is None or not query.data:
         return
     _remember_from_callback(update, context)
-    action = query.data.split(":")[1] if ":" in query.data else ""
+    parts = query.data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    extra = parts[2] if len(parts) > 2 else ""
     await query.answer()
-    await dispatch_tool(update, context, action)
+    await dispatch_tool(update, context, action, extra)
 
 
 async def on_calc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2621,35 +2659,33 @@ async def on_calc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.answer()
         await show_calc_hub(update, context)
         return
-    if key == "pct":
+    if key in {"pct", "pctask", "pex"}:
         await query.answer()
-        await show_math_percent(update, context)
+        await show_calc_hub(update, context)
         return
-    if key == "pctask":
+    if key == "sci":
+        _calc_state(context)["pad"] = "sci"
         await query.answer()
-        await show_math_percent(update, context)
+        await show_calc_hub(update, context)
         return
-    if key == "pex" and len(parts) >= 4:
-        kind, a, b = parts[1], parts[2], parts[3]
-        try:
-            left, right = float(a), float(b)
-            if kind == "of":
-                value = percent_of(left, right)
-            elif kind == "ratio":
-                value = percent_ratio(left, right)
-            elif kind == "up":
-                value = percent_change(left, right, up=True)
-            else:
-                value = percent_change(left, right, up=False)
-            await query.answer()
-            await show_math_percent(update, context, result=_math_percent_label(kind, value))
-        except Exception:
-            await query.answer("Non calcolabile")
-            await show_math_percent(update, context, result="Non calcolabile.")
+    if key == "bas":
+        _calc_state(context)["pad"] = "bas"
+        await query.answer()
+        await show_calc_hub(update, context)
+        return
+    if key == "deg":
+        state = _calc_state(context)
+        state["deg"] = not bool(state.get("deg", True))
+        await query.answer("Gradi" if state["deg"] else "Radianti")
+        await show_calc_hub(update, context)
         return
     if key == "conv":
         await query.answer()
         await show_math_convert(update, context)
+        return
+    if key == "cg" and len(parts) >= 2 and parts[1] in CONV_GROUPS:
+        await query.answer()
+        await show_math_convert(update, context, group=parts[1])
         return
     if key == "cv" and len(parts) >= 2 and parts[1] in CONVERSIONS:
         await query.answer()
@@ -2660,6 +2696,7 @@ async def on_calc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         str(state.get("expr") or ""),
         rest,
         just_eq=bool(state.get("just_eq")),
+        deg=bool(state.get("deg", True)),
     )
     state["expr"] = expr
     state["just_eq"] = just_eq
@@ -6080,16 +6117,19 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         if action == "pad":
             await show_calc_hub(update, context)
             return
-        if action == "pct":
-            await show_math_percent(update, context)
+        if action in {"pct", "sci", "bas"}:
+            await show_calc_hub(update, context)
             return
         if action == "conv":
             await show_math_convert(update, context)
             return
+        if action == "cg":
+            await show_math_convert(update, context, group=extra)
+            return
         await show_math_hub(update, context)
         return
     if prefix == "tool":
-        await dispatch_tool(update, context, action)
+        await dispatch_tool(update, context, action, extra)
         return
     if prefix == "geo":
         await dispatch_geo(update, context, token)
@@ -8272,12 +8312,12 @@ async def show_place_picker(
         "skyq": "Da dove interroghi il cielo?",
         "luna": "Da dove calcolare alba e tramonto della Luna?",
         "natev": "Da quale città cerco eventi naturali vicini? La salvo per questa sezione.",
-        "gps": "Di quale luogo vuoi le coordinate GPS?",
-        "compass": "Da dove calcolo nord geografico e magnetico?",
-        "brfrom": "Da dove parti? Poi ti chiedo la destinazione.",
-        "brto": "Verso quale città o luogo?",
-        "clock": "Di quale città vuoi l'ora locale?",
-        "coord": "Di quale luogo vuoi le coordinate in decimale e in gradi?",
+        "gps": "Punto preciso: via e numero (Corso Nizza 12, Cuneo) oppure 44.390400, 7.548300.",
+        "compass": "Da dove calcolo nord geografico e magnetico? Via e numero, o le coordinate.",
+        "brfrom": "Da dove parti? Via e numero, città, o le coordinate.",
+        "brto": "Verso quale via, città o coordinate?",
+        "clock": "Di quale città vuoi ora e calendario?",
+        "coord": "Punto preciso: via e numero, oppure le coordinate decimali o in gradi.",
         "watch": "Da dove punta l'osservatorio? La salvo per stelle, eventi e Horizons.",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
@@ -8292,7 +8332,7 @@ async def show_place_picker(
             f"📍 <b>DOVE TI TROVI?</b>\n\n"
             f"{e(prompt)}\n\n"
             "Se non scegli, uso <b>Cuneo, Italia</b>. "
-            "Oppure Italia, una città del mondo, o scrivila."
+            "Oppure Italia, una città del mondo, o scrivi via e numero / le coordinate."
         )
         markup = place_hub_keyboard(purpose)
     await reply_html(update, context, text, reply_markup=markup)
@@ -8367,26 +8407,51 @@ async def apply_place(
 
 async def receive_place_city(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
     await send_typing(update)
-    await deliver_text(update, context, "📍 Cerco la città…")
+    await deliver_text(update, context, "📍 Cerco il punto…")
     client = _http_client(context)
-    try:
-        places = await api_geocode_place(client, text)
-    except StelleOfflineError:
-        await reply_html(
+    parsed = parse_coord_pair(text)
+    if parsed is not None:
+        await delete_user_command(update)
+        await apply_place(
             update,
             context,
-            "Non trovo quel luogo. Prova <code>Bologna, Italia</code> o <code>Tokyo, Giappone</code>.",
-            reply_markup=place_hub_keyboard(_loc_purpose(context)),
+            "punto scritto",
+            parsed[0],
+            parsed[1],
+            source="coordinate scritte",
         )
         return
+    purpose = _loc_purpose(context)
+    places: list[dict[str, Any]] = []
+    source = "città"
+    if purpose in {"gps", "coord", "compass", "clock", "brfrom", "brto"}:
+        try:
+            places = await search_place(client, text)
+            source = "OpenStreetMap"
+        except Exception:
+            places = []
+    if not places:
+        try:
+            places = await api_geocode_place(client, text)
+            source = "città"
+        except StelleOfflineError:
+            await reply_html(
+                update,
+                context,
+                "Non trovo quel luogo. Prova <code>Corso Nizza 12, Cuneo</code>, "
+                "<code>44.390400, 7.548300</code> o <code>Bologna, Italia</code>.",
+                reply_markup=place_hub_keyboard(purpose),
+            )
+            return
     place = places[0]
     await delete_user_command(update)
     await apply_place(
         update,
         context,
-        name=str(place.get("name") or text),
+        name=str(place.get("name") or place.get("display") or text),
         lat=float(place["lat"]),
         lon=float(place["lon"]),
+        source=str(place.get("source") or source),
     )
 
 
@@ -12883,6 +12948,9 @@ async def dispatch_compass(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         else:
             await show_place_picker(update, context, "gps")
         return
+    if action == "coord":
+        await send_tool_coord(update, context)
+        return
     if action == "needle":
         if _has_bussola_place(context):
             await send_bussola_needle(update, context)
@@ -13016,17 +13084,8 @@ async def receive_math_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         return
     mode = str(ask.get("mode") or "")
     if mode == "pct":
-        parsed = parse_percent_request(text)
         await delete_user_command(update)
-        if parsed is None:
-            await show_math_percent(
-                update,
-                context,
-                result="Non l'ho capita. Prova: 20% di 150 · 15 su 60 · aumenta 80 del 10%.",
-            )
-            return
-        kind, value = parsed
-        await show_math_percent(update, context, result=_math_percent_label(kind, value))
+        await show_calc_hub(update, context)
         return
     if mode == "conv":
         kind = str(ask.get("kind") or "")
@@ -13035,7 +13094,7 @@ async def receive_math_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             number = float(raw.split()[0])
         except (TypeError, ValueError, IndexError):
             await delete_user_command(update)
-            await show_math_convert(update, context, kind=kind, result="Serve un numero.")
+            await show_math_convert(update, context, kind=kind, group=str(ask.get("group") or ""), result="Serve un numero.")
             return
         if kind not in CONVERSIONS:
             await delete_user_command(update)
@@ -13045,24 +13104,38 @@ async def receive_math_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             out, src, dst = convert_value(kind, number)
         except Exception:
             await delete_user_command(update)
-            await show_math_convert(update, context, kind=kind, result="Conversione non valida.")
+            await show_math_convert(update, context, kind=kind, group=str(ask.get("group") or ""), result="Conversione non valida.")
             return
         await delete_user_command(update)
         await show_math_convert(
             update,
             context,
             kind=kind,
+            group=str(ask.get("group") or ""),
             result=f"{calc_format_number(number)} {src} = {calc_format_number(out)} {dst}",
         )
         return
     if mode == "coord":
         parsed = parse_coord_pair(text)
         await delete_user_command(update)
-        if parsed is None:
-            await send_tool_coord(update, context)
+        if parsed is not None:
+            await send_tool_coord(update, context, lat=parsed[0], lon=parsed[1], name="punto scritto")
             return
-        lat, lon = parsed
-        await send_tool_coord(update, context, lat=lat, lon=lon, name="punto scritto")
+        try:
+            places = await search_place(_http_client(context), text)
+        except Exception:
+            places = []
+        if places:
+            hit = places[0]
+            await send_tool_coord(
+                update,
+                context,
+                lat=float(hit["lat"]),
+                lon=float(hit["lon"]),
+                name=str(hit.get("name") or text),
+            )
+            return
+        await send_tool_coord(update, context)
         return
     if mode == "jd":
         parsed = parse_tool_date(text)

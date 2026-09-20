@@ -26,7 +26,7 @@ TOPICS: dict[str, tuple[tuple[str, str], ...]] = {
     "geo": (("pietre", "💎 Pietre"), ("terra", "🌍 Terra"), ("volc", "🔥 Vulcani"), ("ocean", "🌊 Oceani")),
     "tool": (
         ("arit", "➕ Calcoli"),
-        ("pct", "➗ Percentuali"),
+        ("sci", "🧮 Scientifica"),
         ("conv", "🔄 Conversioni"),
         ("card", "🧭 Cardinali"),
         ("dir", "📐 Direzioni"),
@@ -262,8 +262,27 @@ def _math_pct() -> dict[str, Any] | None:
     )
 
 
+def _math_sci() -> dict[str, Any] | None:
+    options = (
+        ("In gradi, quanto vale <b>sin(90°)</b>?", "1", ["0", "1", "0,5", "−1"], "sin(90°) = 1."),
+        ("Quanto vale <b>√16</b>?", "4", ["2", "4", "8", "16"], "√16 = 4."),
+        ("π, arrotondato a due decimali, è…", "3,14", ["3,14", "3,41", "2,72", "1,57"], "π ≈ 3,14159."),
+    )
+    question, correct, pool, explain = random.choice(options)
+    return _mcq(
+        question,
+        correct,
+        pool,
+        source="calcolatrice scientifica (gradi)",
+        explain=explain,
+        wid="tool",
+        tid="sci",
+    )
+
+
 def _math_conv() -> dict[str, Any] | None:
-    kind = random.choice(list(CONVERSIONS))
+    simple = [key for key in ("km_mi", "mi_km", "m_ft", "kg_lb", "c_f", "h_min") if key in CONVERSIONS]
+    kind = random.choice(simple or list(CONVERSIONS))
     src, dst, _mul, _add = CONVERSIONS[kind]
     raw = random.choice((1.0, 2.0, 5.0, 10.0, 20.0, 32.0, 100.0))
     if kind in {"c_f", "f_c"}:
@@ -366,12 +385,14 @@ BUILDERS = {
     ("geo", "volc"): lambda: _geo_list(VOLCANOES, "volc", "Vulcani"),
     ("geo", "ocean"): lambda: _geo_list(OCEANS, "ocean", "Oceani"),
     ("tool", "arit"): _math_arit,
-    ("tool", "pct"): _math_pct,
+    ("tool", "sci"): _math_sci,
+    ("tool", "pct"): _math_sci,
     ("tool", "conv"): _math_conv,
     ("tool", "card"): _bussola_card,
     ("tool", "dir"): _bussola_dir,
     ("calc", "arit"): _math_arit,
-    ("calc", "pct"): _math_pct,
+    ("calc", "sci"): _math_sci,
+    ("calc", "pct"): _math_sci,
     ("calc", "conv"): _math_conv,
     ("bussola", "card"): _bussola_card,
     ("bussola", "dir"): _bussola_dir,

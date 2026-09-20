@@ -52,7 +52,7 @@ CARDINAL_IT = (
 def _latlon_it(lat: float, lon: float) -> str:
     ns = "N" if lat >= 0 else "S"
     ew = "E" if lon >= 0 else "O"
-    return f"{abs(lat):.5f}° {ns}, {abs(lon):.5f}° {ew}"
+    return f"{abs(lat):.6f}° {ns}, {abs(lon):.6f}° {ew}"
 
 
 def true_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -132,6 +132,55 @@ async def fetch_declination(
     }
 
 
+async def search_place(client: httpx.AsyncClient, query: str) -> list[dict[str, Any]]:
+    """Nominatim: via e numero, non solo il centro città."""
+    response = await client.get(
+        "https://nominatim.openstreetmap.org/search",
+        params={
+            "q": query,
+            "format": "json",
+            "addressdetails": 1,
+            "limit": 5,
+        },
+        headers={"Accept-Language": "it"},
+    )
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, list):
+        return []
+    places: list[dict[str, Any]] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        try:
+            lat = float(item.get("lat"))
+            lon = float(item.get("lon"))
+        except (TypeError, ValueError):
+            continue
+        address = item.get("address") if isinstance(item.get("address"), dict) else {}
+        road = " ".join(
+            part
+            for part in (address.get("road"), address.get("house_number"))
+            if part
+        )
+        city = address.get("city") or address.get("town") or address.get("village") or address.get("hamlet")
+        name = road or str(item.get("name") or item.get("display_name") or query)
+        if city and city.lower() not in name.lower():
+            name = f"{name}, {city}"
+        places.append(
+            {
+                "name": name,
+                "display": str(item.get("display_name") or name),
+                "lat": lat,
+                "lon": lon,
+                "country": str(address.get("country") or ""),
+                "kind": str(item.get("type") or item.get("class") or ""),
+                "source": "OpenStreetMap",
+            }
+        )
+    return places
+
+
 async def reverse_place(client: httpx.AsyncClient, lat: float, lon: float) -> str:
     response = await client.get(
         "https://nominatim.openstreetmap.org/reverse",
@@ -168,7 +217,7 @@ def format_gps(
         f"<i>{html.escape(name, quote=False)}</i>",
         "",
         f"Coordinate: <code>{html.escape(_latlon_it(lat, lon), quote=False)}</code>",
-        f"<code>{lat:.5f}, {lon:.5f}</code>",
+        f"<code>{lat:.6f}, {lon:.6f}</code>",
         f'Fonte: {html.escape(source, quote=False)} · <a href="{html.escape(map_url(lat, lon), quote=True)}">Apri la mappa</a>',
     ]
     if accuracy_m is not None:

@@ -1,9 +1,11 @@
-"""Attrezzi di STRUMENTI: coordinate e giorno giuliano. Algoritmi veri, niente enciclopedia."""
+"""Attrezzi di STRUMENTI: coordinate, giorno giuliano, calendario. Algoritmi veri."""
 
 from __future__ import annotations
 
+import calendar
+import html as _html
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import astronomy
 
@@ -84,12 +86,16 @@ def format_coord_card(name: str, lat: float, lon: float) -> str:
     label = name.strip() or "punto"
     return (
         f"📐 <b>COORDINATE — {label.upper()}</b>\n"
-        "<i>Stessi numeri, due scritture. WGS84, niente navigatore.</i>\n\n"
+        "<i>Dentro Bussola. WGS84, due scritture, niente navigatore.</i>\n\n"
         f"Decimale: <code>{lat:.6f}, {lon:.6f}</code>\n"
         f"Gradi: <code>{dec_to_dms(lat, lat=True)}</code> · "
         f"<code>{dec_to_dms(lon, lat=False)}</code>\n\n"
-        "Scrivi una coppia, ad esempio <code>44.3904, 7.5483</code> "
-        "oppure <code>44°23′25″ N, 7°32′54″ E</code>."
+        "Per un punto preciso scrivi <b>via e numero</b> "
+        "(<code>Corso Nizza 12, Cuneo</code>) oppure le coordinate "
+        "(<code>44.390400, 7.548300</code> o "
+        "<code>44°23′25.4″ N, 7°32′54.0″ E</code>).\n"
+        "Il tasto GPS di Telegram sul computer non funzionava: qui il punto arriva da "
+        "OpenStreetMap o da numeri che scrivi tu. Sei decimali ≈ un metro."
     )
 
 
@@ -97,10 +103,62 @@ def format_julian_card(when: datetime, stamp_it: str) -> str:
     row = julian_of(when)
     return (
         "📅 <b>GIORNO GIULIANO</b>\n"
-        "<i>Scala continua degli astronomi. Astronomy Engine, non un calendario inventato.</i>\n\n"
+        "<i>Non è un giorno della settimana. È un contatore.</i>\n\n"
+        "Gli astronomi non vogliono mesi, anni bisestili e fusi in mezzo ai calcoli. "
+        "Il <b>giorno giuliano</b> (JD) è un numero continuo di giorni: "
+        "JD 0 è il mezzogiorno del 1º gennaio 4713 a.C. (prolettico). "
+        "Cambia di 1 ogni 24 ore; i decimali sono l'ora (0,5 = mezzanotte UTC).\n\n"
+        "Il <b>MJD</b> (giorno giuliano modificato) è JD − 2 400 000,5: stesso istante, "
+        "numeri più corti, e parte da mezzanotte. "
+        "I <b>giorni da J2000</b> partono dal mezzogiorno del 1º gennaio 2000, "
+        "l'epoca usata dalle effemeridi moderne.\n\n"
         f"Istante: <b>{stamp_it}</b> (UTC)\n"
         f"JD: <code>{row['jd']:.5f}</code>\n"
         f"MJD: <code>{row['mjd']:.5f}</code>\n"
         f"Giorni da J2000: <code>{row['j2000']:.5f}</code>\n\n"
-        "Scrivi una data: <code>20/09/2026</code> oppure <code>20/09/2026 22:00</code>."
+        "<i>Astronomy Engine. Scrivi una data: <code>20/09/2026</code> "
+        "oppure <code>20/09/2026 22:00</code>.</i>"
     )
+
+
+_MONTHS_IT = (
+    "gennaio",
+    "febbraio",
+    "marzo",
+    "aprile",
+    "maggio",
+    "giugno",
+    "luglio",
+    "agosto",
+    "settembre",
+    "ottobre",
+    "novembre",
+    "dicembre",
+)
+_WEEKDAYS_IT = ("lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica")
+
+
+def shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
+    idx = year * 12 + (month - 1) + int(delta)
+    return idx // 12, idx % 12 + 1
+
+
+def format_month_calendar(year: int, month: int, today: date) -> str:
+    cal = calendar.Calendar(firstweekday=0)
+    weeks = cal.monthdayscalendar(year, month)
+    lines = ["lun mar mer gio ven sab dom"]
+    for week in weeks:
+        cells: list[str] = []
+        for day in week:
+            if day == 0:
+                cells.append("  .")
+                continue
+            mark = "*" if today.year == year and today.month == month and today.day == day else " "
+            cells.append(f"{day:2d}{mark}")
+        lines.append(" ".join(cells))
+    title = f"{_MONTHS_IT[month - 1]} {year}"
+    return f"<b>{_html.escape(title)}</b>\n<code>{_html.escape(chr(10).join(lines))}</code>"
+
+
+def weekday_it(stamp: date) -> str:
+    return _WEEKDAYS_IT[stamp.weekday()]

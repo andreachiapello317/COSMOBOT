@@ -19,7 +19,7 @@ def all_hub_text() -> str:
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
         "🌿 <b>NATURA</b> — flora, fauna, pietre.\n"
-        "🧰 <b>STRUMENTI</b> — calcolatrice, bussola, coordinate, tempo.\n"
+        "🧰 <b>STRUMENTI</b> — calcolatrice, conversioni, bussola, tempo.\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
@@ -247,41 +247,37 @@ def tool_hub_text() -> str:
     return _card(
         "🧰 <b>STRUMENTI</b>",
         "Attrezzi. Numeri veri, niente oracoli e niente enciclopedia.",
-        "🧮 <b>CALCOLATRICE</b> — tasti, come sul telefono\n"
-        "➗ <b>PERCENTUALE</b> · 🔄 <b>CONVERSIONI</b>\n"
-        "🧭 <b>BUSSOLA</b> — posizione, nord, verso un luogo\n"
-        "📐 <b>COORDINATE</b> — decimale e gradi-minuti-secondi\n"
-        "📅 <b>GIORNO GIULIANO</b> — JD / MJD da Astronomy Engine\n"
-        "🕐 <b>CHE ORA È</b> — ora locale di una città (Open-Meteo)",
+        "🧮 <b>CALCOLATRICE</b> — scientifica: sen, log, radici, π\n"
+        "🔄 <b>CONVERSIONI</b> — lunghezza, massa, temperatura, cielo…\n"
+        "🧭 <b>BUSSOLA</b> — posizione, coordinate, nord, verso un luogo\n"
+        "📅 <b>GIORNO GIULIANO</b> — il contatore degli astronomi\n"
+        "🕐 <b>ORA E CALENDARIO</b> — ora locale e il mese",
     )
 
 
-def calc_hub_text(expr: str = "", error: str = "") -> str:
+def calc_hub_text(expr: str = "", error: str = "", *, deg: bool = True) -> str:
     shown = expr.strip() if expr and expr.strip() else "0"
     extra = f"\n\n⚠️ {_html.escape(error)}" if error else ""
+    mode = "gradi" if deg else "radianti"
     return (
-        "🧮 <b>CALCOLATRICE</b>\n"
-        "<i>Una funzione di STRUMENTI. Solo aritmetica.</i>\n\n"
+        "🧮 <b>CALCOLATRICE SCIENTIFICA</b>\n"
+        f"<i>STRUMENTI. Angoli in <b>{mode}</b>. Niente eval libero.</i>\n\n"
         f"<code>{_html.escape(shown)}</code>"
         f"{extra}"
     )
 
 
 def math_percent_text(result: str = "") -> str:
-    extra = f"\n\nRisultato: <b>{_html.escape(result)}</b>" if result else ""
-    return _card(
-        "➗ <b>PERCENTUALE</b>",
-        "Tocca un esempio, oppure scrivi: 20% di 150 · 15 su 60 · aumenta 80 del 10% · sconta 80 del 10%.",
-        extra,
-    )
+    return calc_hub_text()
 
 
-def math_convert_text(kind: str = "", result: str = "") -> str:
-    wait = (
-        f"Scrivi il numero da convertire ({_html.escape(kind)})."
-        if kind
-        else "Scegli la coppia di unità, poi scrivi il numero."
-    )
+def math_convert_text(kind: str = "", result: str = "", group: str = "") -> str:
+    if kind:
+        wait = f"Scrivi il numero da convertire ({_html.escape(kind)})."
+    elif group:
+        wait = "Tocca la coppia di unità, poi scrivi il numero."
+    else:
+        wait = "Scegli la famiglia, poi la coppia, poi il numero."
     extra = f"\n\n<b>{_html.escape(result)}</b>" if result else ""
     return _card(
         "🔄 <b>CONVERSIONI</b>",
@@ -294,10 +290,12 @@ def compass_hub_text() -> str:
     return _card(
         "🧭 <b>BUSSOLA</b>",
         "Dentro STRUMENTI. Posizione e direzione, non un navigatore stradale.",
-        "📍 <b>POSIZIONE GPS</b> — coordinate, quota del terreno, declinazione, mappa\n"
+        "📍 <b>POSIZIONE</b> — punto, quota del terreno, declinazione, mappa\n"
+        "📐 <b>COORDINATE</b> — decimale e gradi-minuti-secondi\n"
         "🧭 <b>BUSSOLA</b> — nord geografico e nord magnetico in quel punto\n"
         "🎯 <b>VERSO UN LUOGO</b> — distanza in linea d'aria e azimut\n\n"
-        "Puoi scrivere una città. Se non la dici, uso Cuneo.",
+        "Per un punto preciso: via e numero, oppure i numeri. "
+        "Il GPS di Telegram sul computer non c'è: non funzionava. Se non dici nulla, uso Cuneo.",
     )
 
 
@@ -538,7 +536,7 @@ def quiz_hub_text() -> str:
         "🔮 ORACOLO — segni, rune, Lenormand (niente letture)\n"
         "🔭 ASTRO — sistema solare, lune, enciclopedia live\n"
         "🌿 NATURA — pietre, terra, vulcani, oceani\n"
-        "🧰 STRUMENTI — calcoli, conversioni, cardinali\n\n"
+        "🧰 STRUMENTI — calcolatrice, conversioni, cardinali\n\n"
         "La classifica è solo tua. I mondi non si mescolano.",
     )
 
