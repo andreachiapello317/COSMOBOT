@@ -2185,6 +2185,39 @@ def clip_text(text: str, limit: int) -> str:
     return text[: max(0, limit - 1)].rstrip() + "…"
 
 
+def clip_html(text: str, limit: int) -> str:
+    """Taglia senza spezzare i tag HTML: Telegram altrimenti rifiuta la foto."""
+    raw = str(text or "")
+    if len(raw) <= limit:
+        return raw
+    cut = raw[: max(0, limit - 1)].rstrip()
+    last_lt = cut.rfind("<")
+    last_gt = cut.rfind(">")
+    if last_lt > last_gt:
+        cut = cut[:last_lt].rstrip()
+    opened: list[str] = []
+    for match in re.finditer(r"</?([a-zA-Z]+)(?:\s[^>]*)?>", cut):
+        name = match.group(1).lower()
+        token = match.group(0)
+        if token.startswith("</"):
+            if opened and opened[-1] == name:
+                opened.pop()
+            continue
+        if token.endswith("/>") or name in {"br", "hr", "img"}:
+            continue
+        opened.append(name)
+    cut = cut + "".join(f"</{name}>" for name in reversed(opened))
+    if len(cut) > limit:
+        plain = re.sub(r"<[^>]+>", "", raw)
+        return clip_text(plain, limit)
+    if not cut.endswith("…"):
+        if len(cut) < limit:
+            cut += "…"
+        else:
+            cut = clip_text(re.sub(r"<[^>]+>", "", cut), limit)
+    return cut
+
+
 async def send_typing(update: Update) -> None:
     if update.effective_chat:
         try:
@@ -2339,7 +2372,7 @@ async def deliver_photo(
     chat = update.effective_chat
     if chat is None:
         return False
-    caption = clip_text(caption, TELEGRAM_CAPTION_MAX)
+    caption = clip_html(caption, TELEGRAM_CAPTION_MAX)
     last = _last_bot_msg(context)
     media = InputMediaPhoto(media=photo_url, caption=caption, parse_mode=ParseMode.HTML)
 
@@ -2383,7 +2416,7 @@ async def deliver_photo_bytes(
     chat = update.effective_chat
     if chat is None:
         return False
-    caption = clip_text(caption, TELEGRAM_CAPTION_MAX)
+    caption = clip_html(caption, TELEGRAM_CAPTION_MAX)
     markup = reply_markup if reply_markup is not None else EMPTY_KEYBOARD
     photo = InputFile(data, filename=filename)
     media = InputMediaPhoto(media=photo, caption=caption, parse_mode=ParseMode.HTML)
@@ -8227,6 +8260,33 @@ async def send_starlink(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await reply_html(update, context, text, reply_markup=watch_sats_card_keyboard("sl"))
 
 
+def _tonight_caption(head: list[str], pick_lines: list[str], footer: str, limit: int) -> str:
+    """Caption stasera sempre ≤ 1024 e con i tag HTML chiusi, senno Telegram non manda la foto."""
+    tail = f"\n\n{footer}"
+    shown: list[str] = []
+    hidden = 0
+    for line in pick_lines:
+        trial = "\n".join(head + shown + [line]) + tail
+        if hidden == 0 and len(trial) <= limit:
+            shown.append(line)
+        else:
+            hidden += 1
+    if hidden:
+        while True:
+            extra = f"<i>… e altre {hidden} sulla mappa</i>"
+            trial = "\n".join(head + shown + [extra]) + tail
+            if len(trial) <= limit or not shown:
+                if shown or len(trial) <= limit:
+                    shown.append(extra)
+                break
+            shown.pop()
+            hidden += 1
+    text = "\n".join(head + shown) + tail
+    if len(text) > limit:
+        return clip_html(text, limit)
+    return text
+
+
 async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
@@ -8254,7 +8314,7 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
         grade_line = "👁️ Occhio nudo — Facile, più le altre a occhio nudo."
     else:
         grade_line = "🔭 Binocolo — Occhio nudo, più le più deboli del catalogo."
-    lines = [
+    head = [
         f"🔭 <b>COSA OSSERVARE STASERA — {e(name.upper())}</b>",
         f"📅 {e(format_day_it(when))} · {when_bit} · {e(eye_level_label(level))}",
         grade_line,
@@ -8262,30 +8322,24 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "",
     ]
     if projected:
-        lines.append("☀️ È ancora giorno: la mappa è quella delle 22:00.")
-        lines.append("")
+        head.append("☀️ È ancora giorno: la mappa è quella delle 22:00.")
+        head.append("")
+    pick_lines: list[str] = []
     if not picks:
-        lines.append("Da qui, in quest'ora, non c'è un oggetto abbastanza alto da consigliare.")
+        pick_lines.append("Da qui, in quest'ora, non c'è un oggetto abbastanza alto da consigliare.")
     for row in picks:
         card = cardinal_from_az(row["az"]) if isinstance(row.get("az"), (int, float)) else ""
         look = f" {card}" if card else ""
         mag = f" · {e(str(row['detail']))}" if row.get("detail") else ""
-        lines.append(
+        pick_lines.append(
             f"{row['emoji']} <b>{e(row['title'])}</b>  alt {row['alt']:.0f}°{look}{mag}"
         )
-    lines.extend(
-        [
-            "",
-            "<i>Stelle Hipparcos (nomi propri). Crescendo: Facile ⊂ Occhio nudo ⊂ Binocolo ⊂ Tutto. "
-            + (
-                "Tutto ha la sua mappa: elenco etichettato sul cielo di sfondo. "
-                if level == "full"
-                else "La mappa è solo questi oggetti. "
-            )
-            + "Pianeti: Astronomy Engine. Nubi: Open-Meteo.</i>",
-        ]
+    footer = (
+        "<i>Hipparcos · crescendo Facile ⊂ nudo ⊂ binocolo ⊂ Tutto. "
+        + ("Tutto: elenco sul cielo di sfondo. " if level == "full" else "Mappa = questi oggetti. ")
+        + "Pianeti AE · nubi Open-Meteo.</i>"
     )
-    caption = "\n".join(lines)
+    caption = _tonight_caption(head, pick_lines, footer, TELEGRAM_CAPTION_MAX)
     markup = watch_tonight_keyboard(level)
     try:
         png = draw_tonight_chart(place=name, lat=lat, lon=lon, when=when, picks=picks, eye=level)
