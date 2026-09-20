@@ -117,10 +117,13 @@ from services.stones import (
     format_list,
     format_section,
     museum_room,
+    format_daily_oracle_card,
     oracle_spread,
     random_stone,
     search_stones,
+    stone_curiosity,
     stone_of_day,
+    stone_wiki_url,
 )
 from services.bots import parent_bot_token
 from services.stonephoto import confidence_label, guess_stones, identify_from_photo, read_photo_hints
@@ -2072,7 +2075,7 @@ def help_text() -> str:
         "<i>Due bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità) e Oracoli (tarocchi, I Ching, rune, Lenormand, "
-        "sì/no, pietre).\n"
+        "sì/no, pietra del giorno). «Fai scegliere all'oracolo» pesca lo strumento.\n"
         "🔭 <b>ASTRO</b> — Cielo, Mondi, Vita, Missioni, Pietre "
         "(catalogo e laboratorio).\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
@@ -2492,8 +2495,93 @@ async def reveal_tarot_card(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if left:
         text += f"\n\n<i>Restano {left} carte. Girale quando vuoi.</i>"
     else:
-        text += "\n\n<i>Ultima carta. Poi il quadro, senza prediche.</i>"
+        text += "\n\n<i>Ultima carta. Poi il quadro e l'interpretazione.</i>"
     await reply_html(update, context, text, reply_markup=tarot_next_keyboard(last=left == 0))
+
+
+def interpret_tarot(shown: list[Any], spread: str, phrase: str = "") -> str:
+    cards = [item for item in shown if isinstance(item, dict)]
+    if not cards:
+        return "Il mazzo non ha lasciato carte da leggere."
+
+    def _orient(item: dict[str, Any]) -> str:
+        return "rovesciata" if item.get("reversed") == "1" else "diritta"
+
+    def _name(item: dict[str, Any]) -> str:
+        return str(item.get("name_it") or "Carta")
+
+    def _pos(item: dict[str, Any]) -> str:
+        return str(item.get("position") or "Carta")
+
+    def _mean(item: dict[str, Any], limit: int = 120) -> str:
+        raw = str(item.get("meaning_it") or "").strip()
+        if not raw or raw == "—":
+            raw = str(item.get("hint") or "").strip()
+        return first_sentences(raw, 1, limit)
+
+    if len(cards) == 1:
+        item = cards[0]
+        return (
+            f"È uscita {_name(item)} {_orient(item)}, in {_pos(item)}. "
+            f"{_mean(item, 180)} "
+            "Tienila come clima di queste ore, non come verdetto."
+        )
+
+    if spread == "celtic" and len(cards) >= 6:
+        presente, attraverso, esito = cards[0], cards[1], cards[-1]
+        bits = [
+            f"Il presente è {_name(presente)} {_orient(presente)}: {_mean(presente, 110)}",
+            f"Attraverso passa {_name(attraverso)} {_orient(attraverso)}: {_mean(attraverso, 110)}",
+        ]
+        if len(cards) > 6:
+            tu = cards[6]
+            bits.append(f"Tu, in questo quadro, sei {_name(tu)} {_orient(tu)}: {_mean(tu, 100)}")
+        bits.append(
+            f"L'esito verso cui tende è {_name(esito)} {_orient(esito)}: {_mean(esito, 110)}"
+        )
+        rev = sum(1 for card in cards if card.get("reversed") == "1")
+        if rev:
+            bits.append(
+                f"{rev} carte sono rovesciate: la tradizione le legge come tema interno "
+                "o in ritardo, non come sfortuna."
+            )
+        bits.append("Dieci carte, un percorso. Non un destino chiuso.")
+        return clip_text(" ".join(bits), 1200)
+
+    pieces = [
+        f"In {_pos(item)} è uscita {_name(item)} {_orient(item)}: {_mean(item, 120)}"
+        for item in cards
+    ]
+    last = cards[-1]
+    if spread == "love":
+        closer = (
+            f"Il rapporto si legge nella terza carta: {_name(last)}. "
+            "È il clima del legame, non una sentenza su di voi."
+        )
+    elif spread == "work":
+        closer = (
+            f"Lo sviluppo guarda {_name(last)}. "
+            "Il passo da tenere è l'ultima carta, non il nodo."
+        )
+    else:
+        closer = (
+            f"Si parte da {_name(cards[0])} e si arriva a {_name(last)}. "
+            "L'ultima carta è il passo da guardare."
+        )
+    rev = sum(1 for card in cards if card.get("reversed") == "1")
+    if rev == 1:
+        closer += (
+            " Una carta è rovesciata: la tradizione la legge come tema interno "
+            "o in ritardo, non come sfortuna."
+        )
+    elif rev > 1:
+        closer += (
+            f" {rev} carte sono rovesciate: la tradizione le legge come tema interno "
+            "o in ritardo, non come sfortuna."
+        )
+    if phrase:
+        closer += " Rileggi quello che hai detto alle carte alla luce di queste uscite."
+    return clip_text(" ".join(pieces) + " " + closer, 1200)
 
 
 async def show_tarot_quadro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2506,7 +2594,7 @@ async def show_tarot_quadro(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
     lines = [
         f"🃏 <b>{e(meta['title'])}</b>",
-        "<i>Il quadro. I nomi, le posizioni. Il resto l'hai già letto.</i>",
+        "<i>Il quadro: i nomi, poi cosa dicono insieme.</i>",
         "",
     ]
     phrase = str(state.get("question") or "").strip()
@@ -2523,6 +2611,9 @@ async def show_tarot_quadro(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         )
     lines.extend(
         [
+            "",
+            "✨ <b>IN PRATICA</b>",
+            e(interpret_tarot(shown, spread, phrase)),
             "",
             "<i>D = diritta, R = rovesciata. Un mazzo live, non un verdetto.</i>",
         ]
@@ -2552,7 +2643,7 @@ async def show_tarot_quadro(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 async def send_tarot_draw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Sorprendimi e vecchio bottone pesca: parte il mescolo."""
+    """Fai scegliere all'oracolo e vecchio bottone pesca: parte il mescolo."""
     await start_tarot_mix(update, context)
 
 
@@ -5143,14 +5234,19 @@ def rune_closer(drawn: list[dict[str, str]]) -> str:
     if len(drawn) == 1:
         piece = drawn[0]
         orient = "capovolta" if piece["orientation"] == "reversed" else "diritta"
-        return f"{piece['name']} ({orient}). Tienila come clima di adesso, non come ordine."
-    names = [piece["name"] for piece in drawn[:3]]
-    while len(names) < 3:
-        names.append("—")
-    return (
-        f"Situazione {names[0]}, ostacolo {names[1]}, direzione {names[2]}. "
-        "Il passo da guardare è la terza runa."
-    )
+        meaning = first_sentences(str(piece.get("meaning") or ""), 1, 160)
+        extra = f" {meaning}" if meaning else ""
+        return (
+            f"{piece['name']} ({orient}).{extra} "
+            "Tienila come clima di adesso, non come ordine."
+        )
+    labels = ("Situazione", "Ostacolo", "Direzione")
+    bits = []
+    for idx, piece in enumerate(drawn[:3]):
+        meaning = first_sentences(str(piece.get("meaning") or ""), 1, 110)
+        bits.append(f"{labels[idx]} — {piece['name']}: {meaning}")
+    bits.append("Il passo da guardare è la terza runa.")
+    return " ".join(bits)
 
 
 async def show_rune_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -5252,7 +5348,7 @@ async def reveal_rune(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if left:
         text += f"\n\n<i>Restano {left} rune.</i>"
     else:
-        text += "\n\n<i>Ultima runa. Poi il quadro, una riga sola.</i>"
+        text += "\n\n<i>Ultima runa. Poi il quadro e l'interpretazione.</i>"
     state["index"] = idx + 1
     await reply_html(update, context, text, reply_markup=rune_next_keyboard(last=left == 0))
 
@@ -5267,7 +5363,7 @@ async def show_rune_quadro(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     slots = RUNE_SLOTS.get(len(drawn)) or RUNE_SLOTS[1]
     lines = [
         "🪶 <b>IL QUADRO</b>",
-        "<i>I nomi. Il resto l'hai già letto.</i>",
+        "<i>I nomi, poi cosa dicono insieme.</i>",
         "",
     ]
     if phrase:
@@ -8113,7 +8209,7 @@ async def send_rune_surprise(update: Update, context: ContextTypes.DEFAULT_TYPE)
     rune = drawn[0]
     orient = "capovolta" if rune["orientation"] == "reversed" else "diritta"
     text = (
-        "🎲 <b>SORPRENDIMI · RUNE</b>\n"
+        "🔮 <b>L'ORACOLO HA SCELTO · RUNE</b>\n"
         f"{rune['glyph']} <b>{e(rune['name'])}</b> · {e(orient)}\n\n"
         f"{e(first_sentences(rune['meaning'], 2, 240))}\n\n"
         f"✨ <b>IN PRATICA</b>\n{e(rune_closer(drawn))}"
@@ -8129,7 +8225,7 @@ async def send_rune_surprise(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def send_oracle_surprise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     pick = surprise_oracle()
     await send_typing(update)
-    await deliver_text(update, context, "🎲 Pesco uno strumento e la lettura…")
+    await deliver_text(update, context, "🔮 Lascio scegliere all'oracolo…")
     if pick == "tarot":
         state = _tarot_state(context)
         state.clear()
@@ -8283,7 +8379,7 @@ async def show_leno_quadro(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     positions = tuple(meta["positions"])
     lines = [
         f"🌿 <b>{e(meta['title'])}</b>",
-        "<i>I nomi. Il resto l'hai già letto.</i>",
+        "<i>I nomi, poi cosa dicono insieme.</i>",
         "",
     ]
     if phrase:
@@ -8356,6 +8452,23 @@ async def send_lunar_oracle(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await reply_html(update, context, text, reply_markup=deck_after_keyboard("lunar"))
 
 
+def _yesno_pratica(lean: str) -> str:
+    if lean == "yes":
+        return (
+            "L'inclinazione è sì. Non è un permesso di chiudere gli occhi: "
+            "è un via libera a quello che già vedi, se ci stai."
+        )
+    if lean == "no":
+        return (
+            "L'inclinazione è no. Non è una condanna: è un invito a non forzare, "
+            "o a riformulare la domanda."
+        )
+    return (
+        "Non è ancora sì o no. Aspetta un segno più chiaro, "
+        "o cambia la domanda: l'oracolo qui resta in bilico."
+    )
+
+
 async def send_yesno(update: Update, context: ContextTypes.DEFAULT_TYPE, method: str | None = None) -> None:
     method = method or random.choice(("tarot", "rune", "iching"))
     await send_typing(update)
@@ -8381,6 +8494,8 @@ async def send_yesno(update: Update, context: ContextTypes.DEFAULT_TYPE, method:
         f"Strumento: {e(result['method'])}\n"
         f"{icon} <b>{e(result['label'])}</b>\n\n"
         f"{e(result['detail'])}\n\n"
+        "✨ <b>IN PRATICA</b>\n"
+        f"{e(_yesno_pratica(result.get('lean') or ''))}\n\n"
         "<i>Non è una previsione certa. È una lettura simbolica: "
         "un'inclinazione, non un verdetto.</i>"
     )
@@ -8442,7 +8557,7 @@ async def show_lettura_methods(update: Update, context: ContextTypes.DEFAULT_TYP
         "🔮 <b>SCEGLI IL METODO</b>\n\n"
         f"<i>«{e(question)}»</i>\n\n"
         "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n"
-        "🎲 Sorprendimi — scelgo io lo strumento e avvio il rituale.",
+        "🔮 Fai scegliere all'oracolo — scelgo io lo strumento e avvio il rituale.",
         reply_markup=lettura_method_keyboard(),
     )
 
@@ -8691,21 +8806,29 @@ async def send_stone_list(update: Update, context: ContextTypes.DEFAULT_TYPE, ro
 
 
 async def send_stone_oracle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    known = await stone_ids(user.id) if user else []
-    stone = random_stone(prefer_undiscovered=known)
+    now = datetime.now(DEFAULT_TZ)
+    stone = stone_of_day(now)
     _stone_state(context)["last"] = stone["id"]
+    user = update.effective_user
     if user:
         await stone_discover(user.id, stone["id"])
-    text = (
-        "✨ <b>ORACOLO DELLE PIETRE</b>\n\n"
-        "La pietra che emerge per te è…\n\n"
-        f"{stone['emoji']} <b>{e(stone['it'])}</b>\n"
-        f"Simbolo tradizionale: <i>{e(stone['oracle_sym'])}</i>\n\n"
-        f"🪞 Domanda:\n{e(stone['oracle_q'])}\n\n"
-        "<i>Gioco e strumento simbolico. Non è una previsione e non è un'analisi mineralogica.</i>"
-    )
-    await reply_html(update, context, text, reply_markup=pietre_oracle_keyboard())
+    wiki_url = stone_wiki_url(stone)
+    curiosity = stone_curiosity(stone)
+    try:
+        wiki = await wikipedia_summary(
+            _http_client(context),
+            str(stone.get("wiki_it") or stone.get("wiki") or stone.get("it") or ""),
+        )
+    except Exception:
+        wiki = None
+    if wiki:
+        if wiki.get("extract"):
+            curiosity = stone_curiosity(stone, str(wiki["extract"]))
+        if wiki.get("url"):
+            wiki_url = str(wiki["url"])
+    day_label = now.strftime("%d/%m/%Y")
+    text = format_daily_oracle_card(stone, day_label=day_label, curiosity=curiosity)
+    await reply_html(update, context, text, reply_markup=pietre_oracle_keyboard(wiki_url))
 
 
 async def send_stone_spread(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
@@ -8955,33 +9078,8 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
     if action == "ora":
         await send_stone_oracle(update, context)
         return
-    if action == "orx":
-        sid = str(_stone_state(context).get("last") or "")
-        stone = stone_by_id(sid)
-        if not stone:
-            await send_stone_oracle(update, context)
-            return
-        await reply_html(
-            update,
-            context,
-            f"🔮 <b>APPROFONDIMENTO SIMBOLICO</b>\n\n{stone['emoji']} <b>{e(stone['it'])}</b>\n\n"
-            f"{e(stone['symbol'])}\n\n🪞 {e(stone['oracle_q'])}\n\n"
-            "<i>Resta folklore. La scienza è nell'altra faccia della scheda.</i>",
-            reply_markup=pietre_oracle_keyboard(),
-        )
-        return
-    if action == "orcard":
-        sid = str(_stone_state(context).get("last") or "")
-        if sid:
-            await send_stone_sheet(update, context, sid)
-        else:
-            await send_stone_oracle(update, context)
-        return
-    if action == "o3t":
-        await send_stone_spread(update, context, "time")
-        return
-    if action == "o3b":
-        await send_stone_spread(update, context, "body")
+    if action in {"orx", "orcard", "o3t", "o3b"}:
+        await send_stone_oracle(update, context)
         return
     if action == "bag":
         await show_pietre_bag(update, context)

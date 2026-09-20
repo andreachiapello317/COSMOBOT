@@ -168,7 +168,7 @@ def oracoli_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🃏 Tarocchi", "tarot:menu"), kb_btn("☯️ I Ching", "iching:open")],
             [kb_btn("🪶 Rune", "home:rune"), kb_btn("🌿 Lenormand", "home:sibille")],
             [kb_btn("🪞 Sì / No", "ora:yes"), kb_btn("💎 Pietre", "pt:ora")],
-            [kb_btn("🎲 Sorprendimi", "ora:surprise")],
+            [kb_btn("🔮 Fai scegliere all'oracolo", "ora:surprise")],
             nav_row(),
         ]
     )
@@ -177,7 +177,7 @@ def oracoli_keyboard() -> InlineKeyboardMarkup:
 def oracle_surprise_after_keyboard(open_label: str, open_data: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🎲 Un altro", "ora:surprise"), kb_btn(open_label, open_data)],
+            [kb_btn("🔮 Un altro", "ora:surprise"), kb_btn(open_label, open_data)],
             nav_row(),
         ]
     )
@@ -278,7 +278,7 @@ def lettura_method_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🃏 Tarocchi", "lett:tarot"), kb_btn("☯️ I Ching", "lett:iching")],
             [kb_btn("🪶 Rune", "lett:rune"), kb_btn("🌿 Lenormand", "lett:leno")],
-            [kb_btn("🎲 Sorprendimi", "lett:surprise")],
+            [kb_btn("🔮 Fai scegliere all'oracolo", "lett:surprise")],
             nav_row(),
         ]
     )
@@ -770,7 +770,7 @@ def pietre_hub_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🔮 Del giorno", "pt:day"), kb_btn("🎲 Casuale", "pt:rand")],
             [kb_btn("🔍 Cerca", "pt:find"), kb_btn("🧭 Esplora", "pt:exp")],
-            [kb_btn("🔬 Laboratorio", "pt:lab"), kb_btn("✨ Oracolo", "pt:ora")],
+            [kb_btn("🔬 Laboratorio", "pt:lab"), kb_btn("💎 Oracolo del giorno", "pt:ora")],
             [kb_btn("🎒 Collezione", "pt:bag"), kb_btn("🧠 Giochi", "pt:game")],
             nav_row(),
         ]
@@ -850,15 +850,13 @@ def pietre_lab_keyboard(step: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(grid)
 
 
-def pietre_oracle_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("🔄 Un'altra", "pt:ora"), kb_btn("🔮 Approfondisci", "pt:orx")],
-            [kb_btn("🪨 3 pietre · tempo", "pt:o3t"), kb_btn("🪨 Corpo·mente·spirito", "pt:o3b")],
-            [kb_btn("📖 Scheda", "pt:orcard")],
-            nav_row(),
-        ]
-    )
+def pietre_oracle_keyboard(wiki_url: str | None = None) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    if wiki_url:
+        rows.append([InlineKeyboardButton("📖 Wikipedia", url=wiki_url)])
+    rows.append([kb_btn("🔄 Estrai di nuovo", "pt:ora")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
 
 
 def pietre_games_keyboard() -> InlineKeyboardMarkup:

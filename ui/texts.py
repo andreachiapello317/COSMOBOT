@@ -70,7 +70,7 @@ def lettura_text() -> str:
         "Scrivi cosa sta succedendo — una frase basta.\n"
         "Poi scegli, o lascia che lo scelga ORACOLO.\n\n"
         "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n"
-        "🎲 Sorprendimi — pesco io il metodo.",
+        "🔮 Fai scegliere all'oracolo — pesco io il metodo.",
     )
 
 
@@ -83,8 +83,8 @@ def oracoli_text() -> str:
         "🪶 <b>Rune</b> — Elder Futhark, 1 o 3\n"
         "🌿 <b>Lenormand</b> — 36 sibille, 1/3/5/9\n"
         "🪞 <b>Sì / No</b> — un'inclinazione, non un verdetto\n"
-        "💎 <b>Pietre</b> — estrazione simbolica, non mineralogia\n\n"
-        "🎲 <b>Sorprendimi</b> — pesco uno strumento e ti do subito la lettura.",
+        "💎 <b>Pietre</b> — pietra del giorno, fino a mezzanotte\n\n"
+        "🔮 <b>Fai scegliere all'oracolo</b> — pesco uno strumento e ti do subito la lettura.",
     )
 
 
@@ -211,7 +211,7 @@ def pietre_hub_text() -> str:
         "💎 <b>PIETRE</b>",
         "Mineralogia da catalogo. Il folklore sta nell'oracolo, a parte.",
         "Foto: pietra al centro, tavolo uniforme. Non è un'analisi.\n\n"
-        "🧭 Esplora · 🔬 Laboratorio · ✨ Oracolo · 🧠 Giochi",
+        "🧭 Esplora · 🔬 Laboratorio · 💎 Pietra del giorno · 🧠 Giochi",
     )
 
 

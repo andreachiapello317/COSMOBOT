@@ -11,6 +11,10 @@ import random
 import unicodedata
 from datetime import datetime
 from typing import Any
+from urllib.parse import quote
+from zoneinfo import ZoneInfo
+
+ROME_TZ = ZoneInfo("Europe/Rome")
 
 RARITY = {
     "common": ("⚪", "Comune"),
@@ -1202,9 +1206,119 @@ def by_id(sid: str) -> dict[str, Any] | None:
     return None
 
 
+def _rome_moment(when: datetime | None = None) -> datetime:
+    if when is None:
+        return datetime.now(ROME_TZ)
+    if when.tzinfo is None:
+        return when.replace(tzinfo=ROME_TZ)
+    return when.astimezone(ROME_TZ)
+
+
 def stone_of_day(when: datetime | None = None) -> dict[str, Any]:
-    day = (when or datetime.utcnow()).timetuple().tm_yday
-    return STONES[day % len(STONES)]
+    """Stessa pietra per tutta la data di Roma; cambia solo dopo mezzanotte."""
+    key = _rome_moment(when).toordinal()
+    return STONES[key % len(STONES)]
+
+
+def stone_wiki_url(stone: dict[str, Any]) -> str:
+    title = str(stone.get("wiki_it") or stone.get("wiki") or stone.get("it") or "Minerale").strip()
+    return f"https://it.wikipedia.org/wiki/{quote(title.replace(' ', '_'))}"
+
+
+def _first_clause(text: str, limit: int = 220) -> str:
+    compact = " ".join((text or "").split())
+    if not compact:
+        return ""
+    for sep in (". ", "! ", "? "):
+        idx = compact.find(sep)
+        if idx != -1:
+            compact = compact[: idx + 1]
+            break
+    if len(compact) > limit:
+        return compact[: limit - 1].rstrip() + "…"
+    return compact
+
+
+def stone_curiosity(stone: dict[str, Any], wiki_extract: str | None = None) -> str:
+    extract = _first_clause(wiki_extract or "", 220)
+    if extract:
+        return extract
+    history = _first_clause(str(stone.get("history") or ""), 220)
+    if history:
+        return history
+    return _first_clause(str(stone.get("science") or ""), 220)
+
+
+def stone_oracle_omen(stone: dict[str, Any]) -> dict[str, str]:
+    """Inclinazione folklorica fissa della pietra. Non è mineralogia."""
+    sid = str(stone.get("id") or stone.get("it") or "")
+    bucket = sum(ord(ch) for ch in sid) % 3
+    if bucket == 0:
+        return {
+            "lean": "favorevole",
+            "label": "Porta bene",
+            "sentence": (
+                "La tradizione la legge come segno favorevole: un'apertura, "
+                "non una garanzia e non una proprietà della pietra."
+            ),
+        }
+    if bucket == 1:
+        return {
+            "lean": "misto",
+            "label": "Segno misto",
+            "sentence": (
+                "La tradizione la legge come segno misto: qualcosa aiuta "
+                "e qualcosa chiede attenzione. Non è sfortuna misurata."
+            ),
+        }
+    return {
+        "lean": "attenzione",
+        "label": "Attenzione",
+        "sentence": (
+            "La tradizione la legge come un avviso: non «porta male» da laboratorio, "
+            "un punto da non ignorare."
+        ),
+    }
+
+
+def format_daily_oracle_card(
+    stone: dict[str, Any],
+    *,
+    day_label: str,
+    curiosity: str | None = None,
+) -> str:
+    omen = stone_oracle_omen(stone)
+    rem, rname = RARITY[stone["rarity"]]
+    places = ", ".join(f"{flag} {name}" for name, flag in stone["places"][:3])
+    note = curiosity or stone_curiosity(stone)
+    symbol = _first_clause(str(stone.get("symbol") or ""), 180)
+    return "\n".join(
+        [
+            "💎 <b>PIETRA DEL GIORNO</b>",
+            "<i>Puoi estrarla quante volte vuoi: fino a mezzanotte (Roma) resta questa. Poi cambia.</i>",
+            "",
+            f"📅 {day_label}",
+            "",
+            f"{stone['emoji']} <b>{stone['it'].upper()}</b>",
+            f"Formula: <code>{stone['formula']}</code>",
+            f"Colore: {stone['color']}",
+            f"Durezza Mohs {stone['mohs']} · {stone['system']} · lucentezza {stone['luster']}",
+            f"{stone['transparency']} · {stone['density']} · {stone['origin']}",
+            f"Rarità di catalogo: {rem} {rname}",
+            f"Località note: {places}",
+            "",
+            "📖 <b>CURIOSITÀ</b>",
+            note or "Una scheda da catalogo, senza aneddoto extra.",
+            "",
+            "✨ <b>ORACOLO</b>",
+            f"Simbolo tradizionale: <i>{stone['oracle_sym']}</i>",
+            f"{omen['label']}. {omen['sentence']}",
+            f"🪞 {stone['oracle_q']}",
+            symbol,
+            "",
+            "<i>Folklore, non mineralogia. Non è un verdetto e non è un'analisi della pietra.</i>",
+        ]
+    )
 
 
 def random_stone(*, prefer_undiscovered: list[str] | None = None) -> dict[str, Any]:

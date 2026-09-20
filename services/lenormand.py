@@ -108,16 +108,37 @@ def pair_lines(drawn: list[dict[str, str]], *, limit: int = 3) -> list[str]:
     return rows
 
 
+def _clause(text: str, limit: int = 140) -> str:
+    compact = " ".join((text or "").split())
+    if not compact:
+        return ""
+    for sep in (". ", "! ", "? "):
+        idx = compact.find(sep)
+        if idx != -1:
+            compact = compact[: idx + 1]
+            break
+    if len(compact) > limit:
+        return compact[: limit - 1].rstrip() + "…"
+    return compact
+
+
 def lenormand_closer(drawn: list[dict[str, str]]) -> str:
     if not drawn:
         return ""
     if len(drawn) == 1:
         card = drawn[0]
-        return f"{card['it']}: {card['keys']}. Una carta, un tema."
+        meaning = _clause(str(card.get("meaning") or ""), 160)
+        extra = f" {meaning}" if meaning else ""
+        return f"{card['it']}: {card['keys']}.{extra} Una carta, un tema di oggi. Non un verdetto."
     first, last = drawn[0], drawn[-1]
+    mid = ""
+    if len(drawn) >= 3:
+        mid_card = drawn[1]
+        mid = f" In mezzo passa {mid_card['it']} ({mid_card['keys']})."
+    esito = _clause(str(last.get("meaning") or last.get("keys") or ""), 140)
     return (
-        f"Si parte da {first['it']} e si arriva a {last['it']}. "
-        f"L'ultima carta è l'esito: {last['keys']}."
+        f"Si parte da {first['it']} ({first['keys']}) e si arriva a {last['it']} ({last['keys']})."
+        f"{mid} L'ultima carta è l'esito: {esito} Specchio, non sentenza."
     )
 
 

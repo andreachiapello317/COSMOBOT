@@ -15,7 +15,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | Pulsante / mondo | Effetto | Fonte live |
 | --- | --- | --- |
 | 🔮 ORACOLO → Te stesso | Oroscopo (giorno / settimana / mese; senza segno usa **Bilancia**), tema natale guidato, specchio, compatibilità due segni | [freehoroscopeapi.com](https://freehoroscopeapi.com), [CosmyDay](https://cosmyday.com/api-docs) |
-| 🔮 ORACOLO → Oracoli | Tarocchi, I Ching, rune, Lenormand, sì/no, pietre. Sorprendimi pesca uno strumento e dà subito la lettura | tarot API, Wilhelm 1924, dataset locali |
+| 🔮 ORACOLO → Oracoli | Tarocchi, I Ching, rune, Lenormand, sì/no, pietra del giorno. «Fai scegliere all'oracolo» pesca uno strumento e dà subito la lettura | tarot API, Wilhelm 1924, dataset locali |
 | 🔭 ASTRO → Cielo | Adesso, stelle, eventi, ISS, osserva da una città, Luna, APOD, asteroidi, meteore | skymap.sh, Skytime, WTIA, NASA, CosmyDay |
 | 🔭 ASTRO → Mondi | Esopianeti NASA, sistemi, salvataggi, cataloghi (nani, comete, profondo) | NASA TAP + Wikipedia |
 | 🔭 ASTRO → Vita | Come cerchiamo la vita, senza dichiararla | Wikipedia |
@@ -29,11 +29,13 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Compatibilità** sta in 🔮 ORACOLO / Te stesso. Prima i due segni (Soli). Poi, se vuoi, Lune, ascendenti, Venere e Marte, Big Three. Nella Big Three, per ciascuna persona: se conosci Sole/Luna/Ascendente li scegli; altrimenti il bot li calcola da data, ora e luogo. È astrologia tradizionale, non astronomia. Niente percentuali.
 
-**Tarocchi**: scegli lo spread (non serve una domanda). Mescola, poi gira le carte **una alla volta**. Ogni carta ha una riga sul posto e due frasi di significato. Alla fine il quadro è solo l’elenco. Una frase alle carte è opzionale.
+**Tarocchi**: scegli lo spread (non serve una domanda). Mescola, poi gira le carte **una alla volta**. Ogni carta ha una riga sul posto e due frasi di significato. Alla fine il quadro elenca le uscite e **interpreta** cosa dicono insieme. Una frase alle carte è opzionale.
 
 **I Ching**: domanda, monete, poi **Ora / Si muove / Verso / In pratica**. Wilhelm 1924, tradotto a pezzi corti, non un muro di testo.
 
-**Rune** e **Lenormand**: come i tarocchi — mescola, gira una alla volta, quadro finale con una riga *in pratica*. La domanda è facoltativa.
+**Rune** e **Lenormand**: come i tarocchi — mescola, gira una alla volta, quadro finale con interpretazione. La domanda è facoltativa.
+
+**Pietre in Oracoli**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
 **Cielo** è astronomia reale (↑ sopra, ↓ sotto, 👁 mag ≤ 6). **Oracoli** è esperienza simbolica. **Pietre** è autonomo: mineralogia da catalogo, folklore tenuto a parte. Non si mescolano.
 
