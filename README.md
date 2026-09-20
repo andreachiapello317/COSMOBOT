@@ -87,7 +87,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 `/mondi` è l'esploratore: filtri TAP (terrestri, oceanici come modello, ghiacciati, infernali, multi-stella, orbite eccentriche…), mondo del giorno, casuale, sistemi, «e se ci fosse vita?» (Wikipedia vs speculazione), missioni→corpi, e una lista di mondi salvati sul server. `/sistemi` apre gli alberi (TRAPPIST-1 incluso). `/cosmo` sta sopra: stelle, sistemi, mondi, galassie, nebulose, buchi neri. I mondi **generati** sono etichettati come finti.
 
-`/esopianeta` apre i filtri NASA (casuale, simile alla Terra, infernale, estremo, oceanico come **modello**, recente). `/abitabile` è il filtro zona abitabile: Teq e raggio, **non** una dichiarazione di vita. `/specchio` e `/rituale` sono pratiche simboliche, presentate come tali: stanno in 🔮 ORACOLI / TE STESSO, non in 🔭 CIELO.
+`/esopianeta` apre i filtri NASA (casuale, simile alla Terra, infernale, estremo, oceanico come **modello**, recente). `/abitabile` è il filtro zona abitabile: Teq e raggio, **non** una dichiarazione di vita. `/specchio` sta in 🔮 ORACOLO / Te stesso. `/rituale` e `/transiti` restano come comando, non nel menu di Te stesso.
 
 Il mondo **🔭 CIELO** è astronomia reale. Il mondo **🔮 ORACOLI** è esperienza simbolica. Il mondo **💎 PIETRE** è autonomo: mineralogia e geologia da catalogo pubblico, folklore tenuto a parte. Non si mescolano.
 

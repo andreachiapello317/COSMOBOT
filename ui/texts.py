@@ -28,7 +28,7 @@ def oracolo_hub_text() -> str:
     return _card(
         "🔮 <b>ORACOLO</b>",
         "Bot di BOTSQUAD per guardarsi dentro. Simboli, non telescopio.",
-        "🔮 <b>TE STESSO</b> — tema, oroscopo, transiti, compatibilità, specchio, rituale\n"
+        "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
         "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, pietre (estrazione)\n\n"
         "Il cielo misurato sta in 🔭 ASTRO.",
     )
@@ -96,9 +96,8 @@ def rune_intro_text() -> str:
 def world_self_text() -> str:
     return _card(
         "🔮 <b>TE STESSO</b>",
-        "La tua carta e i transiti. Tradizione astrologica, non astronomia.",
-        "Tema natale, oroscopo, transiti, compatibilità.\n"
-        "Più due pratiche: specchio e rituale lunare.",
+        "Oroscopo, carta natale, specchio e compatibilità. Tradizione, non astronomia.",
+        "🌌 Tema · 🔮 Oroscopo · 🪞 Specchio · ❤️ Compatibilità",
     )
 
 

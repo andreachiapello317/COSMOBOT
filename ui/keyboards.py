@@ -93,9 +93,8 @@ def cosmo_hub_keyboard() -> InlineKeyboardMarkup:
 def world_self_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🌌 Tema Natale", "natal:open"), kb_btn("🔮 Oroscopo", "home:oroscopo")],
-            [kb_btn("🪐 Transiti", "home:transits"), kb_btn("❤️ Compatibilità", "cp:hub")],
-            [kb_btn("🪞 Specchio", "home:specchio"), kb_btn("🌙 Rituale", "home:rituale")],
+            [kb_btn("🔮 Oroscopo", "home:oroscopo"), kb_btn("🌌 Tema natale", "natal:open")],
+            [kb_btn("🪞 Specchio", "home:specchio"), kb_btn("❤️ Compatibilità", "cp:hub")],
             nav_row(),
         ]
     )
