@@ -156,6 +156,7 @@ from services.compass import (
     reverse_place,
 )
 from services.weather import fetch_forecast, format_forecast, parse_forecast_request
+from services.moon import moon_now, next_quarters
 from services.horizons import (
     BODIES,
     HorizonsError,
@@ -2231,7 +2232,7 @@ def help_text() -> str:
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città o la tua posizione, niente carte).\n"
-        "🔭 <b>ASTRO</b> — Cielo (luna, alba, tramonto), Meteo, Osserva lo spazio "
+        "🔭 <b>ASTRO</b> — Cielo (luna e alba/tramonto), Meteo, Osserva lo spazio "
         "(stelle, eventi, JPL Horizons), Esplora lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
@@ -6613,10 +6614,8 @@ async def send_sole(
         f"🌄 Crepuscolo civile  {e(sun.get('dawn') or '—')} → {e(sun.get('dusk') or '—')}",
         f"🌌 Crepuscolo astronomico  {e(sun.get('first_light') or '—')} → {e(sun.get('last_light') or '—')}",
         "",
-        f"🌙 Alba della Luna {e(sun.get('moonrise') or '—')} · tramonto {e(sun.get('moonset') or '—')}",
-        "",
         "<i>Orari live sunrisesunset.io per queste coordinate. "
-        "first_light / last_light = crepuscolo astronomico dell'API.</i>",
+        "Alba e tramonto sono la stessa scheda. La Luna sta nel pulsante Luna.</i>",
     ]
     await reply_html(update, context, "\n".join(lines), reply_markup=sole_keyboard())
 
@@ -7149,7 +7148,7 @@ async def on_sky_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if action == "luna":
         await send_luna_here(update, context, name=name, lat=lat, lon=lon)
         return
-    if action in {"alba", "tramonto"}:
+    if action in {"sole", "alba", "tramonto"}:
         await send_sole(update, context, name=name, lat=lat, lon=lon)
         return
     if action in {"stelle", "costell"}:
@@ -7765,28 +7764,63 @@ async def send_luna_here(
     client = _http_client(context)
     try:
         tz_name = await api_timezone_name(client, lat, lon)
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = DEFAULT_TZ
+        now = datetime.now(tz)
         sun = await api_sun_times(client, lat, lon, tz_name)
         sky = await api_skymap(client, lat, lon)
     except StelleOfflineError:
         await reply_offline(update, context)
         return
+    phase = moon_now(now)
+    quarters = next_quarters(now, 4)
     moon = sky.get("moon") if isinstance(sky, dict) and isinstance(sky.get("moon"), dict) else {}
-    illum = moon.get("illum")
     try:
-        illum_s = f"{float(illum):.0f}%" if illum is not None else "—"
+        alt = float(moon["alt"]) if moon.get("alt") is not None else None
     except (TypeError, ValueError):
-        illum_s = "—"
+        alt = None
+    try:
+        az = float(moon["az"]) if moon.get("az") is not None else None
+    except (TypeError, ValueError):
+        az = None
+    illum = phase.get("illum")
+    if illum is None:
+        raw = sun.get("moon_illumination")
+        if raw is None:
+            raw = moon.get("illum")
+        try:
+            illum = float(raw) if raw is not None else None
+        except (TypeError, ValueError):
+            illum = None
+    illum_s = f"{illum:.0f}%" if isinstance(illum, (int, float)) else "—"
+    side = "↑ sopra" if isinstance(alt, (int, float)) and alt > 0 else "↓ sotto"
+    az_bit = f" · az {az:.0f}°" if isinstance(az, (int, float)) else ""
+    alt_bit = f"{alt:.0f}°{az_bit}" if isinstance(alt, (int, float)) else "altezza non in mappa"
     lines = [
         f"🌙 <b>LA LUNA — {e(name.upper())}</b>",
-        f"📅 {e(format_day_it(datetime.now(DEFAULT_TZ)))}",
+        f"📅 {e(format_day_it(now))} · {now.strftime('%H:%M')}",
         "",
-        f"💡 Illuminazione (mappa live): <b>{e(illum_s)}</b>",
+        f"{phase['emoji']} <b>{e(str(phase['name']))}</b>",
+        f"💡 Illuminata al <b>{e(illum_s)}</b>",
+        f"{side} {alt_bit}",
         f"⬆️ Alba {e(sun.get('moonrise') or '—')} · ⬇️ tramonto {e(sun.get('moonset') or '—')}",
-        f"☀️ Sole: alba {e(sun.get('sunrise') or '—')} · tramonto {e(sun.get('sunset') or '—')}",
         "",
-        "<i>Orari sunrisesunset.io e illuminazione dalla mappa. "
-        "Per una lettura mistica del cielo sopra di te, sta in 🔮 ORACOLO → Interroga il cielo.</i>",
+        "📅 <b>PROSSIMI QUARTI</b>",
     ]
+    for row in quarters:
+        when = row["when"].astimezone(tz)
+        lines.append(
+            f"{row['emoji']} {e(row['name'])}  {when.strftime('%d/%m %H:%M')}"
+        )
+    lines.extend(
+        [
+            "",
+            "<i>Fase e quarti: Astronomy Engine. Alba/tramonto: sunrisesunset.io. "
+            "Altezza: mappa. Niente significati.</i>",
+        ]
+    )
     await reply_html(
         update,
         context,

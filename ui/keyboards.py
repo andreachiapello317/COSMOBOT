@@ -386,7 +386,7 @@ def world_sky_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🌙 Luna", "sky:luna")],
-            [kb_btn("🌅 Alba", "sky:alba"), kb_btn("🌇 Tramonto", "sky:tramonto")],
+            [kb_btn("🌅 Alba e tramonto", "sky:sole")],
             [kb_btn("📍 Cambia città", "sky:city")],
             nav_row(),
         ]
@@ -776,7 +776,7 @@ def cosmico_keyboard() -> InlineKeyboardMarkup:
 
 
 def sole_keyboard() -> InlineKeyboardMarkup:
-    return sky_result_keyboard([kb_btn("🔄 Aggiorna", "sky:alba")])
+    return sky_result_keyboard([kb_btn("🔄 Aggiorna", "sky:sole")])
 
 
 def meteo_keyboard() -> InlineKeyboardMarkup:

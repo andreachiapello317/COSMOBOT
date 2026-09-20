@@ -17,7 +17,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🔮 ORACOLO → Te stesso | Oroscopo (giorno / settimana / mese; senza segno usa **Bilancia**), tema natale guidato, specchio, compatibilità due segni | [freehoroscopeapi.com](https://freehoroscopeapi.com), [CosmyDay](https://cosmyday.com/api-docs) |
 | 🔮 ORACOLO → Consultazioni | Tarocchi, I Ching, rune, Lenormand, sì/no, pietra del giorno. «Fai scegliere all'oracolo» pesca uno strumento e dà subito la lettura | tarot API, Wilhelm 1924, dataset locali |
 | 🔮 ORACOLO → Interroga il cielo | Chiede la città o la tua posizione, poi legge luna, stelle e pianeti sopra di te. Niente carte | skymap + sunrisesunset; il testo è folklore |
-| 🔭 ASTRO → Cielo | Città o GPS; solo luna, alba, tramonto e crepuscoli | sunrisesunset + skymap (illuminazione luna) |
+| 🔭 ASTRO → Cielo | Città o GPS; Luna (fase e quarti) e una sola scheda alba/tramonto | sunrisesunset + Astronomy Engine + skymap |
 | 🔭 ASTRO → Meteo | Città o GPS, poi quanti o quali giorni. Se non dici nulla: oggi e domani | [Open-Meteo](https://open-meteo.com) |
 | 🔭 ASTRO → Osserva lo spazio | Stelle, eventi osservabili, pianeti e asteroidi da JPL Horizons | skymap + [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) |
 | 🔭 ASTRO → Esplora lo spazio | Enciclopedia Wikipedia: sistema solare, stelle, galassie, satelliti, sonde, missioni. Niente salvati né casuale | Wikipedia / Wikidata / NASA TAP |
@@ -49,7 +49,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Pietre in Consultazioni**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
-**Cielo** in ASTRO è solo Sole e Luna: alba, tramonto, crepuscoli, orari della Luna. **Osserva lo spazio** ha stelle, eventi (solo se osservabili da quel luogo) e i corpi del Sistema Solare da [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/tutorial.html): altezza, magnitudine, distanza, elongazione, alba/tramonto dei pianeti. **Esplora lo spazio** è l'enciclopedia, anche satelliti e sonde. **In orbita** è solo posizioni live (ISS e equipaggio). **Meteo** resta com'è: chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **MATEMATICA** ha la calcolatrice come una funzione, più percentuali e conversioni. **BUSSOLA** chiede una città o la posizione Telegram e dà GPS, nord e direzione. **QUIZ** è il sesto bot: una porta per ogni mondo, domande nel recinto di quel bot. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Dove il bot chiede un luogo (cielo, meteo, osserva, interroga, natura live, bussola) c'è sempre **📍 La tua posizione**: Telegram manda il GPS, senza scrivere la città. Non si mescolano.
+**Cielo** in ASTRO è solo Sole e Luna: una scheda alba/tramonto, e la Luna con fase, illuminazione e i prossimi quarti. Niente enciclopedia. **Osserva lo spazio** ha stelle, eventi (solo se osservabili da quel luogo) e i corpi del Sistema Solare da [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/tutorial.html): altezza, magnitudine, distanza, elongazione, alba/tramonto dei pianeti. **Esplora lo spazio** è l'enciclopedia, anche satelliti e sonde. **In orbita** è solo posizioni live (ISS e equipaggio). **Meteo** resta com'è: chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **MATEMATICA** ha la calcolatrice come una funzione, più percentuali e conversioni. **BUSSOLA** chiede una città o la posizione Telegram e dà GPS, nord e direzione. **QUIZ** è il sesto bot: una porta per ogni mondo, domande nel recinto di quel bot. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Dove il bot chiede un luogo (cielo, meteo, osserva, interroga, natura live, bussola) c'è sempre **📍 La tua posizione**: Telegram manda il GPS, senza scrivere la città. Non si mescolano.
 
 Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 
@@ -214,6 +214,7 @@ services/systems.py    # alberi di sistemi stellari da TAP
 services/imagine.py    # mondi generati, etichettati come finti
 services/skyview.py    # mappa testuale e visibilità da skymap.sh
 services/horizons.py   # JPL Horizons observer: pianeti, asteroidi, distanze, RTS
+services/moon.py       # fasi e quarti lunari (Astronomy Engine)
 services/spaceweather.py # Kp, flare X-ray, perigeo/apogeo
 services/neo.py        # NASA NeoWs
 services/eclipses.py   # Skytime eclissi

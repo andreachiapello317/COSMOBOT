@@ -45,7 +45,7 @@ def astro_hub_text() -> str:
     return _card(
         "🔭 <b>ASTRO</b>",
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
-        "🔭 <b>CIELO</b> — luna, alba, tramonto (e crepuscoli) da un luogo\n"
+        "🔭 <b>CIELO</b> — luna (fasi) e alba/tramonto da un luogo\n"
         "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
         "🌌 <b>OSSERVA LO SPAZIO</b> — stelle, eventi, pianeti e asteroidi JPL Horizons\n"
         "🚀 <b>ESPLORA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
@@ -159,7 +159,7 @@ def world_sky_text(place: str = "") -> str:
         "🔭 <b>CIELO</b>",
         "Orari del Sole e della Luna da questo luogo. Niente stelle, niente eventi, niente enciclopedia.",
         f"{where}\n"
-        "🌙 Luna · 🌅 Alba · 🌇 Tramonto (con mezzogiorno e crepuscoli).\n"
+        "🌙 Luna (fase, illuminazione, prossimi quarti) · 🌅 Alba e tramonto.\n"
         "Stelle, eventi e corpi Horizons stanno in 🌌 Osserva lo spazio.",
     )
 
