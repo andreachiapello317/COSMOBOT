@@ -184,7 +184,14 @@ from services.skychart import (
     format_sun_moon_earth,
     sky_style_label,
 )
-from services.watchevents import human_when, snapshot, tonight_picks, upcoming_events
+from services.watchevents import (
+    format_sky_calculations,
+    human_when,
+    sky_calculations,
+    snapshot,
+    tonight_picks,
+    upcoming_events,
+)
 from services.horizons import (
     BODIES,
     COMETS,
@@ -5988,6 +5995,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
     if prefix == "watch" and action == "hz":
         await show_horizons_hub(update, context)
         return
+    if prefix == "watch" and action == "calc":
+        await send_watch_calc(update, context)
+        return
     if prefix == "watch" and action == "now":
         await send_sky_now(update, context)
         return
@@ -7395,6 +7405,9 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if action == "hz":
         await show_horizons_hub(update, context)
         return
+    if action == "calc":
+        await send_watch_calc(update, context)
+        return
     if action == "lim" and extra in EYE_LEVELS:
         _eye_limit(context, extra)
         view = str(context.user_data.get(WATCH_EYE_VIEW_KEY) or "chart")
@@ -7468,6 +7481,31 @@ async def _watch_clock(
     except Exception:
         tz = DEFAULT_TZ
     return tz, datetime.now(tz)
+
+
+async def send_watch_calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _ensure_cielo_place(context)
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"📐 Confronto Luna e pianeti da {name}…")
+    tz, now = await _watch_clock(context, lat, lon)
+    try:
+        data = sky_calculations(lat, lon, now)
+        text = format_sky_calculations(place=name, when=now, tz=tz, data=data)
+    except Exception:
+        logger.exception("Calcoli cielo")
+        await reply_offline(update, context)
+        return
+    nav_mark(context, "watch:calc")
+    await reply_html(
+        update,
+        context,
+        text,
+        reply_markup=watch_result_keyboard(
+            [_tarot_btn("🔄 Aggiorna", "watch:calc")],
+            [_tarot_btn("📡 Horizons NASA", "watch:hz")],
+        ),
+    )
 
 
 async def send_horizons_list(

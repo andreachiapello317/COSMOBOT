@@ -192,13 +192,11 @@ def watch_horizons_text(place: str = "") -> str:
         "📡 <b>HORIZONS NASA</b>",
         "Cosa sta sopra di te, in italiano. I numeri arrivano da JPL Horizons e Hipparcos.",
         f"{where}\n"
-        "⭐ <b>STELLE</b> — le più luminose sopra, verso dove guardare\n"
-        "🪐 <b>PIANETI</b> — chi è sopra, se è facile, quando sorge\n"
-        "🌙 <b>LUNA</b> — fase, dove sta, prossimi quarti\n"
-        "☄️ <b>COMETE</b> — le numerate, se Horizons risponde\n"
-        "🌠 <b>EVENTI</b> — solo se da qui sono osservabili adesso\n"
-        "📅 <b>PROSSIMI</b> — quarti, eclissi lunari, congiunzioni calcolate\n\n"
-        "Tocca un pianeta o una cometa per la scheda: distanza, luce, costellazione. "
+        "⭐ <b>STELLE</b> — le più luminose sopra\n"
+        "🪐 <b>PIANETI</b> / 🌙 <b>LUNA</b> / ☄️ <b>COMETE</b> — scheda del singolo corpo\n"
+        "📐 <b>CALCOLI</b> — confronti: più alto, più luminoso, separazioni, prossimo a sorgere\n"
+        "🌠 <b>EVENTI</b> · 📅 <b>PROSSIMI</b>\n\n"
+        "Le schede sono JPL Horizons. I calcoli (angoli e orari) sono Astronomy Engine, dallo stesso luogo. "
         "Non è un catalogo di satelliti.",
     )
 

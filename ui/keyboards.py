@@ -411,9 +411,8 @@ def watch_horizons_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("⭐ Stelle", "watch:stelle"), kb_btn("🪐 Pianeti", "watch:planets")],
             [kb_btn("🌙 Luna", "watch:luna"), kb_btn("☄️ Comete", "watch:comet")],
-            [kb_btn("🌠 Eventi", "watch:eventi")],
-            [kb_btn("📅 Prossimi eventi", "watch:next")],
-            [kb_btn("📍 Cambia città", "watch:city")],
+            [kb_btn("📐 Calcoli", "watch:calc")],
+            [kb_btn("🌠 Eventi", "watch:eventi"), kb_btn("📅 Prossimi", "watch:next")],
             nav_row(),
         ]
     )
@@ -436,7 +435,6 @@ def watch_eye_hub_keyboard(level: str) -> InlineKeyboardMarkup:
             [kb_btn("🗺️ Carte", "watch:eye:pro")],
             [kb_btn("🔭 Cosa osservare stasera", "watch:tonight")],
             _eye_limit_row(level, "watch:eye"),
-            [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
     )
@@ -444,14 +442,13 @@ def watch_eye_hub_keyboard(level: str) -> InlineKeyboardMarkup:
 
 def sky_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
     rows = [list(row) for row in extra if row]
-    rows.append([kb_btn("☀️ Cielo", "world:sky"), kb_btn("📍 Cambia città", "sky:city")])
+    rows.append([kb_btn("☀️ Cielo", "world:sky")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
 
 def watch_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
     rows = [list(row) for row in extra if row]
-    rows.append([kb_btn("📍 Cambia città", "watch:city")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
@@ -461,7 +458,6 @@ def watch_sky_pick_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🗺️ Professionale", "watch:now:pro")],
             [kb_btn("📜 Elenco oggetti", "watch:now:list")],
-            [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
     )
@@ -478,8 +474,6 @@ def watch_sky_keyboard(style: str) -> InlineKeyboardMarkup:
                 kb_btn("▶", "watch:now:next"),
             ],
             [kb_btn("📜 Elenco", "watch:now:list"), kb_btn("🔭 Modo", "watch:now:pick")],
-            [kb_btn("🔄 Rigenera", f"watch:now:{style}")],
-            [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
     )
@@ -491,7 +485,6 @@ def watch_tonight_keyboard(level: str = "easy") -> InlineKeyboardMarkup:
             [kb_btn("🗺️ Carte", "watch:eye:pro")],
             _eye_limit_row(level, "watch:lim"),
             [kb_btn("🔄 Aggiorna", "watch:tonight")],
-            [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
     )
@@ -501,8 +494,7 @@ def watch_sky_list_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🗺️ Professionale", "watch:now:pro")],
-            [kb_btn("🔄 Rigenera", "watch:now:list"), kb_btn("🔭 Modo", "watch:now:pick")],
-            [kb_btn("📍 Cambia città", "watch:city")],
+            [kb_btn("🔭 Modo", "watch:now:pick")],
             nav_row(),
         ]
     )
@@ -518,10 +510,8 @@ def watch_eye_keyboard(style: str, level: str = "easy") -> InlineKeyboardMarkup:
                 kb_btn(sky_style_label(style), f"watch:eye:{style}"),
                 kb_btn("▶", "watch:eye:next"),
             ],
-            [kb_btn("🔄 Rigenera", f"watch:eye:{style}")],
             [kb_btn("🔭 Stasera", "watch:tonight")],
             _eye_limit_row(level, "watch:lim"),
-            [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
     )

@@ -274,3 +274,163 @@ def upcoming_events(lat: float, lon: float, when: datetime, tz: ZoneInfo) -> lis
             )
     events.sort(key=lambda row: row["when"])
     return events[:12]
+
+
+CALC_BODIES = (
+    (astronomy.Body.Moon, "Luna", "🌙"),
+    *PLANET_SCAN,
+)
+
+
+def _ae_utc(stamp: Any) -> datetime | None:
+    if stamp is None:
+        return None
+    raw = stamp.Utc() if hasattr(stamp, "Utc") else stamp
+    if raw.tzinfo is None:
+        raw = raw.replace(tzinfo=timezone.utc)
+    return raw
+
+
+def sky_calculations(lat: float, lon: float, when: datetime) -> dict[str, Any]:
+    """Relazioni e orari da Astronomy Engine. Non è un elenco di posizioni."""
+    frame = SkyFrame(lat, lon, when)
+    rows: list[dict[str, Any]] = []
+    for body, name, emoji in CALC_BODIES:
+        alt, az, _ra, _dec = frame.body_altaz(body)
+        ill = astronomy.Illumination(body, frame.moment)
+        elong = astronomy.Elongation(body, frame.moment)
+        rise = astronomy.SearchRiseSet(body, frame.site, astronomy.Direction.Rise, frame.moment, 1.2)
+        sett = astronomy.SearchRiseSet(body, frame.site, astronomy.Direction.Set, frame.moment, 1.2)
+        cul = astronomy.SearchHourAngle(body, frame.site, 0.0, frame.moment)
+        transit = None
+        if cul is not None and getattr(cul, "time", None) is not None:
+            transit = _ae_utc(cul.time)
+        rows.append(
+            {
+                "name": name,
+                "emoji": emoji,
+                "alt": float(alt),
+                "az": float(az),
+                "mag": float(ill.mag) if ill.mag is not None else None,
+                "elong": float(elong.elongation),
+                "rise": _ae_utc(rise),
+                "set": _ae_utc(sett),
+                "transit": transit,
+            }
+        )
+    up = [row for row in rows if row["alt"] > 0]
+    highest = max(up, key=lambda row: row["alt"]) if up else None
+    bright = [row for row in up if isinstance(row.get("mag"), (int, float))]
+    brightest = min(bright, key=lambda row: float(row["mag"])) if bright else None
+    pairs: list[dict[str, Any]] = []
+    for i, left in enumerate(up):
+        for right in up[i + 1 :]:
+            if {left["name"], right["name"]} == {"Urano", "Nettuno"}:
+                continue
+            sep = angular_sep(left["alt"], left["az"], right["alt"], right["az"])
+            pairs.append({"a": left, "b": right, "sep": sep})
+    pairs.sort(key=lambda item: item["sep"])
+    rising = [row for row in rows if row["alt"] <= 0 and row.get("rise") is not None]
+    rising.sort(key=lambda row: row["rise"])
+    setting = [row for row in up if row.get("set") is not None]
+    setting.sort(key=lambda row: row["set"])
+    return {
+        "rows": rows,
+        "up": up,
+        "highest": highest,
+        "brightest": brightest,
+        "pairs": pairs,
+        "rising": rising,
+        "setting": setting,
+        "sun_alt": float(frame.body_altaz(astronomy.Body.Sun)[0]),
+    }
+
+
+def format_sky_calculations(
+    *,
+    place: str,
+    when: datetime,
+    tz: ZoneInfo,
+    data: dict[str, Any],
+) -> str:
+    import html as _html
+
+    from services.horizons import cardinal_long, height_it, mag_it
+
+    def e(text: str) -> str:
+        return _html.escape(text)
+
+    local = when.astimezone(tz)
+    lines = [
+        f"📐 <b>CALCOLI — {e(place.upper())}</b>",
+        f"📅 {e(local.strftime('%d/%m/%Y'))} · {local.strftime('%H:%M')}",
+        "",
+        "Non è l'elenco dei pianeti. Qui confronto i corpi tra loro: "
+        "chi è più alto, chi è più luminoso, chi è vicino a chi, chi sorge dopo.",
+        "",
+    ]
+    highest = data.get("highest")
+    brightest = data.get("brightest")
+    up = data.get("up") if isinstance(data.get("up"), list) else []
+    if not up:
+        lines.append("In questo momento Luna e pianeti sono tutti sotto l'orizzonte.")
+        lines.append("")
+    else:
+        lines.append("🏆 <b>ADESSO, DA QUI</b>")
+        if highest:
+            look = f", verso {cardinal_long(highest['az'])}" if highest.get("az") is not None else ""
+            lines.append(
+                f"Più alto: {highest['emoji']} <b>{e(highest['name'])}</b> — "
+                f"{height_it(highest['alt'])}{look}."
+            )
+        if brightest and brightest is not highest:
+            seen = mag_it(brightest.get("mag"), up=True)
+            lines.append(
+                f"Più luminoso sopra: {brightest['emoji']} <b>{e(brightest['name'])}</b>"
+                + (f" — {seen}." if seen else ".")
+            )
+        elif brightest:
+            seen = mag_it(brightest.get("mag"), up=True)
+            if seen:
+                lines.append(f"È anche il più luminoso sopra — {seen}.")
+        lines.append(f"Sopra l'orizzonte: {', '.join(row['name'] for row in up)}.")
+        lines.append("")
+    pairs = [item for item in (data.get("pairs") or []) if item["sep"] <= 20]
+    lines.append("✨ <b>QUANTO DISTANO</b>")
+    if pairs:
+        lines.append("Separazione sulla volta, entrambi sopra. Sotto 20° li metto qui.")
+        for item in pairs[:6]:
+            a, b, sep = item["a"], item["b"], item["sep"]
+            how = "quasi insieme" if sep < 3 else "vicini" if sep < 8 else "nello stesso pezzo di cielo"
+            lines.append(
+                f"{a['emoji']}{b['emoji']} <b>{e(a['name'])} – {e(b['name'])}</b>  "
+                f"{sep:.1f}° · {how}"
+            )
+    else:
+        lines.append("Nessuna coppia sopra è più vicina di 20°.")
+    lines.append("")
+    rising = data.get("rising") or []
+    lines.append("⬆️ <b>PROSSIMO A SORGERE</b>")
+    if rising:
+        for row in rising[:5]:
+            stamp = row["rise"].astimezone(tz)
+            lines.append(f"{row['emoji']} <b>{e(row['name'])}</b>  {human_when(stamp, local)}")
+    else:
+        lines.append("Nessun corpo sotto ha un'alba nelle prossime ~28 ore.")
+    lines.append("")
+    setting = data.get("setting") or []
+    lines.append("⬇️ <b>TRAMONTANO (SE SONO SOPRA)</b>")
+    if setting:
+        for row in setting[:5]:
+            stamp = row["set"].astimezone(tz)
+            lines.append(f"{row['emoji']} <b>{e(row['name'])}</b>  {human_when(stamp, local)}")
+    else:
+        lines.append("Nessun tramonto calcolato per chi è sopra.")
+    lines.extend(
+        [
+            "",
+            "<i>Astronomy Engine: altezza, magnitudine, elongazione, alba/tramonto/transito. "
+            "La separazione è l'angolo sulla volta da questo luogo. Non è Horizons HTTP.</i>",
+        ]
+    )
+    return "\n".join(lines)
