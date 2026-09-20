@@ -412,11 +412,10 @@ def world_flora_text() -> str:
         "🌋 <b>EVENTI E CALAMITÀ</b>",
         "Cosa sta succedendo, e la foto della zona. Non è il meteo e non è un'allerta civile.",
         "🌋 Terremoti LIVE — USGS intorno al luogo\n"
-        "🔥 Incendi LIVE — NASA FIRMS (VIIRS) + EONET\n"
+        "🔥 Incendi LIVE — NASA FIRMS (VIIRS) + EONET, col nome del posto\n"
         "🌪️ Tempeste · 🌋 Vulcani · 🌊 Alluvioni · 🪨 Frane · 🌫️ Polvere / fumo — NASA EONET\n"
-        "🛰️ Vista satellitare — NASA Worldview / GIBS sul luogo\n"
         "🌍 Eventi nel mondo — USGS significativi + EONET\n"
-        "📖 Esplora resta l'enciclopedia. 📡 Cataloghi sono i feed lunghi.",
+        "📡 Cataloghi — i feed lunghi aperti.",
     )
 
 

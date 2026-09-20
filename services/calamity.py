@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import html
 import io
@@ -251,7 +252,7 @@ def cluster_firms(points: list[dict[str, Any]], *, cell: float = 0.35) -> list[d
         rows.append(
             {
                 "kind": "firms",
-                "title": f"{n} rilevamenti VIIRS",
+                "title": _latlon_it(lat, lon),
                 "lat": lat,
                 "lon": lon,
                 "count": n,
@@ -263,6 +264,52 @@ def cluster_firms(points: list[dict[str, Any]], *, cell: float = 0.35) -> list[d
         )
     rows.sort(key=lambda row: (-int(row["count"]), row.get("dist_km") or 0))
     return rows
+
+
+def _short_place(label: str) -> str:
+    parts = [bit.strip() for bit in str(label or "").split(",") if bit.strip()]
+    if parts and parts[-1].lower() in {"italia", "italy"}:
+        parts = parts[:-1]
+    if parts and "senza etichetta" in parts[-1].lower():
+        return ""
+    return ", ".join(parts[:2])
+
+
+async def _reverse_fire_place(client: httpx.AsyncClient, lat: float, lon: float) -> str:
+    response = await client.get(
+        "https://nominatim.openstreetmap.org/reverse",
+        params={"lat": f"{lat:.5f}", "lon": f"{lon:.5f}", "format": "json", "zoom": 10},
+        headers={
+            "Accept-Language": "it",
+            "User-Agent": "StelleBot/1.0 (Telegram; educational astronomy bot)",
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, dict) or data.get("error"):
+        return ""
+    address = data.get("address") if isinstance(data.get("address"), dict) else {}
+    bits = [
+        address.get("city")
+        or address.get("town")
+        or address.get("village")
+        or address.get("hamlet")
+        or address.get("municipality"),
+        address.get("county") or address.get("state"),
+    ]
+    label = ", ".join(str(bit) for bit in bits if bit)
+    return _short_place(label) or _short_place(str(data.get("display_name") or ""))
+
+
+async def _name_firms_places(client: httpx.AsyncClient, items: list[dict[str, Any]]) -> None:
+    firms = [item for item in items if item.get("kind") == "firms"][:6]
+    for item in firms:
+        try:
+            label = await _reverse_fire_place(client, float(item["lat"]), float(item["lon"]))
+            item["title"] = label or _latlon_it(float(item["lat"]), float(item["lon"]))
+        except Exception:
+            item["title"] = _latlon_it(float(item["lat"]), float(item["lon"]))
+        await asyncio.sleep(0.2)
 
 
 async def fetch_firms_points(
@@ -456,6 +503,8 @@ async def load_calam_items(
             points = await fetch_firms_points(client, lat, lon, radius_km=near_km)
             for cluster in cluster_firms(points):
                 items.append(_with_dist(cluster, lat, lon))
+            items.sort(key=lambda row: float(row.get("dist_km") or 0))
+            await _name_firms_places(client, items)
         except Exception:
             points = []
             items = []

@@ -28,7 +28,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, terra, strumenti | cataloghi locali; ASTRO ha anche Wikipedia live |
 | 🌍 TERRA → Eventi | Eventi e calamità: categorie, distanza, foto Worldview/GIBS | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) + [FIRMS](https://firms.modaps.eosdis.nasa.gov) + [GIBS](https://wvs.earthdata.nasa.gov) |
 | 🌍 TERRA → Eventi → categorie | Terremoti USGS; incendi FIRMS+EONET; tempeste, vulcani, alluvioni, frane, polvere EONET; satellite GIBS | USGS + EONET + FIRMS + GIBS |
-| 🌍 TERRA → Eventi → Cataloghi / Esplora | Feed lunghi aperti; enciclopedia Wikipedia | USGS + EONET + Wikipedia / Wikidata |
+| 🌍 TERRA → Eventi → Cataloghi | Feed lunghi aperti (USGS / EONET) | USGS + EONET |
 | 🌍 TERRA → Animali live | Avvistamenti recenti | [iNaturalist](https://www.inaturalist.org) |
 | 🌍 TERRA → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |
 

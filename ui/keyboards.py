@@ -108,9 +108,8 @@ def calam_hub_keyboard(place: str = "Cuneo", counts: dict[str, int] | None = Non
             [cat_btn("storm"), cat_btn("volc")],
             [cat_btn("flood"), cat_btn("slide")],
             [cat_btn("dust")],
-            [kb_btn("🛰️ Vista satellitare", "geo:sat")],
             [kb_btn("🌍 Eventi nel mondo", "geo:world")],
-            [kb_btn("📡 Cataloghi", "world:live"), kb_btn("📖 Esplora", "world:natura")],
+            [kb_btn("📡 Cataloghi", "world:live")],
             nav_row(),
         ]
     )
@@ -130,17 +129,10 @@ def calam_list_keyboard(
 ) -> InlineKeyboardMarkup:
     from services.calamity import item_button_label
 
-    near_mark = "· " if scope == "n" else ""
-    world_mark = "· " if scope == "w" else ""
+    _ = scope
     start = page * page_size
     chunk = items[start : start + page_size]
-    rows: list[list[InlineKeyboardButton]] = [
-        [kb_btn("📍 Cambia luogo", "geo:city")],
-        [
-            kb_btn(f"{near_mark}Vicino", f"geo:cat:{key}:n"),
-            kb_btn(f"{world_mark}Mondo", f"geo:cat:{key}:w"),
-        ],
-    ]
+    rows: list[list[InlineKeyboardButton]] = []
     for offset, item in enumerate(chunk):
         idx = start + offset
         rows.append([kb_btn(item_button_label(key, item, idx + 1), f"geo:i:{idx}")])
@@ -151,7 +143,6 @@ def calam_list_keyboard(
         nav.append(kb_btn("➡️", f"geo:pg:{page + 1}"))
     if nav:
         rows.append(nav)
-    rows.append([kb_btn("🛰️ Mappa zona", "geo:sat")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
