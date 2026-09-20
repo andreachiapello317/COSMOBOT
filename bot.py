@@ -997,7 +997,8 @@ async def fetch_json(
 # ---------------------------------------------------------------------------
 
 
-def _split_for_translation(text: str, max_len: int = 1400) -> list[str]:
+def _split_for_translation(text: str, max_len: int = 380) -> list[str]:
+    """Spezza in frasi corte: MyMemory taglia a ~450 caratteri a metà frase."""
     text = text.strip()
     if len(text) <= max_len:
         return [text]
@@ -1009,13 +1010,28 @@ def _split_for_translation(text: str, max_len: int = 1400) -> list[str]:
             break
         window = remaining[: max_len + 1]
         cut = max(window.rfind(". "), window.rfind(".\n"), window.rfind("? "), window.rfind("! "))
-        if cut < max_len * 0.4:
+        if cut < max_len * 0.35:
+            cut = max(window.rfind("; "), window.rfind(", "))
+        if cut < max_len * 0.35:
             cut = window.rfind(" ")
         if cut < 1:
             cut = max_len
         chunks.append(remaining[: cut + 1].strip())
         remaining = remaining[cut + 1 :].strip()
     return [c for c in chunks if c]
+
+
+def _drop_hanging_clause(text: str) -> str:
+    """Se l'ultima frase è a metà, tiene solo le frasi chiuse."""
+    raw = str(text or "").strip()
+    if not raw:
+        return ""
+    if raw[-1] in ".!?…»\"":
+        return raw
+    last = max(raw.rfind(". "), raw.rfind("! "), raw.rfind("? "), raw.rfind(".\n"))
+    if last >= 0:
+        return raw[: last + 1].strip()
+    return raw
 
 
 async def _translate_google(client: httpx.AsyncClient, text: str) -> str | None:
@@ -1036,11 +1052,13 @@ async def _translate_google(client: httpx.AsyncClient, text: str) -> str | None:
 
 
 async def _translate_mymemory(client: httpx.AsyncClient, text: str) -> str | None:
+    if len(text) > 450:
+        return None
     try:
         data = await fetch_json(
             client,
             "https://api.mymemory.translated.net/get",
-            params={"q": text[:450], "langpair": "en|it"},
+            params={"q": text, "langpair": "en|it"},
         )
         translated = (data.get("responseData") or {}).get("translatedText") or ""
         translated = html.unescape(translated).strip()
@@ -1071,6 +1089,7 @@ async def translate_to_italian(client: httpx.AsyncClient, text: str) -> str:
 
     result = " ".join(pieces).strip()
     result = _fix_known_terms(result)
+    result = _drop_hanging_clause(result)
     return cache_set(cache_key, result)
 
 
