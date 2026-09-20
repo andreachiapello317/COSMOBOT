@@ -69,7 +69,8 @@ def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔮 Te stesso", "world:self")],
-            [kb_btn("🔮 Oracoli", "world:div")],
+            [kb_btn("🃏 Consultazioni", "world:div")],
+            [kb_btn("🌌 Interroga il cielo", "world:asksky")],
             nav_row(),
         ]
     )
@@ -78,13 +79,42 @@ def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
 def astro_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🪐 Mondi", "world:mondi")],
-            [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
-            [kb_btn("💎 Pietre", "world:pietre")],
-            [kb_btn("✨ COSMICO", "home:cosmico"), kb_btn("🎲 Casuale", "home:random")],
+            [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🌤️ Meteo", "loc:go:meteo")],
+            [kb_btn("🪐 Mondi", "world:mondi"), kb_btn("👽 Vita", "world:vita")],
+            [kb_btn("🚀 Missioni", "world:miss"), kb_btn("💎 Pietre", "world:pietre")],
+            [kb_btn("🎲 Casuale", "home:random")],
             nav_row(),
         ]
     )
+
+
+def world_asksky_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌌 Interroga", "loc:go:skyq")],
+            [kb_btn("🌙 Luna", "ora:lunar"), kb_btn("🕯️ Rituale", "home:rituale")],
+            [kb_btn("🪐 Pianeti", "ora:plan")],
+            nav_row(),
+        ]
+    )
+
+
+def place_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🇮🇹 Italia", "loc:it"), kb_btn("🌍 Mondo", "loc:wd")],
+            [kb_btn("✍️ Scrivi una città", "loc:ask")],
+            nav_row(),
+        ]
+    )
+
+
+def place_list_keyboard(kind: str, cities: tuple[tuple[str, float, float], ...]) -> InlineKeyboardMarkup:
+    buttons = [kb_btn(f"📍 {name}", f"loc:city:{kind}:{idx}") for idx, (name, _lat, _lon) in enumerate(cities)]
+    grid = _pairs(buttons)
+    grid.append([kb_btn("✍️ Altra città", "loc:ask")])
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
 
 
 def cosmo_hub_keyboard() -> InlineKeyboardMarkup:
@@ -198,11 +228,11 @@ def oracoli_mazzi_keyboard() -> InlineKeyboardMarkup:
 def world_sky_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔭 Cielo adesso", "home:cielo"), kb_btn("📍 Città", "cielo:pick")],
-            [kb_btn("🌙 Luna", "home:luna"), kb_btn("🪐 Pianeti", "home:pianeti")],
+            [kb_btn("🔭 Cielo adesso", "loc:go:cielo"), kb_btn("🌤️ Meteo", "loc:go:meteo")],
+            [kb_btn("🌙 Luna", "loc:go:luna"), kb_btn("🪐 Pianeti", "home:pianeti")],
             [kb_btn("⭐ Stelle", "home:stelle"), kb_btn("✨ Costellazioni", "home:costellazioni")],
             [kb_btn("🌠 Eventi", "home:eventi"), kb_btn("📚 Cataloghi", "cielo:cat")],
-            [kb_btn("🌅 Alba", "home:sole"), kb_btn("🛰️ ISS", "home:iss")],
+            [kb_btn("🌅 Alba", "loc:go:sole"), kb_btn("🛰️ ISS", "home:iss")],
             nav_row(),
         ]
     )
@@ -398,7 +428,8 @@ def iss_keyboard(map_url: str | None = None) -> InlineKeyboardMarkup:
 def cosmico_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔄 Aggiorna", "home:cosmico")],
+            [kb_btn("🔄 Un'altra città", "loc:go:skyq")],
+            [kb_btn("🌙 Luna", "ora:lunar"), kb_btn("🕯️ Rituale", "home:rituale")],
             nav_row(),
         ]
     )
@@ -407,8 +438,18 @@ def cosmico_keyboard() -> InlineKeyboardMarkup:
 def sole_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("📍 Roma", "sole:city:0"), kb_btn("📍 Milano", "sole:city:1")],
+            [kb_btn("📍 Cambia città", "loc:go:sole")],
             [kb_btn("🔄 Aggiorna", "home:sole")],
+            nav_row(),
+        ]
+    )
+
+
+def meteo_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("📍 Cambia città", "loc:go:meteo")],
+            [kb_btn("🔄 Aggiorna", "wx:refresh")],
             nav_row(),
         ]
     )
@@ -698,8 +739,8 @@ def cielo_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌙 Luna", "home:luna"), kb_btn("🪐 Pianeti", "cielo:planets")],
             [kb_btn("⭐ Stelle", "home:stelle"), kb_btn("☄️ Eventi", "home:eventi")],
             [kb_btn("🌌 Costellazioni", "home:costellazioni"), kb_btn("🔭 Oggetti", "home:profondo")],
-            [kb_btn("📍 Città", "cielo:pick"), kb_btn("👁️ Dettaglio", "home:osserva")],
-            [kb_btn("🔄 Aggiorna", "home:cielo")],
+            [kb_btn("📍 Città", "loc:go:cielo"), kb_btn("👁️ Dettaglio", "loc:go:osserva")],
+            [kb_btn("🌤️ Meteo", "loc:go:meteo"), kb_btn("🔄 Aggiorna", "home:cielo")],
             nav_row(),
         ]
     )
@@ -770,8 +811,8 @@ def pietre_hub_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🔮 Del giorno", "pt:day"), kb_btn("🎲 Casuale", "pt:rand")],
             [kb_btn("🔍 Cerca", "pt:find"), kb_btn("🧭 Esplora", "pt:exp")],
-            [kb_btn("🔬 Laboratorio", "pt:lab"), kb_btn("💎 Oracolo del giorno", "pt:ora")],
-            [kb_btn("🎒 Collezione", "pt:bag"), kb_btn("🧠 Giochi", "pt:game")],
+            [kb_btn("🔬 Laboratorio", "pt:lab"), kb_btn("🧠 Giochi", "pt:game")],
+            [kb_btn("🎒 Collezione", "pt:bag")],
             nav_row(),
         ]
     )

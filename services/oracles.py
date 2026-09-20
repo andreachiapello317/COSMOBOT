@@ -403,3 +403,49 @@ def yesno_from_tarot(reversed_card: bool, name: str) -> dict[str, str]:
 
 def surprise_oracle() -> str:
     return random.choice(("tarot", "iching", "rune", "leno", "yes", "pietre"))
+
+
+SKY_PLANET_FOLK: dict[str, str] = {
+    "Mercury": "Mercurio in vista: la tradizione lo legge come messaggi e spostamenti.",
+    "Venus": "Venere in vista: la tradizione la legge come gusto e legami.",
+    "Mars": "Marte in vista: la tradizione lo legge come slancio e attrito.",
+    "Jupiter": "Giove in vista: la tradizione lo legge come apertura e misura larga.",
+    "Saturn": "Saturno in vista: la tradizione lo legge come limiti e tempo lungo.",
+    "Uranus": "Urano in vista: la tradizione lo legge come scarto e novità.",
+    "Neptune": "Nettuno in vista: la tradizione lo legge come nebbia e sogno.",
+    "Pluto": "Plutone in vista: la tradizione lo legge come ciò che sta sotto e cambia.",
+}
+
+
+def sky_planet_folk(name_en: str) -> str:
+    return SKY_PLANET_FOLK.get(name_en, "")
+
+
+def interpret_asked_sky(
+    *,
+    place: str,
+    phase_label: str,
+    phase_message: str,
+    visible: list[tuple[str, str]],
+    night: bool,
+    card_name: str = "",
+) -> str:
+    """Lettura simbolica del cielo reale. I pianeti visibili sono astronomia; il testo è folklore."""
+    bits: list[str] = []
+    if night:
+        bits.append(f"Sopra {place} è notte: la tradizione legge il cielo come stanza aperta.")
+    else:
+        bits.append(f"Sopra {place} è giorno: la tradizione legge il cielo come lavoro alla luce.")
+    if phase_label:
+        bits.append(f"La Luna è {phase_label}. {phase_message}".strip())
+    folk = [sky_planet_folk(key) for key, _label in visible if sky_planet_folk(key)]
+    bits.extend(folk[:4])
+    if not folk and visible:
+        names = ", ".join(label for _key, label in visible[:4])
+        bits.append(f"In vista: {names}. La tradizione li tiene come testimoni, non come ordini.")
+    if not visible:
+        bits.append("Nessun pianeta sopra l'orizzonte in questo istante: il cielo chiede attesa, non un verdetto.")
+    if card_name:
+        bits.append(f"Il segno pescato è {card_name}: un'immagine in più, non un destino.")
+    bits.append("Il cielo misurato è astronomia. Questa lettura è uno specchio, non una previsione.")
+    return " ".join(bit for bit in bits if bit)

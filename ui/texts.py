@@ -14,8 +14,8 @@ def all_hub_text() -> str:
     return _card(
         "🪐 <b>BOTSQUAD</b>",
         "Due bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
-        "🔮 <b>ORACOLO</b> — te stesso, carte, rune, rituali.\n"
-        "🔭 <b>ASTRO</b> — cielo vero, pianeti, missioni, pietre.\n\n"
+        "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
+        "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, cataloghi.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
 
@@ -29,21 +29,23 @@ def oracolo_hub_text() -> str:
         "🔮 <b>ORACOLO</b>",
         "Bot di BOTSQUAD per guardarsi dentro. Simboli, non telescopio.",
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
-        "🔮 <b>ORACOLI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n\n"
-        "Il cielo misurato sta in 🔭 ASTRO.",
+        "🃏 <b>CONSULTAZIONI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n"
+        "🌌 <b>INTERROGA IL CIELO</b> — chiedi al cielo sopra la tua città\n\n"
+        "Il cielo misurato e il meteo stanno in 🔭 ASTRO.",
     )
 
 
 def astro_hub_text() -> str:
     return _card(
         "🔭 <b>ASTRO</b>",
-        "Bot di BOTSQUAD per il cielo vero. Cataloghi e numeri live, niente carte.",
-        "🔭 <b>CIELO</b> — adesso, stelle, eventi, ISS\n"
+        "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
+        "🔭 <b>CIELO</b> — mappa, stelle, eventi, ISS. Chiede la città.\n"
+        "🌤️ <b>METEO</b> — previsioni Open-Meteo di qualsiasi città del mondo\n"
         "🪐 <b>MONDI</b> — esopianeti, sistemi, salvataggi\n"
         "👽 <b>VITA</b> — come la cerchiamo, senza dichiararla\n"
         "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n"
         "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione\n\n"
-        "✨ COSMICO e 🎲 casuale pescano da questi mondi.",
+        "🎲 Casuale pesca una scheda di catalogo. Per interrogare il cielo, vai in 🔮 ORACOLO.",
     )
 
 
@@ -76,7 +78,7 @@ def lettura_text() -> str:
 
 def oracoli_text() -> str:
     return _card(
-        "🔮 <b>ORACOLI</b>",
+        "🃏 <b>CONSULTAZIONI</b>",
         "Sei strumenti, tutti simbolici. Nessun verdetto, nessuna astronomia.",
         "🃏 <b>Tarocchi</b> — mazzo live, spread a scelta\n"
         "☯️ <b>I Ching</b> — sei lanci, libro Wilhelm\n"
@@ -134,12 +136,25 @@ def world_div_text() -> str:
     return oracoli_text()
 
 
+def world_asksky_text() -> str:
+    return _card(
+        "🌌 <b>INTERROGA IL CIELO</b>",
+        "Chiedi al cielo sopra di te. Prima la città, poi una lettura simbolica.",
+        "La mappa è astronomia (API live). Il significato è folklore, non un effetto dimostrato.\n\n"
+        "🌌 <b>Interroga</b> — luna, pianeti visibili, un segno\n"
+        "🌙 <b>Luna</b> — oracolo della fase\n"
+        "🕯️ <b>Rituale</b> — un gesto per questa lunazione\n"
+        "🪐 <b>Pianeti</b> — mazzo simbolico, non efemeridi",
+    )
+
+
 def world_sky_text() -> str:
     return _card(
         "🔭 <b>CIELO</b>",
-        "Cosa c'è sopra di te adesso. Numeri live, niente oracoli.",
+        "Osservatorio: cosa c'è sopra di te adesso. Numeri live, niente oracoli.",
+        "Prima la città, poi la mappa.\n"
         "🔭 Adesso · 🌙 Luna · 🪐 Pianeti · ⭐ Stelle\n"
-        "🌠 Eventi · 📚 Cataloghi (nani, comete, profondo)\n"
+        "🌠 Eventi · 📚 Cataloghi · 🌤️ Meteo\n"
         "🌅 Alba · 🛰️ ISS",
     )
 
@@ -211,7 +226,7 @@ def pietre_hub_text() -> str:
         "💎 <b>PIETRE</b>",
         "Mineralogia da catalogo. Il folklore sta nell'oracolo, a parte.",
         "Foto: pietra al centro, tavolo uniforme. Non è un'analisi.\n\n"
-        "🧭 Esplora · 🔬 Laboratorio · 💎 Pietra del giorno · 🧠 Giochi",
+        "🧭 Esplora · 🔬 Laboratorio · 🎒 Collezione · 🧠 Giochi",
     )
 
 

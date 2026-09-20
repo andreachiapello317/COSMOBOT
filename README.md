@@ -10,18 +10,20 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 
 Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/aiuto`. Qualunque altro `/comando` viene ignorato e rimanda ai pulsanti. **📚 Aiuto** sta anche sul portale.
 
-`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO** ha Te stesso e Oracoli. **🔭 ASTRO** ha Cielo, Mondi, Vita, Missioni e il catalogo Pietre (l’estrazione simbolica resta in Oracoli). Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
+`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO** ha Te stesso, Consultazioni e Interroga il cielo. **🔭 ASTRO** è un osservatorio: Cielo, Meteo, Mondi, Vita, Missioni e il catalogo Pietre. Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
 
 | Pulsante / mondo | Effetto | Fonte live |
 | --- | --- | --- |
 | 🔮 ORACOLO → Te stesso | Oroscopo (giorno / settimana / mese; senza segno usa **Bilancia**), tema natale guidato, specchio, compatibilità due segni | [freehoroscopeapi.com](https://freehoroscopeapi.com), [CosmyDay](https://cosmyday.com/api-docs) |
-| 🔮 ORACOLO → Oracoli | Tarocchi, I Ching, rune, Lenormand, sì/no, pietra del giorno. «Fai scegliere all'oracolo» pesca uno strumento e dà subito la lettura | tarot API, Wilhelm 1924, dataset locali |
-| 🔭 ASTRO → Cielo | Adesso, stelle, eventi, ISS, osserva da una città, Luna, APOD, asteroidi, meteore | skymap.sh, Skytime, WTIA, NASA, CosmyDay |
+| 🔮 ORACOLO → Consultazioni | Tarocchi, I Ching, rune, Lenormand, sì/no, pietra del giorno. «Fai scegliere all'oracolo» pesca uno strumento e dà subito la lettura | tarot API, Wilhelm 1924, dataset locali |
+| 🔮 ORACOLO → Interroga il cielo | Chiede la città, poi legge luna e pianeti visibili in chiave simbolica | skymap + sunrisesunset + tarot; il testo è folklore |
+| 🔭 ASTRO → Cielo | Osservatorio: mappa, stelle, eventi, ISS, alba. Chiede sempre la città | skymap.sh, Skytime, WTIA, NASA, CosmyDay |
+| 🔭 ASTRO → Meteo | Previsioni di qualsiasi città del mondo (Italia, elenco mondiale, o scrivi il nome) | [Open-Meteo](https://open-meteo.com) |
 | 🔭 ASTRO → Mondi | Esopianeti NASA, sistemi, salvataggi, cataloghi (nani, comete, profondo) | NASA TAP + Wikipedia |
 | 🔭 ASTRO → Vita | Come cerchiamo la vita, senza dichiararla | Wikipedia |
 | 🔭 ASTRO → Missioni | Sonde, quiz, missione del giorno | Wikipedia + calendario locale |
 | 🔭 ASTRO → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |
-| ✨ COSMICO / 🎲 casuale | Un pezzo dai mondi di ASTRO | le API già usate |
+| 🎲 Casuale | Una scheda a caso dal catalogo ASTRO | le API già usate |
 
 Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come oroscopo.
 
@@ -35,9 +37,9 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Rune** e **Lenormand**: come i tarocchi — mescola, gira una alla volta, quadro finale con interpretazione. La domanda è facoltativa.
 
-**Pietre in Oracoli**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
+**Pietre in Consultazioni**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
-**Cielo** è astronomia reale (↑ sopra, ↓ sotto, 👁 mag ≤ 6). **Oracoli** è esperienza simbolica. **Pietre** è autonomo: mineralogia da catalogo, folklore tenuto a parte. Non si mescolano.
+**Cielo** in ASTRO è astronomia reale (↑ sopra, ↓ sotto, 👁 mag ≤ 6) e chiede la città. **Interroga il cielo** in ORACOLO usa quella stessa mappa come specchio. **Consultazioni** è carte e strumenti. **Pietre** in ASTRO è mineralogia da catalogo. Non si mescolano.
 
 Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 
