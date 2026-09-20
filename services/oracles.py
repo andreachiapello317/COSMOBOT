@@ -406,14 +406,44 @@ def surprise_oracle() -> str:
 
 
 SKY_PLANET_FOLK: dict[str, str] = {
-    "Mercury": "Mercurio in vista: la tradizione lo legge come messaggi e spostamenti.",
-    "Venus": "Venere in vista: la tradizione la legge come gusto e legami.",
-    "Mars": "Marte in vista: la tradizione lo legge come slancio e attrito.",
-    "Jupiter": "Giove in vista: la tradizione lo legge come apertura e misura larga.",
-    "Saturn": "Saturno in vista: la tradizione lo legge come limiti e tempo lungo.",
-    "Uranus": "Urano in vista: la tradizione lo legge come scarto e novità.",
-    "Neptune": "Nettuno in vista: la tradizione lo legge come nebbia e sogno.",
-    "Pluto": "Plutone in vista: la tradizione lo legge come ciò che sta sotto e cambia.",
+    "Mercury": "Mercurio parla di messaggi e soglie da attraversare senza gridare.",
+    "Venus": "Venere piega il cielo verso il gusto, i legami, ciò che vuoi tenere vicino.",
+    "Mars": "Marte scalda: slancio, attrito, un sì che costa fatica.",
+    "Jupiter": "Giove allarga la stanza: misura più larga, meno conto minuto.",
+    "Saturn": "Saturno ritma: limiti, tempo lungo, un peso che tiene in piedi.",
+    "Uranus": "Urano stona di proposito: uno scarto, una novità che non chiede permesso.",
+    "Neptune": "Nettuno sfuma i bordi: sogno, nebbia, ciò che non si può stringere.",
+    "Pluto": "Plutone lavora sotto: ciò che cambia in profondità, non in vetrina.",
+}
+
+STAR_FOLK: dict[str, str] = {
+    "sirio": "Sirio è la veglia: luce che non chiede permesso.",
+    "vega": "Vega è una lira: tieni il tono, non alzare la voce.",
+    "betelgeuse": "Betelgeuse è un fuoco vecchio: qualcosa sta per cambiare pelle.",
+    "rigel": "Rigel è un piede fermo: cammina, non rincorrere.",
+    "stella polare": "La Polare non si sposta: un punto da cui misurare il resto.",
+    "polare": "La Polare non si sposta: un punto da cui misurare il resto.",
+    "capella": "Capella è una capra del cielo: nutrimento prima della prova.",
+    "altair": "Altair è un'aquila: distanza breve, sguardo lontano.",
+    "aldebaran": "Aldebaran è l'occhio del toro: guarda dritto ciò che eviti.",
+    "antares": "Antares è un cuore rosso: passione che brucia anche da ferma.",
+    "arcturo": "Arcturo è un guardiano: tiene il confine, non lo spiega.",
+    "deneb": "Deneb è una coda di cigno: la fine di un volo, non la fine del cielo.",
+    "canopo": "Canopo è una nave: rotta lunga, poche parole.",
+    "procione": "Procione è il cane che precede: un annuncio, non ancora la caccia.",
+    "spica": "Spica è una spiga: raccogli ciò che è già maturo.",
+    "fomalhaut": "Fomalhaut è una bocca di pesce: tieni un segreto, non lo annegare.",
+    "polluce": "Polluce è un gemello fedele: non andare da solo.",
+    "castore": "Castore è il gemello che resta: una presenza, anche se tace.",
+    "regolo": "Regolo è un piccolo re: autorità senza più corona.",
+    "bellatrix": "Bellatrix è una guerriera: un sì tagliente, non un assalto.",
+}
+
+MOON_PHASE_MYSTIC = {
+    "new": "È Luna nuova: il cielo tiene un seme, non un volto. Ascolta prima di nominare.",
+    "waxing": "La Luna cresce: ciò che è iniziato chiede nutrimento, non applausi.",
+    "full": "È Luna piena: poco si può nascondere. Ciò che è maturo si vede.",
+    "waning": "La Luna cala: è tempo di lasciare, non di accumulare un'altra promessa.",
 }
 
 
@@ -421,31 +451,104 @@ def sky_planet_folk(name_en: str) -> str:
     return SKY_PLANET_FOLK.get(name_en, "")
 
 
+def _moon_height(alt: float | None, compass: str, up: bool) -> str:
+    if not up:
+        return (
+            "In questo istante è sotto l'orizzonte: il tema lunare lavora in ombra, "
+            "non è assente."
+        )
+    side = f" verso {compass}" if compass else ""
+    if alt is None:
+        return f"È sopra di te{side}."
+    if alt >= 45:
+        return f"Sta alta ({alt:.0f}°{side}): il tema è esposto, difficile da coprire."
+    if alt < 12:
+        return f"Sfiora l'orizzonte ({alt:.0f}°{side}): una soglia, non ancora una stanza."
+    return f"Cammina a {alt:.0f}°{side}: presente, ma non al centro della volta."
+
+
+def _planet_height(alt: float | None) -> str:
+    if alt is None:
+        return ""
+    if alt >= 45:
+        return " alto in cielo"
+    if alt < 12:
+        return " sull'orizzonte"
+    return ""
+
+
 def interpret_asked_sky(
     *,
     place: str,
-    phase_label: str,
-    phase_message: str,
-    visible: list[tuple[str, str]],
     night: bool,
-    card_name: str = "",
+    phase_key: str,
+    phase_label: str,
+    moon_alt: float | None,
+    moon_compass: str,
+    moon_up: bool,
+    moon_illum: float | None,
+    planets: list[dict[str, Any]],
+    stars: list[str],
+    asterisms: list[str],
 ) -> str:
-    """Lettura simbolica del cielo reale. I pianeti visibili sono astronomia; il testo è folklore."""
-    bits: list[str] = []
+    """Lettura mistica del cielo reale. Niente carte. I corpi sono astronomia; il testo è folklore."""
+    parts: list[str] = []
     if night:
-        bits.append(f"Sopra {place} è notte: la tradizione legge il cielo come stanza aperta.")
+        parts.append(f"Sopra {place} è notte. Il cielo è una stanza aperta.")
     else:
-        bits.append(f"Sopra {place} è giorno: la tradizione legge il cielo come lavoro alla luce.")
-    if phase_label:
-        bits.append(f"La Luna è {phase_label}. {phase_message}".strip())
-    folk = [sky_planet_folk(key) for key, _label in visible if sky_planet_folk(key)]
-    bits.extend(folk[:4])
-    if not folk and visible:
-        names = ", ".join(label for _key, label in visible[:4])
-        bits.append(f"In vista: {names}. La tradizione li tiene come testimoni, non come ordini.")
-    if not visible:
-        bits.append("Nessun pianeta sopra l'orizzonte in questo istante: il cielo chiede attesa, non un verdetto.")
-    if card_name:
-        bits.append(f"Il segno pescato è {card_name}: un'immagine in più, non un destino.")
-    bits.append("Il cielo misurato è astronomia. Questa lettura è uno specchio, non una previsione.")
-    return " ".join(bit for bit in bits if bit)
+        parts.append(
+            f"Sopra {place} è giorno. Le stelle ci sono comunque, coperte dalla luce: "
+            "si legge ciò che resta visibile."
+        )
+
+    phase_line = MOON_PHASE_MYSTIC.get(phase_key, "")
+    illum = ""
+    if isinstance(moon_illum, (int, float)):
+        illum = f" Illuminazione {moon_illum:.0f}%."
+    moon_bits = [bit for bit in (phase_label and f"La Luna è {phase_label}.", phase_line) if bit]
+    moon_bits.append(_moon_height(moon_alt, moon_compass, moon_up))
+    if illum:
+        moon_bits.append(illum.strip())
+    parts.append(" ".join(moon_bits))
+
+    above = [p for p in planets if p.get("up")]
+    if above:
+        lines = []
+        for body in above[:5]:
+            folk = sky_planet_folk(str(body.get("key") or ""))
+            label = str(body.get("label") or body.get("key") or "un pianeta")
+            extra = _planet_height(body.get("alt") if isinstance(body.get("alt"), (int, float)) else None)
+            if folk:
+                lines.append(f"{label}{extra}: {folk}")
+            else:
+                lines.append(f"{label}{extra} sta sopra di te.")
+        parts.append(" ".join(lines))
+    else:
+        parts.append(
+            "Nessun pianeta sopra l'orizzonte in questo istante. "
+            "Il cielo chiede attesa, non un verdetto."
+        )
+
+    if stars:
+        names = ", ".join(stars[:4])
+        parts.append(
+            f"Le stelle più alte che il cielo ti dà sono {names}. "
+            "Testimoni, non padroni."
+        )
+        star_lines = []
+        for name in stars[:3]:
+            folk = STAR_FOLK.get(name.lower().strip(), "")
+            if folk:
+                star_lines.append(folk)
+        if star_lines:
+            parts.append(" ".join(star_lines))
+    elif night:
+        parts.append("In questa mappa non è arrivata una stella luminosa: tieni la Luna e i pianeti.")
+    if asterisms:
+        parts.append(f"Tra le figure: {', '.join(asterisms[:4])}. Un disegno, non un ordine.")
+
+    parts.append(
+        "Niente carte. Solo ciò che sta sopra di te. "
+        "È uno specchio, non una previsione."
+    )
+    return " ".join(part.strip() for part in parts if part and part.strip())

@@ -16,7 +16,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | --- | --- | --- |
 | 🔮 ORACOLO → Te stesso | Oroscopo (giorno / settimana / mese; senza segno usa **Bilancia**), tema natale guidato, specchio, compatibilità due segni | [freehoroscopeapi.com](https://freehoroscopeapi.com), [CosmyDay](https://cosmyday.com/api-docs) |
 | 🔮 ORACOLO → Consultazioni | Tarocchi, I Ching, rune, Lenormand, sì/no, pietra del giorno. «Fai scegliere all'oracolo» pesca uno strumento e dà subito la lettura | tarot API, Wilhelm 1924, dataset locali |
-| 🔮 ORACOLO → Interroga il cielo | Chiede la città, poi legge luna e pianeti visibili in chiave simbolica | skymap + sunrisesunset + tarot; il testo è folklore |
+| 🔮 ORACOLO → Interroga il cielo | Chiede la città, poi legge luna, stelle e pianeti sopra di te. Niente carte | skymap + sunrisesunset; il testo è folklore |
 | 🔭 ASTRO → Cielo | Osservatorio: mappa, stelle, eventi, ISS, alba. Chiede sempre la città | skymap.sh, Skytime, WTIA, NASA, CosmyDay |
 | 🔭 ASTRO → Meteo | Previsioni di qualsiasi città del mondo (Italia, elenco mondiale, o scrivi il nome) | [Open-Meteo](https://open-meteo.com) |
 | 🔭 ASTRO → Mondi | Esopianeti NASA, sistemi, salvataggi, cataloghi (nani, comete, profondo) | NASA TAP + Wikipedia |
@@ -43,7 +43,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Pietre in Consultazioni**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
-**Cielo** in ASTRO è astronomia reale (↑ sopra, ↓ sotto, 👁 mag ≤ 6) e chiede la città. **Interroga il cielo** in ORACOLO usa quella stessa mappa come specchio. **Consultazioni** è carte e strumenti. **Pietre** e i dati sulla Terra stanno in 🌍 GEO. Non si mescolano.
+**Cielo** in ASTRO è astronomia reale (↑ sopra, ↓ sotto, 👁 mag ≤ 6) e chiede la città. **Interroga il cielo** in ORACOLO usa quella stessa mappa come specchio mistico: solo luna, stelle e pianeti, nessuna carta. **Consultazioni** è carte e strumenti. **Pietre** e i dati sulla Terra stanno in 🌍 GEO. Non si mescolano.
 
 Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 

@@ -2126,8 +2126,8 @@ def help_text() -> str:
         "<i>Tre bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
-        "sì/no, pietra del giorno) e Interroga il cielo (lettura simbolica "
-        "sopra la tua città).\n"
+        "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
+        "pianeti sopra la tua città: niente carte).\n"
         "🔭 <b>ASTRO</b> — osservatorio: Cielo, Meteo mondiale, Mondi, Vita, "
         "Missioni. Niente divinazione.\n"
         "🌍 <b>GEO</b> — la Terra: pietre, terremoti USGS, vulcani, oceani, "
@@ -6825,49 +6825,90 @@ async def send_sky_oracle(
         tz_name = await api_timezone_name(client, lat, lon)
     except StelleOfflineError:
         tz_name = str(DEFAULT_TZ)
-    sky_res, sun_res, card_res, moon_res = await asyncio.gather(
+    sky_res, sun_res, moon_res = await asyncio.gather(
         api_skymap(client, lat, lon),
         api_sun_times(client, lat, lon, tz_name),
-        api_tarot_draw(client, count=1, include_minor=False),
         api_moon_observatory(client),
         return_exceptions=True,
     )
+    if not isinstance(sky_res, dict):
+        await reply_offline(update, context)
+        return
     phase_raw = ""
     if isinstance(moon_res, dict):
         phase_raw = str(moon_res.get("moon_phase") or "")
     phase = moon_phase_label(phase_raw) if phase_raw else ""
-    pack = LUNAR_ORACLE[lunar_key(phase_raw)] if phase_raw else {}
-    visible: list[tuple[str, str]] = []
     night = True
-    if isinstance(sky_res, dict):
-        bodies = [b for b in (sky_res.get("bodies") or []) if isinstance(b, dict)]
-        for body in bodies:
-            raw = str(body.get("name") or "")
-            if not raw:
-                continue
-            label, _emoji = PLANET_LABELS.get(raw, (raw, "🪐"))
-            visible.append((raw, label))
+    moon_alt = None
+    moon_compass = ""
+    moon_up = False
+    moon_illum = None
+    planets: list[dict[str, Any]] = []
+    stars: list[str] = []
+    asterisms: list[str] = []
+    marks = collect_marks(sky_res)
+    moon_mark = next((m for m in marks if m.get("kind") == "moon"), None)
+    if moon_mark:
+        moon_alt = moon_mark.get("alt") if isinstance(moon_mark.get("alt"), (int, float)) else None
+        moon_compass = str(moon_mark.get("compass") or "")
+        moon_up = isinstance(moon_alt, (int, float)) and moon_alt > 0
+    sky_moon = sky_res.get("moon") if isinstance(sky_res.get("moon"), dict) else {}
+    try:
+        moon_illum = float(sky_moon["illum"]) if sky_moon.get("illum") is not None else None
+    except (TypeError, ValueError):
+        moon_illum = None
+    for mark in marks:
+        if mark.get("kind") != "planet":
+            continue
+        raw = ""
+        for key, (label, _em) in PLANET_LABELS.items():
+            if label == mark.get("name"):
+                raw = key
+                break
+        if raw in {"Sun", "Moon"} or mark.get("name") in {"Sole", "Luna"}:
+            continue
+        alt = mark.get("alt") if isinstance(mark.get("alt"), (int, float)) else None
+        planets.append(
+            {
+                "key": raw,
+                "label": str(mark.get("name") or raw),
+                "alt": alt,
+                "up": isinstance(alt, (int, float)) and alt > 0,
+            }
+        )
+    stars = [
+        str(m.get("name") or "")
+        for m in marks
+        if m.get("kind") == "star"
+        and isinstance(m.get("alt"), (int, float))
+        and m["alt"] > 0
+        and m.get("name")
+    ]
+    try:
+        sun_alt = float(sky_res.get("sun_alt")) if sky_res.get("sun_alt") is not None else None
+    except (TypeError, ValueError):
+        sun_alt = None
+    if sun_alt is not None:
+        night = sun_alt < 0
+    raw_ast = [str(a) for a in (sky_res.get("asterisms") or []) if a]
+    if raw_ast:
         try:
-            sun_alt = float(sky_res.get("sun_alt")) if sky_res.get("sun_alt") is not None else None
-        except (TypeError, ValueError):
-            sun_alt = None
-        if sun_alt is not None:
-            night = sun_alt < 0
-    card_name = ""
-    if isinstance(card_res, list) and card_res:
-        name_en = str((card_res[0] or {}).get("name") or "")
-        if name_en:
-            try:
-                card_name = await translate_to_italian(client, name_en)
-            except StelleOfflineError:
-                card_name = name_en
+            names_it = await translate_to_italian(client, ", ".join(raw_ast[:5]))
+            asterisms = [p.strip() for p in names_it.split(",") if p.strip()]
+        except StelleOfflineError:
+            asterisms = raw_ast[:5]
     reading = interpret_asked_sky(
         place=name,
-        phase_label=phase,
-        phase_message=str(pack.get("message") or ""),
-        visible=visible,
         night=night,
-        card_name=card_name,
+        phase_key=lunar_key(phase_raw) if phase_raw else "",
+        phase_label=phase,
+        moon_alt=moon_alt if isinstance(moon_alt, (int, float)) else None,
+        moon_compass=moon_compass,
+        moon_up=moon_up,
+        moon_illum=moon_illum,
+        planets=planets,
+        stars=stars,
+        asterisms=asterisms,
     )
     lines = [
         "🌌 <b>INTERROGA IL CIELO</b>",
@@ -6876,28 +6917,37 @@ async def send_sky_oracle(
         "🔭 <b>SOPRA DI TE</b>",
     ]
     if phase:
-        lines.append(f"🌙 {e(phase)}")
+        illum_bit = f" · {moon_illum:.0f}%" if isinstance(moon_illum, (int, float)) else ""
+        height = ""
+        if isinstance(moon_alt, (int, float)):
+            height = f" · {moon_alt:.0f}°" + (f" {moon_compass}" if moon_compass else "")
+            height += " ↑" if moon_up else " ↓"
+        lines.append(f"🌙 {e(phase)}{illum_bit}{e(height)}")
     if isinstance(sun_res, dict):
         lines.append(
             f"☀️ Alba {e(sun_res.get('sunrise') or '—')} · tramonto {e(sun_res.get('sunset') or '—')}"
         )
-    if visible:
+    up_planets = [p for p in planets if p.get("up")]
+    if up_planets:
         shown = []
-        for raw, label in visible[:6]:
-            emoji = PLANET_LABELS.get(raw, (label, "🪐"))[1]
-            shown.append(f"{emoji} {label}")
-        lines.append("In vista: " + ", ".join(shown))
+        for body in up_planets[:6]:
+            raw = str(body.get("key") or "")
+            emoji = PLANET_LABELS.get(raw, (body.get("label"), "🪐"))[1]
+            shown.append(f"{emoji} {body.get('label')}")
+        lines.append("Pianeti in vista: " + ", ".join(shown))
     else:
         lines.append("<i>Nessun pianeta sopra l'orizzonte in questo istante.</i>")
-    if card_name:
-        lines.extend(["", f"🃏 Segno pescato: <b>{e(card_name)}</b>"])
+    if stars:
+        lines.append("Stelle: " + e(", ".join(stars[:4])))
+    if asterisms:
+        lines.append("Figure: " + e(", ".join(asterisms[:4])))
     lines.extend(
         [
             "",
-            "✨ <b>IN PRATICA</b>",
+            "✨ <b>IL CIELO DICE</b>",
             e(reading),
             "",
-            "<i>Altezza e orari sono astronomia. La lettura è folklore, non un effetto dimostrato.</i>",
+            "<i>Posizioni live. La lettura è mistica, non un effetto dimostrato. Nessuna carta.</i>",
         ]
     )
     await reply_html(update, context, "\n".join(lines), reply_markup=cosmico_keyboard())
@@ -6936,7 +6986,7 @@ async def send_luna_here(
         f"☀️ Sole: alba {e(sun.get('sunrise') or '—')} · tramonto {e(sun.get('sunset') or '—')}",
         "",
         "<i>Orari sunrisesunset.io e illuminazione dalla mappa. "
-        "Per l'oracolo della fase, sta in 🔮 ORACOLO → Interroga il cielo.</i>",
+        "Per una lettura mistica del cielo sopra di te, sta in 🔮 ORACOLO → Interroga il cielo.</i>",
     ]
     await reply_html(
         update,
@@ -8275,7 +8325,7 @@ async def send_rituale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
     kb = InlineKeyboardMarkup(
         [
-            [_tarot_btn("🌙 Luna", "ora:lunar"), _tarot_btn("🌌 Interroga", "loc:go:skyq")],
+            [_tarot_btn("🌌 Interroga il cielo", "loc:go:skyq")],
             nav_row(),
         ]
     )

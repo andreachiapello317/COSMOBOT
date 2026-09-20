@@ -72,7 +72,7 @@ def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🔮 Te stesso", "world:self")],
             [kb_btn("🃏 Consultazioni", "world:div")],
-            [kb_btn("🌌 Interroga il cielo", "world:asksky")],
+            [kb_btn("🌌 Interroga il cielo", "loc:go:skyq")],
             nav_row(),
         ]
     )
@@ -164,8 +164,6 @@ def world_asksky_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🌌 Interroga", "loc:go:skyq")],
-            [kb_btn("🌙 Luna", "ora:lunar"), kb_btn("🕯️ Rituale", "home:rituale")],
-            [kb_btn("🪐 Pianeti", "ora:plan")],
             nav_row(),
         ]
     )
@@ -290,7 +288,6 @@ def oracoli_mazzi_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🧿 Archetipi", "ora:arch"), kb_btn("🐺 Animali", "ora:anim")],
             [kb_btn("🗝️ Simboli", "ora:symb"), kb_btn("🌿 Elementi", "ora:elem")],
-            [kb_btn("🌙 Luna", "ora:lunar"), kb_btn("🪐 Pianeti", "ora:plan")],
             [kb_btn("🕯️ Una domanda", "ora:askq")],
             nav_row(),
         ]
@@ -501,7 +498,6 @@ def cosmico_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔄 Un'altra città", "loc:go:skyq")],
-            [kb_btn("🌙 Luna", "ora:lunar"), kb_btn("🕯️ Rituale", "home:rituale")],
             nav_row(),
         ]
     )

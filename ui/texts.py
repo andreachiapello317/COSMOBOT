@@ -31,7 +31,7 @@ def oracolo_hub_text() -> str:
         "Bot di BOTSQUAD per guardarsi dentro. Simboli, non telescopio.",
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
         "🃏 <b>CONSULTAZIONI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n"
-        "🌌 <b>INTERROGA IL CIELO</b> — chiedi al cielo sopra la tua città\n\n"
+        "🌌 <b>INTERROGA IL CIELO</b> — luna, stelle e pianeti sopra la tua città\n\n"
         "Il cielo misurato sta in 🔭 ASTRO. Le pietre e la Terra stanno in 🌍 GEO.",
     )
 
@@ -139,12 +139,8 @@ def world_div_text() -> str:
 def world_asksky_text() -> str:
     return _card(
         "🌌 <b>INTERROGA IL CIELO</b>",
-        "Chiedi al cielo sopra di te. Prima la città, poi una lettura simbolica.",
-        "La mappa è astronomia (API live). Il significato è folklore, non un effetto dimostrato.\n\n"
-        "🌌 <b>Interroga</b> — luna, pianeti visibili, un segno\n"
-        "🌙 <b>Luna</b> — oracolo della fase\n"
-        "🕯️ <b>Rituale</b> — un gesto per questa lunazione\n"
-        "🪐 <b>Pianeti</b> — mazzo simbolico, non efemeridi",
+        "Prima la città. Poi il cielo sopra di te: luna, stelle, pianeti. Niente carte.",
+        "Altezza e orari sono astronomia. La lettura è mistica, non un effetto dimostrato.",
     )
 
 
