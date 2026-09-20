@@ -133,6 +133,7 @@ from services.earth import (
     fetch_eonet,
     fetch_quakes,
     fetch_quakes_near,
+    filter_eonet_world,
     format_earth_topic,
     format_eonet,
     format_nearby_events,
@@ -211,6 +212,8 @@ from ui.keyboards import (
     geo_quakes_keyboard,
     natura_here_keyboard,
     natura_world_keyboard,
+    world_fauna_keyboard,
+    world_flora_keyboard,
     world_ice_keyboard,
     world_live_keyboard,
     world_natura_keyboard,
@@ -311,6 +314,8 @@ from ui.texts import (
     rune_intro_text,
     world_asksky_text,
     world_div_text,
+    world_fauna_text,
+    world_flora_text,
     world_ice_text,
     world_live_text,
     world_natura_text,
@@ -2161,8 +2166,8 @@ def help_text() -> str:
         "pianeti sopra la tua città: niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (prima la città), Meteo, Esplora lo spazio "
         "(enciclopedia), In orbita (ISS e dati live). Niente divinazione.\n"
-        "🌿 <b>NATURA</b> — eventi live sulla città e nel mondo, feed USGS/EONET, "
-        "enciclopedia (mari, oceani, terra, vulcani, placche, ghiacciai), pietre.\n"
+        "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
+        "Fauna (vuota), Pietre.\n"
         "🧮 <b>CALC</b> — calcolatrice a pulsanti.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
@@ -5607,6 +5612,8 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         "water": (world_water_text, world_water_keyboard),
         "plates": (world_plates_text, world_plates_keyboard),
         "natura": (world_natura_text, world_natura_keyboard),
+        "flora": (world_flora_text, world_flora_keyboard),
+        "fauna": (world_fauna_text, world_fauna_keyboard),
         "live": (world_live_text, world_live_keyboard),
         "ocean": (world_ocean_text, world_ocean_keyboard),
         "sea": (world_sea_text, world_sea_keyboard),
@@ -6652,6 +6659,8 @@ async def on_world_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "water": (world_water_text, world_water_keyboard),
         "plates": (world_plates_text, world_plates_keyboard),
         "natura": (world_natura_text, world_natura_keyboard),
+        "flora": (world_flora_text, world_flora_keyboard),
+        "fauna": (world_fauna_text, world_fauna_keyboard),
         "live": (world_live_text, world_live_keyboard),
         "ocean": (world_ocean_text, world_ocean_keyboard),
         "sea": (world_sea_text, world_sea_keyboard),
@@ -11064,18 +11073,21 @@ async def send_natura_world(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     except Exception:
         logger.exception("USGS significativi non disponibile")
     try:
-        eonet = await fetch_eonet(client, limit=16)
+        eonet = await fetch_eonet(client, limit=50)
     except Exception:
         logger.exception("EONET mondo non disponibile")
     if quakes is None and eonet is None:
         await reply_offline(update, context)
         return
-    events = eonet.get("events") if isinstance(eonet, dict) and isinstance(eonet.get("events"), list) else []
-    titles = [str(ev.get("title") or "") for ev in events[:12] if isinstance(ev, dict) and ev.get("title")]
+    raw_events = eonet.get("events") if isinstance(eonet, dict) and isinstance(eonet.get("events"), list) else []
+    events = filter_eonet_world(raw_events)
+    if isinstance(eonet, dict):
+        eonet["events"] = events
+    titles = [str(ev.get("title") or "") for ev in events[:12] if ev.get("title")]
     translated = await _translate_named_list(client, titles)
     idx = 0
     for ev in events[:12]:
-        if not isinstance(ev, dict) or not ev.get("title"):
+        if not ev.get("title"):
             continue
         if idx < len(translated) and translated[idx]:
             ev["title"] = translated[idx]

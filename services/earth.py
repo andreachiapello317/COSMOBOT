@@ -144,6 +144,9 @@ EONET_CAT_IT = {
     "waterColor": "Colore delle acque",
 }
 
+# Eventi nel mondo: niente elenco di incendi. Restano in 📡 Live se li cerchi.
+EONET_WORLD_SKIP = frozenset({"wildfires"})
+
 
 def geo_item(kind: str, sid: str) -> dict[str, str] | None:
     for row in GEO_CATALOGS.get(kind, ()):
@@ -502,6 +505,27 @@ def format_nearby_events(
     return "\n".join(lines)
 
 
+def eonet_event_ids(event: dict[str, Any]) -> set[str]:
+    cats = event.get("categories") if isinstance(event.get("categories"), list) else []
+    ids: set[str] = set()
+    for cat in cats:
+        if isinstance(cat, dict) and cat.get("id"):
+            ids.add(str(cat.get("id")))
+    return ids
+
+
+def eonet_world_keep(event: dict[str, Any]) -> bool:
+    return not (eonet_event_ids(event) & EONET_WORLD_SKIP)
+
+
+def filter_eonet_world(events: list[Any] | None) -> list[dict[str, Any]]:
+    kept: list[dict[str, Any]] = []
+    for event in events or []:
+        if isinstance(event, dict) and eonet_world_keep(event):
+            kept.append(event)
+    return kept
+
+
 def format_world_events(
     *,
     quakes: dict[str, Any] | None,
@@ -509,7 +533,8 @@ def format_world_events(
 ) -> str:
     lines = [
         "🌍 <b>EVENTI NEL MONDO</b>",
-        "<i>Catastrofi e fenomeni aperti: USGS significativi + NASA EONET. Live, non un oracolo.</i>",
+        "<i>Catastrofi e fenomeni importanti: USGS significativi + NASA EONET. "
+        "Gli incendi restano nella cartella Live. Non è un oracolo.</i>",
         "",
     ]
     features = (
@@ -517,11 +542,12 @@ def format_world_events(
         if isinstance(quakes, dict) and isinstance(quakes.get("features"), list)
         else []
     )
-    events = (
+    raw_events = (
         eonet.get("events")
         if isinstance(eonet, dict) and isinstance(eonet.get("events"), list)
         else []
     )
+    events = filter_eonet_world(raw_events)
     if features:
         lines.append("⚠️ <b>Terremoti significativi</b> <i>(USGS, settimana)</i>")
         for item in features[:10]:
@@ -529,7 +555,7 @@ def format_world_events(
                 lines.append(_quake_line(item))
         lines.append("")
     if events:
-        lines.append("🌪️ <b>Fenomeni aperti</b> <i>(NASA EONET)</i>")
+        lines.append("🌪️ <b>Fenomeni aperti</b> <i>(NASA EONET, senza incendi)</i>")
         for event in events[:12]:
             if isinstance(event, dict):
                 lines.append(_eonet_line(event))

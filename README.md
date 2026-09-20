@@ -10,7 +10,7 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 
 Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/aiuto`. Qualunque altro `/comando` viene ignorato e rimanda ai pulsanti. **📚 Aiuto** sta anche sul portale.
 
-`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO** ha Te stesso, Consultazioni e Interroga il cielo. **🔭 ASTRO** è un osservatorio: Cielo, Meteo, Esplora lo spazio, In orbita. **🌿 NATURA** è la Terra: eventi live, enciclopedia (mari, oceani, vulcani, placche, ghiacciai), pietre. **🧮 CALC** è una calcolatrice a pulsanti. Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
+`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO** ha Te stesso, Consultazioni e Interroga il cielo. **🔭 ASTRO** è un osservatorio: Cielo, Meteo, Esplora lo spazio, In orbita. **🌿 NATURA** ha Flora, Fauna e Pietre. **🧮 CALC** è una calcolatrice a pulsanti. Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
 
 | Pulsante / mondo | Effetto | Fonte live |
 | --- | --- | --- |
@@ -19,13 +19,13 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🔮 ORACOLO → Interroga il cielo | Chiede la città, poi legge luna, stelle e pianeti sopra di te. Niente carte | skymap + sunrisesunset; il testo è folklore |
 | 🔭 ASTRO → Cielo | Città all'ingresso; luna, stelle, alba, tramonto, eventi. Eventi = solo osservabile da quella città | skymap.sh, Skytime |
 | 🔭 ASTRO → Meteo | Città, poi quanti o quali giorni. Se non dici nulla: oggi e domani | [Open-Meteo](https://open-meteo.com) |
-| 🔭 ASTRO → Esplora lo spazio | Enciclopedia Wikipedia: sistema solare, stelle, galassie, vita, missioni. Niente salvati né casuale | Wikipedia / Wikidata / NASA TAP |
-| 🔭 ASTRO → In orbita | ISS live, chi è in orbita, attività solare, schede satelliti | WTIA, Open Notify, Wikipedia |
+| 🔭 ASTRO → Esplora lo spazio | Enciclopedia Wikipedia: sistema solare, stelle, galassie, satelliti, sonde, missioni. Niente salvati né casuale | Wikipedia / Wikidata / NASA TAP |
+| 🔭 ASTRO → In orbita | Solo posizioni live: ISS e chi è in orbita | WTIA, Open Notify |
 | 🧮 CALC | Calcolatrice a pulsanti | calcolo locale |
-| 🌿 NATURA → Eventi qui | Città all'ingresso; solo eventi USGS/EONET vicini | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
-| 🌿 NATURA → Eventi nel mondo | Terremoti significativi e fenomeni aperti, live | USGS + NASA EONET |
-| 🌿 NATURA → Live | Cartella di feed: terremoti 24h/7g/sig, filtri EONET | USGS + NASA EONET |
-| 🌿 NATURA → Esplora la natura | Enciclopedia: terra, oceani, mari, vulcani, placche, ghiacciai. Niente animali | Wikipedia / Wikidata |
+| 🌿 NATURA → Flora → Eventi | Catastrofi e fenomeni importanti nel mondo (senza il mare di incendi) | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
+| 🌿 NATURA → Flora → Live | Cartella di feed: terremoti 24h/7g/sig, filtri EONET (incendi qui) | USGS + NASA EONET |
+| 🌿 NATURA → Flora → Esplora | Enciclopedia: terra, oceani, mari, vulcani, placche, ghiacciai | Wikipedia / Wikidata |
+| 🌿 NATURA → Fauna | Vuota, di proposito. Gli animali arrivano dopo | — |
 | 🌿 NATURA → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |
 
 Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come oroscopo.
@@ -42,7 +42,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Pietre in Consultazioni**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
-**Cielo** in ASTRO chiede la città appena entri. **Eventi** elenca solo ciò che la mappa dice osservabile da quella città; se non lo è, non lo mostra. **Esplora lo spazio** è l'enciclopedia. **In orbita** è ISS e dati live. **Meteo** chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **CALC** è la calcolatrice. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha eventi live (città o mondo), una cartella di soli feed API, l'enciclopedia della Terra e le pietre. Niente animali, per ora. Non si mescolano.
+**Cielo** in ASTRO chiede la città appena entri. **Eventi** elenca solo ciò che la mappa dice osservabile da quella città; se non lo è, non lo mostra. **Esplora lo spazio** è l'enciclopedia, anche satelliti e sonde. **In orbita** è solo posizioni live (ISS e equipaggio). **Meteo** chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **CALC** è la calcolatrice. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Non si mescolano.
 
 Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 

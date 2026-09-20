@@ -82,11 +82,28 @@ def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
 def geo_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("📍 Eventi qui", "geo:here")],
-            [kb_btn("🌍 Eventi nel mondo", "geo:world")],
+            [kb_btn("🌿 Flora", "world:flora")],
+            [kb_btn("🐾 Fauna", "world:fauna")],
+            [kb_btn("💎 Pietre", "world:pietre")],
+            nav_row(),
+        ]
+    )
+
+
+def world_flora_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌍 Eventi", "geo:world")],
             [kb_btn("📡 Live", "world:live")],
             [kb_btn("📖 Esplora la natura", "world:natura")],
-            [kb_btn("💎 Pietre", "world:pietre")],
+            nav_row(),
+        ]
+    )
+
+
+def world_fauna_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
             nav_row(),
         ]
     )
@@ -132,6 +149,7 @@ def natura_world_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔄 Aggiorna", "geo:world")],
+            [kb_btn("🌿 Flora", "world:flora")],
             nav_row(),
         ]
     )
@@ -206,7 +224,7 @@ def geo_after_keyboard(kind: str) -> InlineKeyboardMarkup:
         "ocean": ("🌊 Oceani", "world:ocean"),
         "sea": ("🌊 Mari", "world:sea"),
         "ice": ("🧊 Ghiacciai", "world:ice"),
-    }.get(kind, ("🌿 NATURA", "bot:geo"))
+    }.get(kind, ("🌿 Flora", "world:flora"))
     return InlineKeyboardMarkup([[kb_btn(back[0], back[1])], nav_row()])
 
 
@@ -421,7 +439,8 @@ def world_mondi_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔭 Cielo profondo", "home:profondo"), kb_btn("🪐 Esopianeti", "md:hub")],
             [kb_btn("⭐ Sistemi", "md:sys"), kb_btn("👽 Vita", "world:vita")],
             [kb_btn("🚀 Missioni", "world:miss"), kb_btn("📡 Sonde", "home:sonde")],
-            [kb_btn("👨‍🚀 Astronauti", "home:astronauta"), kb_btn("📚 Impara", "home:impara")],
+            [kb_btn("🛰️ Satelliti", "home:satelliti"), kb_btn("👨‍🚀 Astronauti", "home:astronauta")],
+            [kb_btn("☀️ Attività solare", "ev:solar"), kb_btn("📚 Impara", "home:impara")],
             nav_row(),
         ]
     )
@@ -431,8 +450,6 @@ def world_orbit_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🛰️ ISS adesso", "home:iss"), kb_btn("👥 Chi è in orbita", "orb:crew")],
-            [kb_btn("☀️ Attività solare", "ev:solar"), kb_btn("📡 Satelliti", "home:satelliti")],
-            [kb_btn("📡 Sonde", "home:sonde"), kb_btn("🚀 Missioni", "home:missioni")],
             nav_row(),
         ]
     )

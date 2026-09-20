@@ -18,7 +18,7 @@ def all_hub_text() -> str:
         "Quattro bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
-        "🌿 <b>NATURA</b> — eventi live, enciclopedia della Terra, pietre.\n"
+        "🌿 <b>NATURA</b> — flora, fauna, pietre.\n"
         "🧮 <b>CALC</b> — calcolatrice a pulsanti.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
@@ -45,8 +45,8 @@ def astro_hub_text() -> str:
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
         "🔭 <b>CIELO</b> — prima la città, poi luna, stelle, alba, tramonto, eventi\n"
         "🌤️ <b>METEO</b> — scegli città e giorni (se non dici nulla: oggi e domani)\n"
-        "🚀 <b>ESPLORA LO SPAZIO</b> — enciclopedia Wikipedia\n"
-        "🛰️ <b>IN ORBITA</b> — ISS, equipaggio, satelliti, attività solare\n\n"
+        "🚀 <b>ESPLORA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
+        "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
     )
 
@@ -189,7 +189,7 @@ def world_mondi_text() -> str:
         "☀️ Sistema Solare · 🌑 Lune · 🧊 Nani · ☄️ Comete · 🪨 Asteroidi\n"
         "⭐ Stelle · ✨ Costellazioni · 🌌 Galassie · 🌀 Nebulose\n"
         "🕳️ Buchi neri · 🔭 Cielo profondo · 🪐 Esopianeti · ⭐ Sistemi\n"
-        "👽 Vita · 🚀 Missioni · 📡 Sonde · 📚 Impara\n\n"
+        "👽 Vita · 🚀 Missioni · 📡 Sonde · 🛰️ Satelliti · ☀️ Sole · 📚 Impara\n\n"
         "Oceanici e abitabili, dove compaiono, sono modelli di raggio e temperatura: non oceani e non vita.",
     )
 
@@ -197,12 +197,11 @@ def world_mondi_text() -> str:
 def world_orbit_text() -> str:
     return _card(
         "🛰️ <b>IN ORBITA</b>",
-        "Posizioni e dati live. Il passaggio sopra la tua città non lo invento.",
+        "Solo posizioni live. Schede e cataloghi dei satelliti stanno in Esplora lo spazio.",
         "🛰️ ISS adesso — Where the ISS at? (NORAD 25544)\n"
-        "👥 Chi è in orbita — Open Notify\n"
-        "☀️ Attività solare — indice Kp e brillamenti\n"
-        "📡 Satelliti e sonde — schede Wikipedia\n\n"
-        "La visibilità ISS «visible / eclipsed» è geometria del satellite, non un avvistamento da una città.",
+        "👥 Chi è in orbita — Open Notify\n\n"
+        "Il passaggio sopra la tua città non lo invento. "
+        "La visibilità ISS «visible / eclipsed» è geometria del satellite, non un avvistamento da terra.",
     )
 
 
@@ -256,13 +255,29 @@ def world_vita_text() -> str:
 def geo_hub_text() -> str:
     return _card(
         "🌿 <b>NATURA</b>",
-        "Bot di BOTSQUAD per la Terra. Eventi live e voci Wikipedia. Niente animali, per ora.",
-        "📍 <b>EVENTI QUI</b> — prima la città, poi solo ciò che è vicino\n"
-        "🌍 <b>EVENTI NEL MONDO</b> — catastrofi e fenomeni aperti, live\n"
-        "📡 <b>LIVE</b> — cartella di feed USGS e NASA EONET\n"
-        "📖 <b>ESPLORA LA NATURA</b> — mari, oceani, terra, vulcani, placche, ghiacciai\n"
-        "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione\n\n"
-        "Un giorno qui ci saranno anche gli animali. Oggi solo terra, acqua, fuoco e ghiaccio.",
+        "Bot di BOTSQUAD per la Terra. Flora, fauna e pietre, allo stesso livello.",
+        "🌿 <b>FLORA</b> — eventi nel mondo, feed live, enciclopedia (mare, terra, vulcani, ghiaccio)\n"
+        "🐾 <b>FAUNA</b> — ancora vuota. Gli animali arrivano dopo.\n"
+        "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione",
+    )
+
+
+def world_flora_text() -> str:
+    return _card(
+        "🌿 <b>FLORA</b>",
+        "Terra, acqua, fuoco e ghiaccio. Niente animali: quelli stanno in Fauna, quando ci saranno.",
+        "🌍 <b>EVENTI</b> — catastrofi e fenomeni importanti nel mondo, live\n"
+        "📡 <b>LIVE</b> — cartella di soli feed USGS e NASA EONET\n"
+        "📖 <b>ESPLORA LA NATURA</b> — mari, oceani, terra, vulcani, placche, ghiacciai",
+    )
+
+
+def world_fauna_text() -> str:
+    return _card(
+        "🐾 <b>FAUNA</b>",
+        "Qui arriveranno gli animali. Per ora la stanza è vuota, di proposito.",
+        "Niente schede, niente elenchi, niente API. "
+        "Flora e Pietre sono le altre due porte di NATURA.",
     )
 
 
@@ -276,7 +291,7 @@ def world_natura_text() -> str:
         "🔥 Vulcani — schede di edifici noti, non un bollettino eruttivo\n"
         "🧭 Placche — tettonica\n"
         "🧊 Ghiacciai — calotte, criosfera, ghiacciai con voce\n\n"
-        "Apro la voce, non la riscrivo. Le pietre stanno a parte.",
+        "Apro la voce, non la riscrivo. Pietre e Fauna stanno al piano di NATURA, non qui.",
     )
 
 
