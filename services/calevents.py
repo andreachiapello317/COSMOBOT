@@ -151,13 +151,15 @@ def _nowruz(year: int) -> date:
     return season_marks(year)[0][0].date()
 
 
-def _build(year: int, specs: tuple[tuple[str, str, When], ...], kind: str) -> list[dict[str, object]]:
+def _build(year: int, specs: tuple, kind: str) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
-    for emoji, title, when in specs:
+    for spec in specs:
+        emoji, title, when, *rest = spec
+        note = str(rest[0]) if rest else ""
         day = when(year)
         if day is None:
             continue
-        rows.append(_event(day, emoji, title, kind=kind))
+        rows.append(_event(day, emoji, title, note, kind=kind))
     return sorted(rows, key=lambda row: row["date"])  # type: ignore[arg-type, return-value]
 
 
@@ -292,49 +294,80 @@ WORLD_SUB: dict[str, dict[str, Any]] = {
     "love": {
         "emoji": "💌",
         "title": "AMORI",
-        "blurb": "Date civili legate all'amore.",
+        "blurb": "Date civili sull'amore. Una riga, poi scorri.",
         "specs": (
-            ("💌", "San Valentino", _fixed(2, 14)),
-            ("🤍", "White Day", _fixed(3, 14)),
-            ("💜", "Giornata della donna", _fixed(3, 8)),
-            ("💐", "Festa della mamma (IT)", lambda y: nth_weekday(y, 5, 6, 2)),
-            ("💑", "Singles' Day", _fixed(11, 11)),
+            ("💌", "San Valentino", _fixed(2, 14), "biglietti e rose"),
+            ("💜", "Giornata della donna", _fixed(3, 8), "diritti, non solo fiori"),
+            ("🤍", "White Day", _fixed(3, 14), "risposta al Valentino, Asia"),
+            ("💐", "Festa della mamma (IT)", lambda y: nth_weekday(y, 5, 6, 2), "seconda domenica di maggio"),
+            ("👔", "Father's Day (USA)", lambda y: nth_weekday(y, 6, 6, 3), "terza domenica di giugno"),
+            ("💋", "World Kiss Day", _fixed(7, 6), "bacio come gesto civile"),
+            ("💑", "Singles' Day", _fixed(11, 11), "11.11, nata in Cina"),
         ),
     },
     "fun": {
         "emoji": "😄",
         "title": "BUFFE",
-        "blurb": "Date curiose, vere, non inventate.",
+        "blurb": "Date curiose vere. Scorri se sono tante.",
         "specs": (
-            ("🥧", "Pi Day", _fixed(3, 14)),
-            ("🃏", "Pesce d'aprile", _fixed(4, 1)),
-            ("⚔️", "Star Wars Day", _fixed(5, 4)),
-            ("🌌", "Towel Day", _fixed(5, 25)),
-            ("🎃", "Halloween", _fixed(10, 31)),
+            ("🥃", "Burns Night", _fixed(1, 25), "cene e versi scozzesi"),
+            ("🦫", "Groundhog Day", _fixed(2, 2), "la marmotta e l'inverno"),
+            ("🥧", "Pi Day", _fixed(3, 14), "3,14: giorno del π"),
+            ("☘️", "San Patrizio", _fixed(3, 17), "verde e Irlanda"),
+            ("🃏", "Pesce d'aprile", _fixed(4, 1), "scherzi, data civile"),
+            ("⚔️", "Star Wars Day", _fixed(5, 4), "May the Fourth"),
+            ("🌌", "Towel Day", _fixed(5, 25), "omaggio a Douglas Adams"),
+            ("😀", "World Emoji Day", _fixed(7, 17), "la faccina è di oggi"),
+            ("🏴‍☠️", "Talk Like a Pirate", _fixed(9, 19), "giornata pirata, 2002"),
+            ("🎃", "Halloween", _fixed(10, 31), "vigilia di Ognissanti"),
+            ("🔥", "Guy Fawkes Night", _fixed(11, 5), "fuochi in Inghilterra"),
+            ("🪑", "Festivus", _fixed(12, 23), "asta e lamentele, Seinfeld"),
         ),
     },
     "civil": {
         "emoji": "🕊️",
         "title": "CIVILI",
-        "blurb": "Giornate internazionali e civili.",
+        "blurb": "Giornate ONU e civili. Scorri.",
         "specs": (
-            ("🎆", "Capodanno civile", _fixed(1, 1)),
-            ("🌍", "Giornata della Terra", _fixed(4, 22)),
-            ("🛠️", "Primo maggio", _fixed(5, 1)),
-            ("🕊️", "Giornata delle Nazioni Unite", _fixed(10, 24)),
-            ("🥂", "San Silvestro", _fixed(12, 31)),
+            ("🎆", "Capodanno civile", _fixed(1, 1), "1º gennaio, calendario gregoriano"),
+            ("🕯️", "Giorno della Memoria", _fixed(1, 27), "liberazione di Auschwitz"),
+            ("📝", "Giornata della poesia", _fixed(3, 21), "UNESCO, versi nel mondo"),
+            ("🩺", "Giornata della salute", _fixed(4, 7), "OMS, 1948"),
+            ("🌍", "Giornata della Terra", _fixed(4, 22), "ambiente, dal 1970"),
+            ("🛠️", "Primo maggio", _fixed(5, 1), "lavoro e diritti"),
+            ("📰", "Libertà di stampa", _fixed(5, 3), "UNESCO"),
+            ("🌿", "Giornata dell'ambiente", _fixed(6, 5), "UNEP"),
+            ("🧳", "Giornata dei rifugiati", _fixed(6, 20), "UNHCR"),
+            ("✌️", "Giornata della pace", _fixed(9, 21), "ONU"),
+            ("🍲", "Giornata dell'alimentazione", _fixed(10, 16), "FAO"),
+            ("🕊️", "Giornata delle Nazioni Unite", _fixed(10, 24), "carta ONU, 1945"),
+            ("🧒", "Giornata dei bambini", _fixed(11, 20), "diritti dell'infanzia"),
+            ("⚖️", "Giornata dei diritti umani", _fixed(12, 10), "Dichiarazione 1948"),
+            ("🥂", "San Silvestro", _fixed(12, 31), "vigilia del 1º gennaio"),
         ),
     },
     "culture": {
         "emoji": "🧧",
         "title": "CULTURE",
-        "blurb": "Feste culturali con data nota.",
+        "blurb": "Feste culturali con data nota. Scorri.",
         "specs": (
-            ("🧧", "Capodanno cinese", _cny),
-            ("🌱", "Nowruz", _nowruz),
-            ("💀", "Día de Muertos", _fixed(11, 1)),
-            ("🦃", "Thanksgiving USA", lambda y: nth_weekday(y, 11, 3, 4)),
-            ("🎄", "Natale ortodosso", _fixed(1, 7)),
+            ("🎄", "Natale ortodosso", _fixed(1, 7), "25 dicembre giuliano"),
+            ("🇳🇿", "Waitangi Day", _fixed(2, 6), "trattato, Nuova Zelanda"),
+            ("🧧", "Capodanno cinese", _cny, "luna, tavola 2015–2040"),
+            ("🎭", "Martedì grasso", _from_easter(-47), "carnevale, prima delle Ceneri"),
+            ("🌱", "Nowruz", _nowruz, "capodanno persiano, equinozio"),
+            ("🇹🇭", "Songkran", _fixed(4, 13), "capodanno thai, acqua"),
+            ("🇲🇽", "Cinco de Mayo", _fixed(5, 5), "Puebla 1862, non l'indipendenza"),
+            ("🇨🇦", "Canada Day", _fixed(7, 1), "confederazione 1867"),
+            ("🐂", "San Fermín", _fixed(7, 7), "inizio a Pamplona"),
+            ("🇸🇪", "San Giovanni", _fixed(6, 24), "mezzestate nordica"),
+            ("🇲🇽", "Indipendenza del Messico", _fixed(9, 16), "Grito de Dolores"),
+            ("🍅", "La Tomatina", lambda y: last_weekday(y, 8, 2), "ultimo mercoledì d'agosto"),
+            ("💀", "Día de Muertos", _fixed(11, 1), "Messico, 1–2 novembre"),
+            ("🦃", "Thanksgiving USA", lambda y: nth_weekday(y, 11, 3, 4), "quarto giovedì di novembre"),
+            ("🕯️", "Santa Lucia", _fixed(12, 13), "luci in Svezia e Sicilia"),
+            ("🎁", "Boxing Day", _fixed(12, 26), "Commonwealth, il giorno dopo"),
+            ("🕯️", "Kwanzaa", _fixed(12, 26), "inizia il 26, fino al 1º"),
         ),
     },
 }
@@ -520,9 +553,11 @@ def format_events_card(view: str, year: int, today: date, page: int = 0) -> tupl
         for row in chunk:
             day = row["date"]
             assert isinstance(day, date)
+            note = str(row.get("note") or "").strip()
+            bit = f"\n<i>{_html.escape(note)}</i>" if note else ""
             lines.append(
                 f"{row['emoji']} <b>{_html.escape(str(row['title']))}</b> · "
-                f"{_fmt_short(day)} · <i>{_ago(day, today)}</i>"
+                f"{_fmt_short(day)} · <i>{_ago(day, today)}</i>{bit}"
             )
     if pages > 1:
         lines.append(f"\n<i>Pagina {page + 1}/{pages}</i>")
