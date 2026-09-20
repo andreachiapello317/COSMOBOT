@@ -422,6 +422,18 @@ def watch_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardM
     return InlineKeyboardMarkup(rows)
 
 
+def watch_sky_pick_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌌 Emoji", "watch:now:emoji")],
+            [kb_btn("🗺️ Professionale", "watch:now:pro")],
+            [kb_btn("📜 Elenco oggetti", "watch:now:list")],
+            [kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")],
+            nav_row(),
+        ]
+    )
+
+
 def watch_sky_keyboard(style: str) -> InlineKeyboardMarkup:
     from services.skychart import sky_style_label
 
@@ -432,7 +444,30 @@ def watch_sky_keyboard(style: str) -> InlineKeyboardMarkup:
                 kb_btn(sky_style_label(style), f"watch:now:{style}"),
                 kb_btn("▶", "watch:now:next"),
             ],
-            [kb_btn("🔄 Rigenera", f"watch:now:{style}")],
+            [kb_btn("🌌 Emoji", "watch:now:emoji"), kb_btn("📜 Elenco", "watch:now:list")],
+            [kb_btn("🔄 Rigenera", f"watch:now:{style}"), kb_btn("🔭 Modo", "watch:now:pick")],
+            [kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")],
+            nav_row(),
+        ]
+    )
+
+
+def watch_sky_emoji_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🗺️ Professionale", "watch:now:pro"), kb_btn("📜 Elenco", "watch:now:list")],
+            [kb_btn("🔄 Rigenera", "watch:now:emoji"), kb_btn("🔭 Modo", "watch:now:pick")],
+            [kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")],
+            nav_row(),
+        ]
+    )
+
+
+def watch_sky_list_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌌 Emoji", "watch:now:emoji"), kb_btn("🗺️ Professionale", "watch:now:pro")],
+            [kb_btn("🔄 Rigenera", "watch:now:list"), kb_btn("🔭 Modo", "watch:now:pick")],
             [kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]

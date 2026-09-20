@@ -167,6 +167,8 @@ from services.skychart import (
     draw_figure_chart,
     draw_sky_chart,
     format_cielo_terra,
+    format_emoji_planetarium,
+    format_sky_listing,
     format_sun_moon_earth,
     sky_style_label,
 )
@@ -304,7 +306,10 @@ from ui.keyboards import (
     watch_bodies_keyboard,
     watch_next_keyboard,
     watch_result_keyboard,
+    watch_sky_emoji_keyboard,
     watch_sky_keyboard,
+    watch_sky_list_keyboard,
+    watch_sky_pick_keyboard,
     world_watch_keyboard,
     oracoli_keyboard,
     oracoli_mazzi_keyboard,
@@ -410,6 +415,7 @@ from ui.texts import (
     compat_hub_text,
     world_sky_text,
     world_watch_text,
+    watch_sky_pick_text,
     world_vita_text,
     world_pietre_text,
     pietre_hub_text,
@@ -2353,7 +2359,7 @@ def help_text() -> str:
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città, default Cuneo, niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (luna, sole, terra e schema a emoji), Meteo, Osservatorio "
-        "(cielo di adesso in più modi, stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
+        "(cielo di adesso: emoji, PNG o elenco; stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
@@ -7522,17 +7528,50 @@ async def send_sky_now(
 ) -> None:
     _ensure_cielo_place(context)
     name, lat, lon = _cielo_place(context)
-    chosen = _sky_style(context, style)
+    asked = style or "pick"
+    if asked in {"pick", ""}:
+        await reply_html(
+            update,
+            context,
+            watch_sky_pick_text(name),
+            reply_markup=watch_sky_pick_keyboard(),
+        )
+        return
+    if asked == "emoji":
+        await send_typing(update)
+        tz, now = await _watch_clock(context, lat, lon)
+        try:
+            body = format_emoji_planetarium(place=name, lat=lat, lon=lon, when=now)
+        except Exception:
+            logger.exception("Planetario emoji non generato")
+            await reply_offline(update, context)
+            return
+        await reply_html(update, context, body, reply_markup=watch_sky_emoji_keyboard())
+        return
+    if asked == "list":
+        await send_typing(update)
+        tz, now = await _watch_clock(context, lat, lon)
+        try:
+            body = format_sky_listing(place=name, lat=lat, lon=lon, when=now)
+        except Exception:
+            logger.exception("Elenco cielo non generato")
+            await reply_offline(update, context)
+            return
+        await reply_html(update, context, body, reply_markup=watch_sky_list_keyboard())
+        return
+    if asked == "pro":
+        asked = None
+    chosen = _sky_style(context, asked)
     await send_typing(update)
     tz, now = await _watch_clock(context, lat, lon)
     label = sky_style_label(chosen)
     idx = SKY_STYLES.index(chosen) + 1
     head = (
-        f"🔭 <b>CIELO DI ADESSO — {e(name.upper())}</b>\n"
-        f"{e(format_day_it(now))} · {now.strftime('%H:%M')} · modo {idx}/{len(SKY_STYLES)} · {e(label)}"
+        f"🗺️ <b>CARTA PROFESSIONALE — {e(name.upper())}</b>\n"
+        f"{e(format_day_it(now))} · {now.strftime('%H:%M')} · {idx}/{len(SKY_STYLES)} · {e(label)}"
     )
     markup = watch_sky_keyboard(chosen)
-    await deliver_text(update, context, f"🔭 Disegno il cielo sopra {name} ({label})…")
+    await deliver_text(update, context, f"🗺️ Disegno la carta sopra {name} ({label})…")
     try:
         if chosen == "figures":
             png = draw_figure_chart(place=name, lat=lat, lon=lon, when=now)
@@ -7546,7 +7585,8 @@ async def send_sky_now(
         return
     caption = (
         f"{head}\n"
-        "Stelle Hipparcos; Sole, Luna e pianeti da Astronomy Engine. Scorri i modi con ◀ ▶."
+        "Stelle Hipparcos; Sole, Luna e pianeti da Astronomy Engine. "
+        "Scorri classica, figure e atlante."
     )
     ok = await deliver_photo_bytes(
         update,

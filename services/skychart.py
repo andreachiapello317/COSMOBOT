@@ -197,6 +197,290 @@ def sky_style_label(style: str) -> str:
     return SKY_STYLE_LABELS.get(style, "Classica")
 
 
+EMOJI_PLANETS = (
+    (astronomy.Body.Mercury, "Mercurio", "☿"),
+    (astronomy.Body.Venus, "Venere", "♀"),
+    (astronomy.Body.Mars, "Marte", "♂"),
+    (astronomy.Body.Jupiter, "Giove", "♃"),
+    (astronomy.Body.Saturn, "Saturno", "🪐"),
+    (astronomy.Body.Uranus, "Urano", "♅"),
+    (astronomy.Body.Neptune, "Nettuno", "♆"),
+)
+_ZODIAC_MARK = {
+    "Ari": "♈",
+    "Tau": "♉",
+    "Gem": "♊",
+    "Cnc": "♋",
+    "Leo": "♌",
+    "Vir": "♍",
+    "Lib": "♎",
+    "Sco": "♏",
+    "Sgr": "♐",
+    "Cap": "♑",
+    "Aqr": "♒",
+    "Psc": "♓",
+}
+_STAR_PRI = {" ": 0, "·": 1, "─": 2, "│": 2, "╱": 2, "╲": 2, "✦": 3, "⭐": 4, "✨": 5}
+
+
+def _grid_cell(alt: float, az: float, cols: int, rows: int) -> tuple[int, int] | None:
+    if alt <= 0:
+        return None
+    radius = min(cols, rows) / 2.0 - 0.7
+    r = ((90.0 - alt) / 90.0) * radius
+    theta = math.radians(az)
+    x = (cols - 1) / 2.0 + r * math.sin(theta)
+    y = (rows - 1) / 2.0 - r * math.cos(theta)
+    ix, iy = int(round(x)), int(round(y))
+    if 0 <= ix < cols and 0 <= iy < rows:
+        return ix, iy
+    return None
+
+
+def _bresenham(x0: int, y0: int, x1: int, y1: int) -> list[tuple[int, int]]:
+    cells: list[tuple[int, int]] = []
+    dx, dy = abs(x1 - x0), -abs(y1 - y0)
+    sx, sy = (1 if x0 < x1 else -1), (1 if y0 < y1 else -1)
+    err = dx + dy
+    x, y = x0, y0
+    while True:
+        cells.append((x, y))
+        if x == x1 and y == y1:
+            break
+        e2 = 2 * err
+        if e2 >= dy:
+            err += dy
+            x += sx
+        if e2 <= dx:
+            err += dx
+            y += sy
+    return cells
+
+
+def _line_glyph(x0: int, y0: int, x1: int, y1: int) -> str:
+    dx, dy = x1 - x0, y1 - y0
+    if abs(dx) >= 2 * max(1, abs(dy)):
+        return "─"
+    if abs(dy) >= 2 * max(1, abs(dx)):
+        return "│"
+    if dx * dy > 0:
+        return "╲"
+    return "╱"
+
+
+def _put(grid: list[list[str]], x: int, y: int, glyph: str, *, force: bool = False) -> None:
+    if not (0 <= y < len(grid) and 0 <= x < len(grid[0])):
+        return
+    current = grid[y][x]
+    if force or _STAR_PRI.get(glyph, 9) >= _STAR_PRI.get(current, 0):
+        if current in {"☀️", "🌙", "🪐", "☿", "♀", "♂", "♃", "♄", "♅", "♆"} and not force:
+            return
+        if current in {"✨", "⭐"} and glyph in {"✦", "·", "─", "│", "╱", "╲"}:
+            return
+        grid[y][x] = glyph
+
+
+def _visible_bodies(frame: SkyFrame) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    sun_alt, sun_az, _ra, _dec = frame.body_altaz(astronomy.Body.Sun)
+    rows.append({"kind": "sun", "name": "Sole", "glyph": "☀️", "alt": sun_alt, "az": sun_az, "mag": -26.7})
+    moon = moon_now(frame.when)
+    moon_alt, moon_az, _ra, _dec = frame.body_altaz(astronomy.Body.Moon)
+    rows.append(
+        {
+            "kind": "moon",
+            "name": str(moon.get("name") or "Luna"),
+            "glyph": str(moon.get("emoji") or "🌙"),
+            "alt": moon_alt,
+            "az": moon_az,
+            "mag": None,
+            "illum": moon.get("illum"),
+        }
+    )
+    for body, name, glyph in EMOJI_PLANETS:
+        alt, az, _ra, _dec = frame.body_altaz(body)
+        rows.append({"kind": "planet", "name": name, "glyph": glyph, "alt": alt, "az": az, "mag": None})
+    return rows
+
+
+def format_emoji_planetarium(
+    *,
+    place: str,
+    lat: float,
+    lon: float,
+    when: datetime,
+) -> str:
+    """Planetario testuale: pochi oggetti, linee, nomi. Non una griglia piena."""
+    place = _html.escape(place)
+    frame = SkyFrame(lat, lon, when)
+    cols, rows = 25, 14
+    grid = [[" " for _ in range(cols)] for _ in range(rows)]
+    catalog = visible_stars(frame)
+    stars = [star for star in catalog if float(star["mag"]) <= 3.4][:22]
+    faint = [star for star in catalog if 3.4 < float(star["mag"]) <= 3.9][:18]
+    figures = constellation_segments(frame)
+    bodies = [row for row in _visible_bodies(frame) if row["alt"] > 0]
+
+    for fig in figures[:10]:
+        for seg in fig["segs"]:
+            cells: list[tuple[int, int]] = []
+            for alt, az in seg:
+                pos = _grid_cell(alt, az, cols, rows)
+                if pos:
+                    cells.append(pos)
+            for (x0, y0), (x1, y1) in zip(cells, cells[1:]):
+                path = _bresenham(x0, y0, x1, y1)
+                if 2 <= len(path) <= 6:
+                    mark = _line_glyph(x0, y0, x1, y1)
+                    for x, y in path[1:-1]:
+                        _put(grid, x, y, mark)
+
+    for star in reversed(stars):
+        pos = _grid_cell(star["alt"], star["az"], cols, rows)
+        if not pos:
+            continue
+        mag = float(star["mag"])
+        glyph = "✨" if mag <= 0.4 else "⭐" if mag <= 1.5 else "✦" if mag <= 2.6 else "·"
+        _put(grid, pos[0], pos[1], glyph)
+    for star in faint:
+        pos = _grid_cell(star["alt"], star["az"], cols, rows)
+        if pos and grid[pos[1]][pos[0]] == " ":
+            grid[pos[1]][pos[0]] = "·"
+
+    for body in bodies:
+        pos = _grid_cell(body["alt"], body["az"], cols, rows)
+        if pos:
+            _put(grid, pos[0], pos[1], str(body["glyph"]), force=True)
+
+    named: list[str] = []
+    free = {" ", "·", "─", "│", "╱", "╲"}
+
+    def _can_write(x: int, y: int, label: str) -> bool:
+        if y < 0 or y >= rows or x < 0 or x + len(label) > cols:
+            return False
+        return all(grid[y][x + i] in free for i in range(len(label)))
+
+    for fig in figures:
+        if fig["alt"] < 28 or len(named) >= 5:
+            continue
+        vis = [p for seg in fig["segs"] for p in seg if p[0] > 12]
+        if len(vis) < 3:
+            continue
+        mid_alt = sum(p[0] for p in vis) / len(vis)
+        mid_az = sum(p[1] for p in vis) / len(vis)
+        pos = _grid_cell(mid_alt, mid_az, cols, rows)
+        if not pos:
+            named.append(fig["name"])
+            continue
+        mark = _ZODIAC_MARK.get(str(fig.get("id") or ""), "")
+        label = f"{mark}{fig['name']}".upper()
+        x, y = pos
+        slot = None
+        for dy, dx in ((0, 0), (-1, 0), (1, 0), (0, -2), (0, 2), (-1, -2)):
+            nx, ny = x + dx, y + dy
+            if nx + len(label) > cols:
+                nx = max(0, cols - len(label))
+            if _can_write(nx, ny, label):
+                slot = (nx, ny)
+                break
+        if slot:
+            nx, ny = slot
+            for i, ch in enumerate(label):
+                grid[ny][nx + i] = ch
+        named.append(fig["name"])
+
+    zenith = _grid_cell(89.5, 0, cols, rows)
+    if zenith and grid[zenith[1]][zenith[0]] == " ":
+        grid[zenith[1]][zenith[0]] = "+"
+
+    lines = ["".join(row).rstrip() for row in grid]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    compass = ["     ─────────", "        N", "     O  +  E", "        S"]
+    on_map = "   ".join(f"{row['glyph']} {row['name']}" for row in bodies)
+    above = " · ".join(named[:6])
+    return "\n".join(
+        [
+            f"🌌 <b>CIELO DI ADESSO</b>",
+            f"📍 {place} · {when.strftime('%d/%m %H:%M')}",
+            "",
+            "<pre>" + "\n".join(lines + [""] + compass) + "</pre>",
+            "",
+            on_map or "Nessun pianeta sopra l'orizzonte.",
+            f"Figure: {above}" if above else "",
+            "",
+            "✨ più luminosa · ⭐ · ✦ · · più debole",
+            "<i>N in alto. Hipparcos + Astronomy Engine. Planetario in chat, non la PNG.</i>",
+        ]
+    ).replace("\n\n\n", "\n\n")
+
+
+def format_sky_listing(
+    *,
+    place: str,
+    lat: float,
+    lon: float,
+    when: datetime,
+) -> str:
+    """Elenco numerico degli oggetti sopra l'orizzonte."""
+    place = _html.escape(place)
+    frame = SkyFrame(lat, lon, when)
+    stars = visible_stars(frame, limit=12)
+    figures = [fig["name"] for fig in constellation_segments(frame) if fig["alt"] > 20][:8]
+    lines = [
+        f"📜 <b>OGGETTI SOPRA — {place.upper()}</b>",
+        f"{when.strftime('%d/%m/%Y %H:%M')}",
+        "",
+        "☀️ <b>SOLE, LUNA, PIANETI</b>",
+    ]
+    bodies = _visible_bodies(frame)
+    bodies.sort(key=lambda row: row["alt"], reverse=True)
+    any_up = False
+    for row in bodies:
+        if row["alt"] <= 0:
+            continue
+        any_up = True
+        extra = ""
+        if isinstance(row.get("illum"), (int, float)):
+            extra = f" · ill. {row['illum']:.0f}%"
+        lines.append(
+            f"{row['glyph']} {row['name']}  alt {row['alt']:.0f}° · az {row['az']:.0f}°{extra}"
+        )
+    if not any_up:
+        lines.append("<i>Sole, Luna e pianeti sono tutti sotto l'orizzonte.</i>")
+    lines.extend(["", "⭐ <b>STELLE PIÙ LUMINOSE</b>"])
+    if stars:
+        for star in stars:
+            label = _html.escape(str(star["name"] or f"mag {star['mag']:.1f}"))
+            lines.append(
+                f"⭐ {label}  mag {star['mag']:.1f} · alt {star['alt']:.0f}° · az {star['az']:.0f}°"
+            )
+    else:
+        lines.append("<i>Nessuna stella del catalogo è sopra.</i>")
+    if figures:
+        lines.extend(["", "✨ <b>FIGURE ALTE</b>", " · ".join(_html.escape(n) for n in figures)])
+    lines.extend(
+        [
+            "",
+            "<i>Altezza e azimut da Astronomy Engine. Stelle Hipparcos mag ≤ 5.2. "
+            "Non è Horizons.</i>",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def format_emoji_sky(
+    *,
+    place: str,
+    lat: float,
+    lon: float,
+    when: datetime,
+) -> str:
+    return format_emoji_planetarium(place=place, lat=lat, lon=lon, when=when)
+
+
 def _wrap_ra(ra_deg: float, center: float) -> float:
     return ((float(ra_deg) - float(center) + 540.0) % 360.0) - 180.0
 
@@ -572,13 +856,3 @@ def format_sun_moon_earth(
             "Fase e altezze da Astronomy Engine. Solo emoji di Telegram.</i>",
         ]
     )
-
-
-def format_emoji_sky(
-    *,
-    place: str,
-    lat: float,
-    lon: float,
-    when: datetime,
-) -> str:
-    return format_sun_moon_earth(place=place, lat=lat, lon=lon, when=when)
