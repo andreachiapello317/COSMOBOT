@@ -53,8 +53,8 @@ def home_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔮 Te stesso", "world:self"), kb_btn("🔮 Oracoli", "world:div")],
             [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🪐 Mondi", "world:mondi")],
             [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
-            [kb_btn("💎 Pietre", "world:pietre"), kb_btn("✨ COSMICO", "home:cosmico")],
-            [kb_btn("🎲 Casuale", "home:random"), kb_btn("🧭 Esplora", "home:esplora")],
+            [kb_btn("💎 Pietre", "world:pietre")],
+            [kb_btn("✨ COSMICO", "home:cosmico"), kb_btn("🎲 Casuale", "home:random")],
         ]
     )
 
@@ -126,12 +126,21 @@ def oracoli_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🃏 Tarocchi", "tarot:menu"), kb_btn("☯️ I Ching", "iching:open")],
             [kb_btn("🪶 Rune", "home:rune"), kb_btn("🌿 Lenormand", "home:sibille")],
+            [kb_btn("🧿 Mazzi COSMOBOT", "ora:mazzi"), kb_btn("🪞 Sì / No", "ora:yes")],
+            [kb_btn("📖 Lettura", "home:lettura"), kb_btn("💎 Pietre", "pt:ora")],
+            [kb_btn("🎲 Sorprendimi", "ora:surprise")],
+            nav_row(),
+        ]
+    )
+
+
+def oracoli_mazzi_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
             [kb_btn("🧿 Archetipi", "ora:arch"), kb_btn("🐺 Animali", "ora:anim")],
             [kb_btn("🗝️ Simboli", "ora:symb"), kb_btn("🌿 Elementi", "ora:elem")],
             [kb_btn("🌙 Luna", "ora:lunar"), kb_btn("🪐 Pianeti", "ora:plan")],
-            [kb_btn("🪞 Sì / No", "ora:yes"), kb_btn("🕯️ Domande", "ora:askq")],
-            [kb_btn("📖 Lettura", "home:lettura"), kb_btn("💎 Pietre", "pt:ora")],
-            [kb_btn("🎲 Sorprendimi", "ora:surprise")],
+            [kb_btn("🕯️ Una domanda", "ora:askq")],
             nav_row(),
         ]
     )
@@ -143,10 +152,18 @@ def world_sky_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔭 Cielo adesso", "home:cielo"), kb_btn("📍 Città", "cielo:pick")],
             [kb_btn("🌙 Luna", "home:luna"), kb_btn("🪐 Pianeti", "home:pianeti")],
             [kb_btn("⭐ Stelle", "home:stelle"), kb_btn("✨ Costellazioni", "home:costellazioni")],
-            [kb_btn("🌠 Eventi", "home:eventi"), kb_btn("🛰️ Oggetti", "home:profondo")],
-            [kb_btn("🧊 Nani", "home:nani"), kb_btn("☄️ Comete", "home:comete")],
+            [kb_btn("🌠 Eventi", "home:eventi"), kb_btn("📚 Cataloghi", "cielo:cat")],
             [kb_btn("🌅 Alba", "home:sole"), kb_btn("🛰️ ISS", "home:iss")],
-            [kb_btn("☄️ Pietre dallo spazio", "pt:cosmo")],
+            nav_row(),
+        ]
+    )
+
+
+def sky_catalog_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🛰️ Profondo", "home:profondo"), kb_btn("🧊 Nani", "home:nani")],
+            [kb_btn("☄️ Comete", "home:comete"), kb_btn("☄️ Pietre dallo spazio", "pt:cosmo")],
             nav_row(),
         ]
     )
@@ -158,10 +175,8 @@ def world_mondi_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌍 Esplora mondi", "md:hub"), kb_btn("🌌 COSMO", "md:cosmo")],
             [kb_btn("☀️ Sistema Solare", "home:sistema"), kb_btn("⭐ Sistemi stellari", "md:sys")],
             [kb_btn("🪐 Pianeta", "home:pianeta"), kb_btn("🌑 Lune", "home:lune")],
-            [kb_btn("🧊 Nani", "home:nani"), kb_btn("☄️ Comete", "home:comete")],
-            [kb_btn("🪨 Asteroidi", "home:asteroidi"), kb_btn("🚀 Chi è andato lì", "md:miss")],
-            [kb_btn("🎲 Mondo casuale", "md:rand"), kb_btn("📌 Salvati", "md:fav")],
-            [kb_btn("🕳️ Buchi neri", "home:buchineri"), kb_btn("🌌 Galassie", "home:galassia")],
+            [kb_btn("🪨 Asteroidi", "home:asteroidi"), kb_btn("📌 Salvati", "md:fav")],
+            [kb_btn("🎲 Mondo casuale", "md:rand")],
             nav_row(),
         ]
     )
@@ -182,9 +197,8 @@ def world_miss_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🚀 Missioni", "home:missioni"), kb_btn("📡 Sonde", "home:sonde")],
-            [kb_btn("🚀 Chi è andato lì", "md:miss")],
             [kb_btn("👨‍🚀 Astronauti", "home:astronauta"), kb_btn("🎓 Impara", "home:impara")],
-            [kb_btn("🧩 Quiz", "home:quiz"), kb_btn("🏆 Missione", "home:missione")],
+            [kb_btn("🧩 Quiz", "home:quiz"), kb_btn("🏆 Del giorno", "home:missione")],
             nav_row(),
         ]
     )
@@ -676,8 +690,7 @@ def pietre_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔮 Del giorno", "pt:day"), kb_btn("🎲 Casuale", "pt:rand")],
             [kb_btn("🔍 Cerca", "pt:find"), kb_btn("🧭 Esplora", "pt:exp")],
             [kb_btn("🔬 Laboratorio", "pt:lab"), kb_btn("✨ Oracolo", "pt:ora")],
-            [kb_btn("🎒 Collezione", "pt:bag"), kb_btn("🏛️ Museo", "pt:mus")],
-            [kb_btn("⚖️ Confronta", "pt:cmp"), kb_btn("🧠 Giochi", "pt:game")],
+            [kb_btn("🎒 Collezione", "pt:bag"), kb_btn("🧠 Giochi", "pt:game")],
             nav_row(),
         ]
     )
@@ -695,9 +708,7 @@ def pietre_after_keyboard(sid: str) -> InlineKeyboardMarkup:
         [
             [kb_btn("🔬 Scienza", f"pt:sc:{sid}"), kb_btn("🌋 Geologia", f"pt:sg:{sid}")],
             [kb_btn("🏺 Storia", f"pt:sh:{sid}"), kb_btn("✨ Simbolismo", f"pt:ss:{sid}")],
-            [kb_btn("⛏️ Formazione", f"pt:sf:{sid}"), kb_btn("🌍 Dove", f"pt:sw:{sid}")],
-            [kb_btn("💰 Valore", f"pt:sv:{sid}"), kb_btn("⚖️ Confronta", f"pt:c1:{sid}")],
-            [kb_btn("🎲 Un'altra", "pt:rand"), kb_btn("🎒 Collezione", "pt:bag")],
+            [kb_btn("⚖️ Confronta", f"pt:c1:{sid}"), kb_btn("🎲 Un'altra", "pt:rand")],
             nav_row(),
         ]
     )
@@ -737,10 +748,7 @@ def pietre_explore_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("💎 Gemme", "pt:k:gem"), kb_btn("🔮 Cristalli", "pt:k:cry")],
             [kb_btn("🪨 Minerali", "pt:k:min"), kb_btn("🌋 Rocce", "pt:k:rok")],
             [kb_btn("☄️ Spazio", "pt:k:spc"), kb_btn("🌈 Colore", "pt:cols")],
-            [kb_btn("🧭 Ambienti", "pt:envs"), kb_btn("🏆 Rarità", "pt:rars")],
-            [kb_btn("🌍 Dove", "pt:maps"), kb_btn("⛏️ Formazione", "pt:forms")],
-            [kb_btn("💰 Valore", "pt:val"), kb_btn("🏺 Storia e mito", "pt:myth")],
-            [kb_btn("📖 Enciclopedia", "pt:enc")],
+            [kb_btn("🧭 Ambienti", "pt:envs"), kb_btn("🏛️ Museo", "pt:mus")],
             nav_row(),
         ]
     )
@@ -775,11 +783,8 @@ def pietre_oracle_keyboard() -> InlineKeyboardMarkup:
 def pietre_games_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🧠 Indovina la pietra", "pt:g:guess"), kb_btn("🪨 Vero o falso", "pt:g:tf")],
+            [kb_btn("🧠 Indovina", "pt:g:guess"), kb_btn("🪨 Vero o falso", "pt:g:tf")],
             [kb_btn("⚡ Quiz rapido", "pt:g:quiz")],
-            [kb_btn("🌈 Dal colore", "pt:g:color"), kb_btn("🧪 Dalla formula", "pt:g:formula")],
-            [kb_btn("🌋 Dall'origine", "pt:g:origin"), kb_btn("🏺 Dalla storia", "pt:g:history")],
-            [kb_btn("🔬 Dalla durezza", "pt:g:mohs")],
             nav_row(),
         ]
     )

@@ -620,12 +620,11 @@ async def _stone_refs(client: httpx.AsyncClient, stone: dict[str, Any]) -> list[
         if url and url not in urls:
             urls.append(url)
     english = _english_name(stone)
-    for query in (f"{english} mineral", f"{english} crystal"):
-        for url in await _commons_thumbs(client, query, 2):
-            if url not in urls:
-                urls.append(url)
+    for url in await _commons_thumbs(client, f"{english} mineral", 1):
+        if url not in urls:
+            urls.append(url)
     refs: list[dict[str, Any]] = []
-    for url in urls[:4]:
+    for url in urls[:2]:
         raw = await _download_image(client, url)
         sig, color = _bytes_sig_color(raw)
         if not sig:

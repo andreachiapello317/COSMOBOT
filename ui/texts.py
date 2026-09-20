@@ -12,8 +12,8 @@ def home_text() -> str:
         "👽 <b>VITA</b> — esopianeti, zona abitabile, SETI\n"
         "🚀 <b>MISSIONI</b> — sonde, quiz, missione del giorno\n"
         "💎 <b>PIETRE</b> — minerali, gemme, laboratorio, collezione\n\n"
-        "✨ <b>COSMICO</b> prende un pezzo da ogni mondo.\n"
-        "🎲 <b>CASUALE</b> pesca nel sacco: carta, cielo o sonda."
+        "✨ <b>COSMICO</b> — un pezzo da ogni mondo.\n"
+        "🎲 <b>CASUALE</b> — carta, cielo o sonda."
     )
 
 
@@ -49,15 +49,10 @@ def lettura_text() -> str:
 def oracoli_text() -> str:
     return (
         "🔮 <b>ORACOLI</b>\n\n"
-        "Scegli il tuo strumento.\n\n"
-        "<b>Tradizionali</b>\n"
-        "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n\n"
-        "<b>COSMOBOT</b>\n"
-        "🧿 Archetipi · 🐺 Animali · 🗝️ Simboli\n"
-        "🌿 Elementi · 🪐 Pianeti · 🌙 Luna\n\n"
-        "🪞 Sì/No · 🕯️ Domanda · 📖 Lettura\n"
-        "💎 Pietre — estrazione simbolica, non mineralogia\n"
-        "🎲 Sorprendimi — pesco io quale oracolo usare."
+        "Scegli lo strumento. I mazzi COSMOBOT stanno in un menu a parte.\n\n"
+        "🃏 Tarocchi · ☯️ I Ching · 🪶 Rune · 🌿 Lenormand\n"
+        "🧿 Mazzi · 🪞 Sì/No · 📖 Lettura · 💎 Pietre\n"
+        "🎲 Sorprendimi — pesco io il metodo."
     )
 
 
@@ -106,12 +101,10 @@ def world_sky_text() -> str:
     return (
         "🔭 <b>CIELO</b>\n\n"
         "Astronomia reale. Gli oracoli stanno nell'altro mondo.\n\n"
-        "🔭 <b>Adesso</b> — mappa testuale, visibile / sotto l'orizzonte\n"
-        "🌍 Sistema — pianeti, nani, lune, comete, asteroidi, sciami\n"
-        "⭐ Stelle e costellazioni — schede Wikipedia + cielo live\n"
-        "🌠 Eventi — eclissi, sciami, attività solare, perigeo/apogeo\n"
-        "🛰️ Profondo — Messier, nebulose, quasar, esopianeti\n\n"
-        "I numeri arrivano dalla mappa del cielo, da Skytime, Wikidata e NASA. "
+        "🔭 Adesso · 🌙 Luna · 🪐 Pianeti · ⭐ Stelle\n"
+        "🌠 Eventi · 📚 Cataloghi (nani, comete, profondo)\n"
+        "🌅 Alba · 🛰️ ISS\n\n"
+        "Numeri da mappa del cielo, Skytime, Wikidata e NASA. "
         "Niente visibilità inventata."
     )
 
@@ -120,14 +113,9 @@ def world_mondi_text() -> str:
     return (
         "🪐 <b>MONDI</b>\n\n"
         "Un esploratore, non un oracolo.\n\n"
-        "🌍 <b>Esplora mondi</b> — filtri NASA: terrestri, oceanici (modello),\n"
-        "ghiacciati, infernali, multi-stella, strani\n"
-        "⭐ <b>Sistemi</b> — albero di una stella ospite, TRAPPIST-1 incluso\n"
-        "☀️ <b>Sistema Solare</b> — schede Wikidata, lune, nani, comete\n"
-        "🚀 <b>Chi è andato lì</b> — missione → corpi del catalogo\n"
-        "🎲 <b>Casuale</b> o <b>generato</b> (il generato è etichettato finto)\n"
-        "📌 I mondi che salvi restano sul server (file locale)\n\n"
-        "Atmosfera e acqua, se non sono nell'archivio, restano «sconosciute»."
+        "🌍 Filtri NASA · ⭐ Sistemi · ☀️ Sistema Solare\n"
+        "🪐 Pianeti e lune · 🪨 Asteroidi · 📌 Salvati\n\n"
+        "Oceanici e abitabili = modelli, non oceani e non vita."
     )
 
 
@@ -189,10 +177,9 @@ def world_pietre_text() -> str:
 def pietre_hub_text() -> str:
     return (
         "💎 <b>PIETRE</b>\n\n"
-        "Mineralogia da catalogo. Il simbolismo sta a parte, come tradizione.\n"
-        "Niente prezzi inventati. Una foto confronta colore e miniature Wikipedia: non è un'analisi.\n\n"
-        "🧭 Esplora — tipo, colore, ambiente, formazione, mito\n"
-        "🔬 Laboratorio · ✨ Oracolo · 🏛️ Museo · 🧠 Giochi"
+        "Mineralogia da catalogo. Il simbolismo sta a parte.\n"
+        "Foto: pietra al centro, tavolo uniforme. Non è un'analisi.\n\n"
+        "🧭 Esplora · 🔬 Laboratorio · ✨ Oracolo · 🧠 Giochi"
     )
 
 

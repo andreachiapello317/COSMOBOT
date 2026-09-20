@@ -187,6 +187,8 @@ from ui.keyboards import (
     lettura_method_keyboard,
     oracle_question_keyboard,
     oracoli_keyboard,
+    oracoli_mazzi_keyboard,
+    sky_catalog_keyboard,
     deck_after_keyboard,
     life_keyboard,
     mission_keyboard,
@@ -2005,78 +2007,19 @@ def start_text() -> str:
 def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
-        "📚 <b>Manuale di sopravvivenza cosmica</b>\n\n"
-        "/start — presentazione (e un po' di pepe)\n"
-        "/tema — tema natale: data, ora, luogo, poi Big Three / pianeti / case\n"
-        "/compatibilita — soli, lune, venere/marte, elementi, Big Three, sinastria\n"
-        f"/oroscopo [segno] — oroscopo live. Senza segno uso "
-        f"{default_emoji} {default_it}. Poi i bottoni: giorno, settimana, mese. "
-        f"Segni: {e(list_signs_help())}\n"
-        "/luna — fase, illuminazione, alba/tramonto della Luna su Roma\n"
-        "/oracoli — reparto oracoli: tradizionali e mazzi COSMOBOT\n"
-        "/lettura — scrivi la situazione, poi scegli il metodo\n"
-        "/tarocchi — 1/3 carte, amore, lavoro, domanda, carta del giorno, Croce Celtica\n"
-        "/iching — I Ching: domanda, rituale, sei lanci, linee mutevoli\n"
-        "/sibille — Petit Lenormand, 1/3/5/9 carte\n"
-        "/sino — sì/no simbolico (tarocco, runa o I Ching)\n"
-        "/archetipi — mazzo originale COSMOBOT, 48 figure\n"
-        "/animali — oracolo degli animali\n"
-        "/simboli — chiave, specchio, porta…\n"
-        "/elementi — fuoco, acqua, aria, terra, etere\n"
-        "/oracoloplanetario — Sole–Saturno, lettura simbolica\n"
-        "/oracololunare — messaggio coerente con la fase live\n"
-        "/oracolodande — una domanda introspettiva, poi rifletti\n"
-        "/asteroidi — vicini alla Terra, noti (Wikipedia) o Cerere/Vesta/Pallade/Giunone nel tema\n"
-        "/meteore — prossimi sciami, con picco e meteore/ora\n"
-        "/spazio — briefing astronomico del giorno\n"
-        "/osserva — cielo di stasera da una città, elenco dettagliato\n"
-        "/cielo [città] — cosa vedi ADESSO: mappa testuale, visibile/sotto, città memorizzata\n"
-        "/stelle — menu: casuale, del giorno, visibili ora, tipi (giganti, nane, pulsar…)\n"
-        "/costellazioni — del giorno, casuale, visibili stasera, schede Wikipedia\n"
-        "/nani — Plutone, Cerere, Eris, Haumea, Makemake\n"
-        "/comete — selezione con voce Wikipedia (non lo scarico JPL da 4000+)\n"
-        "/profondo — Messier, NGC, nebulose, quasar, supernovae\n"
-        "/pietre — mondo delle pietre: enciclopedia, laboratorio, collezione, museo\n"
-        "/pietra — oracolo simbolico delle pietre (non è mineralogia)\n"
-        "/mondi — esploratore: filtri NASA, sistemi, salvataggi, mondo del giorno\n"
-        "/sistemi — alberi di sistemi (TRAPPIST-1, binari, zona abitabile…)\n"
-        "/cosmo — mappa stelle / sistemi / mondi / galassie / profondo\n"
-        "/pianeta — scheda live di un pianeta (Wikipedia + Wikidata)\n"
-        "/lune — Europa, Titano, Encelado e le altre\n"
-        "/sistema — Sistema Solare oppure sistemi extrasolari\n"
-        "/buchineri — Sagittarius A*, M87*, Cygnus X-1\n"
-        "/galassia — Via Lattea, Andromeda e confronto distanze\n"
-        "/eclissi — prossima solare, prossima lunare, countdown\n"
-        "/alba — alba, tramonto, durata del giorno, crepuscolo\n"
-        "/missioni — Artemis, Webb, Clipper, JUICE, Voyager…\n"
-        "/astronauta — schede di astronauti storici\n"
-        "/satelliti — satelliti e telescopi (ISS a parte)\n"
-        "/sonde — Voyager, New Horizons, Cassini, Juno…\n"
-        "/impara — mini-lezioni da Wikipedia\n"
-        "/quiz — facile / medio / difficile / esperto + classifica personale\n"
-        "/esopianeta — menu NASA: casuale, terrestre, infernale, estremo, oceanico (modello), recente\n"
-        "/abitabile — candidati in zona abitabile (modelli, non vita)\n"
-        "/vita — come cerchiamo la vita, senza dichiararla\n"
-        "/specchio — una domanda introspettiva, poi una riflessione\n"
-        "/rituale — pratica simbolica legata alla fase lunare\n"
-        "/random — sorprendimi: carta, cielo, missione o oggetto\n"
-        "/missione — la sfida del giorno (trova Orione, APOD, quiz…)\n"
-        "/rune — Elder Futhark: una o tre rune\n"
-        "/iss — posizione live della Stazione Spaziale\n"
-        "/cosmico — un pezzo da ogni mondo, oggi\n"
-        "/esplora — i sette mondi\n"
-        "/domanda — una domanda, poi scegli tarocchi / I Ching / rune\n"
-        "/eventi — prossimi appuntamenti del cielo\n"
-        "/sole — come /alba\n"
-        "/transiti — cielo di oggi sul tuo tema\n"
-        "/pianeti — posizioni attuali (efemeridi CosmyDay / Swiss Ephemeris)\n"
-        "/apod — foto NASA del giorno, distinta dal menu /stelle\n"
-        "/aiuto — questo messaggio\n\n"
-        "Scrivere solo «bilancia» o «Vergine» vale come /oroscopo.\n\n"
-        "⬅️ <b>Indietro</b> è su ogni schermata: torna al menu precedente, "
-        "senza ripassare da Inizio.\n\n"
-        "Se un'API fa i capricci sentirai: "
-        f"<i>{e(STARS_OFFLINE)}</i>"
+        "📚 <b>COSMOBOT</b>\n\n"
+        "I sette mondi stanno su /start. Qui i comandi che usi davvero.\n\n"
+        f"/oroscopo — senza segno uso {default_emoji} {default_it}\n"
+        "/tema — natale guidato · /compatibilita — sinastria\n"
+        "/oracoli — tarocchi, I Ching, rune, Lenormand, mazzi\n"
+        "/pietre — laboratorio e catalogo · /pietra — oracolo\n"
+        "/cielo — cosa vedi adesso · /osserva — da una città\n"
+        "/mondi — esopianeti NASA · /quiz · /cosmico · /random\n"
+        "/luna · /transiti · /apod · /iss\n\n"
+        "Il resto (stelle, missioni, nani, comete, mazzi…) è nei mondi "
+        "o si scrive ancora come comando.\n\n"
+        "⬅️ <b>Indietro</b> torna al menu precedente.\n"
+        f"Se un'API cade: <i>{e(STARS_OFFLINE)}</i>"
     )
 
 
@@ -6706,6 +6649,17 @@ async def on_cielo_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     parts = query.data.split(":")
     action = parts[1] if len(parts) > 1 else ""
     extra = parts[2] if len(parts) > 2 else ""
+    if action == "cat":
+        await query.answer()
+        await reply_html(
+            update,
+            context,
+            "📚 <b>CATALOGHI</b>\n\n"
+            "Nani, comete, cielo profondo e pietre dallo spazio. "
+            "Schede da Wikipedia, non un dump JPL.",
+            reply_markup=sky_catalog_keyboard(),
+        )
+        return
     if action == "pick":
         await query.answer()
         await show_cielo_picker(update, context)
@@ -8081,6 +8035,15 @@ async def on_ora_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     _remember_from_callback(update, context)
     action = query.data.split(":")[1] if ":" in query.data else ""
     await query.answer()
+    if action == "mazzi":
+        await reply_html(
+            update,
+            context,
+            "🧿 <b>MAZZI COSMOBOT</b>\n\n"
+            "Mazzi originali, lettura simbolica. Non sono astronomia.",
+            reply_markup=oracoli_mazzi_keyboard(),
+        )
+        return
     if action == "arch":
         await send_deck_card(update, context, "arch")
         return
@@ -9372,33 +9335,17 @@ async def post_init(application: Application) -> None:
     try:
         await application.bot.set_my_commands(
             [
-                BotCommand("start", "Presentazione del bot"),
-                BotCommand("tema", "Tema natale guidato"),
-                BotCommand("oroscopo", "Oroscopo: giorno, settimana o mese"),
-                BotCommand("oracoli", "Reparto oracoli"),
-                BotCommand("lettura", "Scrivi e scegli il metodo"),
-                BotCommand("tarocchi", "Tarocchi, anche Croce Celtica"),
-                BotCommand("iching", "Consultazione I Ching"),
-                BotCommand("rune", "Lettura delle rune"),
-                BotCommand("sibille", "Petit Lenormand"),
-                BotCommand("esplora", "I sette mondi"),
-                BotCommand("pietre", "Mondo delle pietre"),
-                BotCommand("pietra", "Oracolo delle pietre"),
-                BotCommand("compatibilita", "Compatibilità e sinastria"),
-                BotCommand("cosmico", "Scheda da ogni mondo"),
-                BotCommand("cielo", "Cosa vedi ADESSO"),
-                BotCommand("osserva", "Cielo da una città, dettaglio"),
-                BotCommand("stelle", "Stelle, tipi, visibili ora"),
-                BotCommand("costellazioni", "Costellazioni e mitologia"),
-                BotCommand("pianeta", "Scheda di un pianeta"),
-                BotCommand("quiz", "Quiz a quattro difficoltà"),
-                BotCommand("missione", "Missione del giorno"),
-                BotCommand("mondi", "Esplora mondi e sistemi"),
-                BotCommand("sistemi", "Alberi di sistemi stellari"),
-                BotCommand("cosmo", "Mappa dell'universo"),
-                BotCommand("esopianeta", "Filtri NASA sugli esopianeti"),
+                BotCommand("start", "I sette mondi"),
+                BotCommand("oroscopo", "Oroscopo giorno / settimana / mese"),
+                BotCommand("tema", "Tema natale"),
+                BotCommand("oracoli", "Tarocchi, I Ching, rune…"),
+                BotCommand("pietre", "Laboratorio e catalogo"),
+                BotCommand("cielo", "Cosa vedi adesso"),
+                BotCommand("mondi", "Esopianeti e sistemi"),
+                BotCommand("compatibilita", "Sinastria"),
+                BotCommand("cosmico", "Un pezzo da ogni mondo"),
                 BotCommand("random", "Sorprendimi"),
-                BotCommand("aiuto", "Elenco comandi"),
+                BotCommand("aiuto", "Manuale breve"),
             ]
         )
     except TelegramError as exc:
