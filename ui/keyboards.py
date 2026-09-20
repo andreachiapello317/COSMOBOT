@@ -84,7 +84,7 @@ def geo_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🌋 Eventi", "world:flora")],
-            [kb_btn("🐾 Animali live", "world:fauna")],
+            [kb_btn("🐾 Fauna", "world:fauna")],
             [kb_btn("💎 Pietre", "world:pietre")],
             nav_row(),
         ]
@@ -171,13 +171,57 @@ def calam_photo_keyboard(index: int) -> InlineKeyboardMarkup:
     )
 
 
-def world_fauna_keyboard() -> InlineKeyboardMarkup:
+def fauna_hub_keyboard(place: str = "Cuneo") -> InlineKeyboardMarkup:
+    label = str(place or "Cuneo").strip()[:22]
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔄 Aggiorna", "world:fauna")],
+            [kb_btn(f"📍 {label}", "fn:city")],
+            [kb_btn("🐦 Uccelli vicino", "fn:bird")],
+            [kb_btn("🐾 Animali osservati", "fn:obs")],
+            [kb_btn("🗺️ Mappa fauna", "fn:map")],
+            [kb_btn("🛰️ Animali tracciati", "fn:trk")],
+            [kb_btn("🔎 Cerca specie", "fn:q")],
+            [kb_btn("🌍 Fauna nel mondo", "fn:world")],
             nav_row(),
         ]
     )
+
+
+def world_fauna_keyboard() -> InlineKeyboardMarkup:
+    return fauna_hub_keyboard()
+
+
+def fauna_list_keyboard(items: list[dict], *, page: int = 0, page_size: int = 5) -> InlineKeyboardMarkup:
+    from services.wildlife import item_button_label
+
+    start = page * page_size
+    chunk = items[start : start + page_size]
+    rows: list[list[InlineKeyboardButton]] = []
+    for offset, item in enumerate(chunk):
+        idx = start + offset
+        rows.append([kb_btn(item_button_label(item, idx + 1), f"fn:i:{idx}")])
+    nav: list[InlineKeyboardButton] = []
+    if page > 0:
+        nav.append(kb_btn("⬅️", f"fn:pg:{page - 1}"))
+    if start + page_size < len(items):
+        nav.append(kb_btn("➡️", f"fn:pg:{page + 1}"))
+    if nav:
+        rows.append(nav)
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
+
+
+def fauna_detail_keyboard(index: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🗺️ Mappa specie", f"fn:sm:{index}")],
+            nav_row(),
+        ]
+    )
+
+
+def fauna_map_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([nav_row()])
 
 
 def world_live_keyboard() -> InlineKeyboardMarkup:
