@@ -31,7 +31,9 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Tarocchi**: scegli lo spread (non serve una domanda). Mescola, poi gira le carte **una alla volta**. Ogni carta ha una riga sul posto e due frasi di significato. Alla fine il quadro è solo l’elenco. Una frase alle carte è opzionale.
 
-**I Ching**: prima la domanda, poi **SONO PRONTO**, conferma, **LANCIA LE MONETE**. Le sei linee si costruiscono dal basso verso l’alto (metodo delle tre monete: 6/7/8/9). I testi arrivano dal libro Wilhelm 1924 in JSON pubblico.
+**I Ching**: domanda, monete, poi **Ora / Si muove / Verso / In pratica**. Wilhelm 1924, tradotto a pezzi corti, non un muro di testo.
+
+**Rune** e **Lenormand**: come i tarocchi — mescola, gira una alla volta, quadro finale con una riga *in pratica*. La domanda è facoltativa.
 
 **Cielo** è astronomia reale (↑ sopra, ↓ sotto, 👁 mag ≤ 6). **Oracoli** è esperienza simbolica. **Pietre** è autonomo: mineralogia da catalogo, folklore tenuto a parte. Non si mescolano.
 

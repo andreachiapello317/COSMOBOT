@@ -73,21 +73,60 @@ def draw_lenormand(count: int) -> list[dict[str, str]]:
     return [dict(card) for card in pool[:count]]
 
 
+HINTS: dict[str, tuple[str, ...]] = {
+    "1": ("Il tema di questa pesca.",),
+    "3": ("Da dove viene.", "Dov'è ora.", "Dove può andare."),
+    "5": (
+        "Lo sfondo.",
+        "Tu, in mezzo.",
+        "Gli altri.",
+        "Cosa merita attenzione.",
+        "Verso dove tende.",
+    ),
+    "9": (
+        "Lontano, dietro.",
+        "Chi o cosa influenza.",
+        "Lontano, davanti.",
+        "Appena lasciato.",
+        "Il centro, ora.",
+        "Il prossimo passo.",
+        "Tu.",
+        "Chi ti sta intorno.",
+        "L'esito, se resti così.",
+    ),
+}
+
+
 def combine_pair(left: dict[str, str], right: dict[str, str]) -> str:
-    return f"{left['pair']} {right['emoji']} {right['it']}: {right['keys']}."
+    return f"{left['emoji']} {left['it']} → {right['emoji']} {right['it']}\n{left['pair']}"
+
+
+def pair_lines(drawn: list[dict[str, str]], *, limit: int = 3) -> list[str]:
+    rows: list[str] = []
+    for idx in range(min(limit, max(0, len(drawn) - 1))):
+        rows.append(combine_pair(drawn[idx], drawn[idx + 1]))
+    return rows
+
+
+def lenormand_closer(drawn: list[dict[str, str]]) -> str:
+    if not drawn:
+        return ""
+    if len(drawn) == 1:
+        card = drawn[0]
+        return f"{card['it']}: {card['keys']}. Una carta, un tema."
+    first, last = drawn[0], drawn[-1]
+    return (
+        f"Si parte da {first['it']} e si arriva a {last['it']}. "
+        f"L'ultima carta è l'esito: {last['keys']}."
+    )
 
 
 def synthesize_lenormand(question: str, drawn: list[dict[str, str]]) -> str:
     if not drawn:
         return ""
     if len(drawn) == 1:
-        card = drawn[0]
-        base = f"{card['it']}: {card['meaning']}"
-        return f"Sulla domanda «{question}», {base}" if question else base
-    pairs = []
-    for idx in range(len(drawn) - 1):
-        pairs.append(combine_pair(drawn[idx], drawn[idx + 1]))
-    body = " ".join(pairs[:4])
+        return lenormand_closer(drawn)
+    body = " ".join(pair_lines(drawn, limit=3))
     if question:
-        return f"Domanda: «{question}». Combinazioni: {body}"
-    return body
+        return f"{body} {lenormand_closer(drawn)}"
+    return f"{body} {lenormand_closer(drawn)}"

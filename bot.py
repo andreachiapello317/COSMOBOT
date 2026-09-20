@@ -124,12 +124,17 @@ from services.stones import (
 )
 from services.bots import parent_bot_token
 from services.stonephoto import confidence_label, guess_stones, identify_from_photo, read_photo_hints
-from services.lenormand import SPREADS as LENORMAND_SPREADS, draw_lenormand
+from services.lenormand import (
+    HINTS as LENO_HINTS,
+    SPREADS as LENORMAND_SPREADS,
+    draw_lenormand,
+    lenormand_closer,
+    pair_lines,
+)
 from services.oracles import (
     DECK_META,
     LUNAR_ORACLE,
     ORACLE_QUESTIONS,
-    format_lenormand_reading,
     format_simple_card,
     draw_deck,
     lunar_key,
@@ -138,7 +143,7 @@ from services.oracles import (
     yesno_from_rune,
     yesno_from_tarot,
 )
-from services.runes import draw_runes, synthesize_runes
+from services.runes import draw_runes
 from services.sheets import (
     build_quiz,
     catalog_item,
@@ -190,6 +195,8 @@ from ui.keyboards import (
     learn_keyboard,
     lenormand_after_keyboard,
     lenormand_menu_keyboard,
+    lenormand_next_keyboard,
+    lenormand_ready_keyboard,
     lettura_method_keyboard,
     oracle_question_keyboard,
     oracoli_keyboard,
@@ -213,7 +220,9 @@ from ui.keyboards import (
     quiz_options_keyboard,
     random_after_keyboard,
     rune_after_keyboard,
+    rune_cast_keyboard,
     rune_draw_keyboard,
+    rune_next_keyboard,
     rune_ready_keyboard,
     satellites_keyboard,
     sheet_after_keyboard,
@@ -333,6 +342,12 @@ NAV_SKIP_EXACT = frozenset(
         "iching:throw",
         "iching:home",
         "rune:ready",
+        "rune:mix",
+        "rune:next",
+        "rune:board",
+        "leno:mix",
+        "leno:next",
+        "leno:board",
         "natal:calc",
         "natal:notime",
         "natal:homebtn",
@@ -2940,15 +2955,33 @@ async def send_iching_cast(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if transformed is not None and int(transformed.get("id") or 0) == int(primary.get("id") or 0):
             transformed = None
         oracles = changing_oracles(primary, lines)
-        reading_en = build_iching_reading_en(question, primary, oracles, transformed)
-        final_en = iching_final_en(primary, transformed)
         name_en = hex_short_name(str(primary.get("ename") or "Hexagram"))
         tname_en = hex_short_name(str((transformed or {}).get("ename") or "Hexagram"))
-        name_it, tname_it, reading_it, final_it = await asyncio.gather(
+        judgment_en = first_sentences(str(primary.get("judgment") or ""), 3, 400)
+        tjud_en = first_sentences(str((transformed or {}).get("judgment") or ""), 3, 360) if transformed else ""
+        name_it, tname_it, judgment_it, tjud_it = await asyncio.gather(
             translate_to_italian(client, name_en),
             translate_to_italian(client, tname_en) if transformed else _iching_blank(),
-            translate_to_italian(client, reading_en),
-            translate_to_italian(client, final_en),
+            translate_to_italian(client, judgment_en) if judgment_en else _iching_blank(),
+            translate_to_italian(client, tjud_en) if tjud_en else _iching_blank(),
+        )
+        now_text = first_sentences(judgment_it, 2, 260)
+        toward_text = first_sentences(tjud_it, 2, 220) if tjud_it else ""
+        line_notes: list[tuple[str, str]] = []
+        for item in oracles:
+            raw = str(item.get("text") or "")
+            label = "tutte" if item.get("n") == "tutte" else f"{item.get('n')}ª"
+            if not raw:
+                continue
+            note_it = first_sentences(await translate_to_italian(client, raw), 1, 180)
+            if note_it:
+                line_notes.append((label, note_it))
+        pratica = iching_in_pratica(
+            name_it or name_en,
+            now_text,
+            (tname_it or tname_en) if transformed else "",
+            toward_text,
+            changing_nums,
         )
     except StelleOfflineError:
         logger.exception("I Ching: libro o traduzione non disponibili")
@@ -2969,13 +3002,39 @@ async def send_iching_cast(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         primary_id=primary_id,
         primary_name=name_it or name_en,
         changing=changing_nums,
+        line_notes=line_notes,
         transformed_id=transformed_id,
         transformed_name=(tname_it or tname_en) if transformed else "",
-        reading=reading_it,
-        final=final_it,
+        now_text=now_text,
+        toward_text=toward_text,
+        pratica=pratica,
     )
     state["step"] = "done"
     await reply_html(update, context, text, reply_markup=iching_after_keyboard())
+
+
+def iching_in_pratica(
+    name: str,
+    now_text: str,
+    toward_name: str,
+    toward_text: str,
+    changing: list[int],
+) -> str:
+    now = first_sentences(now_text, 1, 180)
+    if toward_name and toward_text:
+        return (
+            f"Ora sei in {name}. Il libro non si ferma lì: le linee mutevoli "
+            f"indicano un passaggio verso {toward_name}. "
+            f"{first_sentences(toward_text, 1, 180)}"
+        )
+    if changing:
+        extra = f" {now}" if now else ""
+        return (
+            f"{name} è in movimento.{extra} "
+            "Le linee che cambiano dicono dove si incrina, non il destino."
+        )
+    extra = f" {now}" if now else ""
+    return f"{name} sta fermo: niente linee mutevoli.{extra} Si legge così, senza trasformazione."
 
 
 def format_iching_result(
@@ -2985,63 +3044,44 @@ def format_iching_result(
     primary_id: int,
     primary_name: str,
     changing: list[int],
+    line_notes: list[tuple[str, str]],
     transformed_id: int,
     transformed_name: str,
-    reading: str,
-    final: str,
+    now_text: str,
+    toward_text: str,
+    pratica: str,
 ) -> str:
-    header_name = primary_name.upper()
     graphic = render_hexagram(lines)
-    change_txt = " · ".join(str(n) for n in changing) if changing else "nessuna"
     blocks = [
         "☯️ <b>I CHING</b>",
+        f"<b>{primary_id} · {e(primary_name)}</b>",
         "",
-        f"<b>{primary_id} · {e(header_name)}</b>",
-        "",
-        "La tua domanda:",
-        f"<i>«{e(question)}»</i>",
-        "",
-        "──────────────",
-        "",
-        "☯️ <b>ESAGRAMMA</b>",
-        f"{primary_id} — {e(primary_name)}",
+        f"Hai detto: <i>«{e(question)}»</i>",
         "",
         e(graphic),
         "",
-        "🔄 <b>LINEE MUTEVOLI</b>",
-        e(change_txt),
-        f"<i>{e(it_changing_sentence(changing))}</i>",
+        "📍 <b>ORA</b>",
+        e(now_text or it_changing_sentence(changing)),
     ]
-    if changing and transformed_id:
+    if line_notes:
+        blocks.extend(["", "🔄 <b>SI MUOVE</b>", e(it_changing_sentence(changing))])
+        for label, note in line_notes:
+            blocks.append(f"• {e(label)} — {e(note)}")
+    if transformed_id and transformed_name:
         blocks.extend(
             [
                 "",
-                "➡️ <b>TRASFORMAZIONE</b>",
-                f"{primary_id} → {transformed_id}",
-                f"{transformed_id} — {e(transformed_name)}",
-                "",
-                "<i>L'esagramma iniziale descrive la situazione. "
-                "Quello trasformato è la direzione simbolica indicata "
-                "dal cambiamento delle linee.</i>",
+                f"➡️ <b>VERSO</b> {transformed_id} · {e(transformed_name)}",
+                e(toward_text or "La situazione cambia volto."),
             ]
         )
     blocks.extend(
         [
             "",
-            "──────────────",
+            "✨ <b>IN PRATICA</b>",
+            e(pratica),
             "",
-            "🔮 <b>LA LETTURA</b>",
-            "",
-            e(clip_text(reading, 1600)),
-            "",
-            "✨ <b>MESSAGGIO FINALE</b>",
-            "",
-            e(clip_text(final, 400)),
-            "",
-            "──────────────",
-            "",
-            "<i>Testi Wilhelm (1924), da un libro pubblico live, tradotti al volo. "
-            "Non è un oracolo infallibile: è uno specchio su cui riflettere.</i>",
+            "<i>Wilhelm 1924, tradotto. Specchio, non verdetto.</i>",
         ]
     )
     return "\n".join(blocks)
@@ -5087,17 +5127,62 @@ async def cmd_rune(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await delete_user_command(update)
 
 
+RUNE_SLOTS = {
+    1: (("Adesso", "Cosa è in gioco."),),
+    3: (
+        ("Situazione", "Dove sei, adesso."),
+        ("Ostacolo", "Cosa frena o confonde."),
+        ("Direzione", "Un passo possibile."),
+    ),
+}
+
+
+def rune_closer(drawn: list[dict[str, str]]) -> str:
+    if not drawn:
+        return ""
+    if len(drawn) == 1:
+        piece = drawn[0]
+        orient = "capovolta" if piece["orientation"] == "reversed" else "diritta"
+        return f"{piece['name']} ({orient}). Tienila come clima di adesso, non come ordine."
+    names = [piece["name"] for piece in drawn[:3]]
+    while len(names) < 3:
+        names.append("—")
+    return (
+        f"Situazione {names[0]}, ostacolo {names[1]}, direzione {names[2]}. "
+        "Il passo da guardare è la terza runa."
+    )
+
+
 async def show_rune_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = _rune_state(context)
     state["step"] = "ask"
+    state["awaiting"] = True
     await reply_html(
         update,
         context,
-        "🪶 <b>Qual è la tua domanda?</b>\n\n"
-        "Scrivila in un messaggio.\n"
-        "Esempio: <i>Cosa dovrei osservare in questa fase?</i>",
-        reply_markup=InlineKeyboardMarkup([nav_row()]),
+        "🪶 <b>Una frase alle rune</b>\n"
+        "<i>Non è obbligatoria.</i>\n\n"
+        "Se vuoi, scrivi una riga. Poi scuotiamo il sacchetto lo stesso.",
+        reply_markup=InlineKeyboardMarkup(
+            [[_tarot_btn("🪶 Meglio senza", "rune:mix")], nav_row()]
+        ),
     )
+
+
+async def show_rune_cast(update: Update, context: ContextTypes.DEFAULT_TYPE, count: int) -> None:
+    state = _rune_state(context)
+    state["count"] = 1 if count != 3 else 3
+    state["step"] = "ready"
+    state["awaiting"] = False
+    n = int(state["count"])
+    phrase = str(state.get("question") or "").strip()
+    text = (
+        f"🪶 <b>{'Una runa' if n == 1 else 'Tre rune'}</b>\n"
+        "<i>Le giriamo una alla volta. Non serve una domanda.</i>"
+    )
+    if phrase:
+        text += f"\n\nHai detto: <i>«{e(phrase)}»</i>"
+    await reply_html(update, context, text, reply_markup=rune_cast_keyboard())
 
 
 async def receive_rune_question(
@@ -5105,48 +5190,100 @@ async def receive_rune_question(
     context: ContextTypes.DEFAULT_TYPE,
     question: str,
 ) -> None:
-    question = clip_text(question.strip(), 400)
-    if len(question) < 6:
-        await reply_html(update, context, "🪶 Serve una domanda un po' più chiara, anche una frase.")
+    phrase = clip_text(question.strip(), 400)
+    if not phrase:
+        await reply_html(update, context, "Una riga basta. Oppure scuoti, senza frase.")
         return
     state = _rune_state(context)
-    state["question"] = question
-    state["step"] = "draw"
-    await reply_html(
-        update,
-        context,
-        f"🪶 <b>La tua domanda</b>\n\n<i>«{e(question)}»</i>\n\n"
-        "Quante rune vuoi estrarre?",
-        reply_markup=rune_draw_keyboard(),
-    )
+    state["question"] = phrase
+    state["awaiting"] = False
+    count = int(state.get("count") or 0)
+    if count in {1, 3}:
+        await show_rune_cast(update, context, count)
+    else:
+        state["step"] = "pick"
+        await reply_html(
+            update,
+            context,
+            f"🪶 Hai detto: <i>«{e(phrase)}»</i>\n\nUna runa o tre?",
+            reply_markup=rune_ready_keyboard(),
+        )
     await delete_user_command(update)
 
 
-async def send_rune_draw(update: Update, context: ContextTypes.DEFAULT_TYPE, count: int) -> None:
+async def start_rune_mix(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = _rune_state(context)
-    question = str(state.get("question") or "").strip()
-    if not question:
-        await show_rune_ask(update, context)
+    count = int(state.get("count") or 0)
+    if count not in {1, 3}:
+        await show_rune_intro(update, context)
         return
+    state["awaiting"] = False
+    await send_typing(update)
+    await deliver_text(update, context, "🪶 Metto la mano nel sacchetto…")
+    await asyncio.sleep(0.35)
+    await deliver_text(update, context, "🪶 Scuoto…")
     drawn = draw_runes(count)
-    synthesis = synthesize_runes(question, drawn)
-    lines = ["🪶 <b>LE TUE RUNE</b>", "", f"Domanda: <i>«{e(question)}»</i>", ""]
-    for piece in drawn:
-        orient = "capovolta" if piece["orientation"] == "reversed" else "diritta"
-        lines.append(
-            f"{piece['glyph']} <b>{e(piece['name'])}</b> · {e(orient)}\n"
-            f"{e(piece['meaning'])}"
-        )
-        lines.append("")
-    lines.append("✨ <b>Sintesi</b>")
-    lines.append(e(synthesis))
-    lines.append("")
-    lines.append(
-        "<i>Elder Futhark, 24 rune. Nomi storici; significati dal dataset interno. "
-        "Non è una diagnosi, è uno specchio.</i>"
+    state["drawn"] = drawn
+    state["index"] = 0
+    state["step"] = "reveal"
+    await asyncio.sleep(0.28)
+    await reveal_rune(update, context)
+
+
+async def reveal_rune(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _rune_state(context)
+    drawn = state.get("drawn") if isinstance(state.get("drawn"), list) else []
+    idx = int(state.get("index") or 0)
+    if not drawn or idx >= len(drawn):
+        await show_rune_quadro(update, context)
+        return
+    piece = drawn[idx]
+    slots = RUNE_SLOTS.get(len(drawn)) or RUNE_SLOTS[1]
+    pos, hint = slots[idx] if idx < len(slots) else (f"Runa {idx + 1}", "")
+    orient = "capovolta" if piece["orientation"] == "reversed" else "diritta"
+    left = len(drawn) - idx - 1
+    text = (
+        f"🪶 <b>{e(pos)}</b>  ·  {idx + 1}/{len(drawn)}\n"
+        f"{piece['glyph']} <b>{e(piece['name'])}</b>\n"
+        f"<i>{e(orient)}</i>\n\n"
+        f"{e(hint)}\n\n"
+        f"{e(first_sentences(piece['meaning'], 2, 240))}"
     )
+    if left:
+        text += f"\n\n<i>Restano {left} rune.</i>"
+    else:
+        text += "\n\n<i>Ultima runa. Poi il quadro, una riga sola.</i>"
+    state["index"] = idx + 1
+    await reply_html(update, context, text, reply_markup=rune_next_keyboard(last=left == 0))
+
+
+async def show_rune_quadro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _rune_state(context)
+    drawn = state.get("drawn") if isinstance(state.get("drawn"), list) else []
+    if not drawn:
+        await show_rune_intro(update, context)
+        return
+    phrase = str(state.get("question") or "").strip()
+    slots = RUNE_SLOTS.get(len(drawn)) or RUNE_SLOTS[1]
+    lines = [
+        "🪶 <b>IL QUADRO</b>",
+        "<i>I nomi. Il resto l'hai già letto.</i>",
+        "",
+    ]
+    if phrase:
+        lines.append(f"Hai detto: <i>«{e(phrase)}»</i>")
+        lines.append("")
+    for idx, piece in enumerate(drawn):
+        pos = slots[idx][0] if idx < len(slots) else f"Runa {idx + 1}"
+        orient = "R" if piece["orientation"] == "reversed" else "D"
+        lines.append(f"{idx + 1}. {e(pos)} — {piece['glyph']} {e(piece['name'])} ({orient})")
+    lines.extend(["", "✨ <b>IN PRATICA</b>", e(rune_closer(drawn)), "", "<i>Elder Futhark. Specchio, non ordine.</i>"])
     state["step"] = "done"
     await reply_html(update, context, "\n".join(lines), reply_markup=rune_after_keyboard())
+
+
+async def send_rune_draw(update: Update, context: ContextTypes.DEFAULT_TYPE, count: int) -> None:
+    await show_rune_cast(update, context, count)
 
 
 async def on_rune_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -5164,13 +5301,29 @@ async def on_rune_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     if action == "ready":
         await query.answer()
+        await show_rune_intro(update, context)
+        return
+    if action == "phrase":
+        await query.answer()
         await show_rune_ask(update, context)
         return
     if action == "draw" and extra in {"1", "3"}:
-        await query.answer("Le rune cadono…")
-        await send_rune_draw(update, context, int(extra))
+        await query.answer()
+        await show_rune_cast(update, context, int(extra))
         return
-        await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
+    if action == "mix":
+        await query.answer("Scuoto…")
+        await start_rune_mix(update, context)
+        return
+    if action == "next":
+        await query.answer()
+        await reveal_rune(update, context)
+        return
+    if action == "board":
+        await query.answer()
+        await show_rune_quadro(update, context)
+        return
+    await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
 
 
 async def show_domanda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -7961,10 +8114,9 @@ async def send_rune_surprise(update: Update, context: ContextTypes.DEFAULT_TYPE)
     orient = "capovolta" if rune["orientation"] == "reversed" else "diritta"
     text = (
         "🎲 <b>SORPRENDIMI · RUNE</b>\n"
-        "<i>Una runa, senza domanda. Specchio, non verdetto.</i>\n\n"
-        f"{rune['glyph']} <b>{e(rune['name'])}</b> · {e(orient)}\n"
-        f"{e(rune['meaning'])}\n\n"
-        "<i>Elder Futhark, 24 rune. Per una lettura con domanda, apri Rune.</i>"
+        f"{rune['glyph']} <b>{e(rune['name'])}</b> · {e(orient)}\n\n"
+        f"{e(first_sentences(rune['meaning'], 2, 240))}\n\n"
+        f"✨ <b>IN PRATICA</b>\n{e(rune_closer(drawn))}"
     )
     await reply_html(
         update,
@@ -8017,14 +8169,14 @@ async def cmd_oracoli(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def show_lenormand_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = _leno_state(context)
     state["step"] = "pick"
-    question = str(state.get("question") or "").strip()
-    extra = f"\n\n❓ <i>{e(question)}</i>" if question else ""
+    phrase = str(state.get("question") or "").strip()
+    extra = f"\n\nHai detto: <i>«{e(phrase)}»</i>" if phrase else ""
     await reply_html(
         update,
         context,
-        "🌿 <b>SIBILLE · PETIT LENORMAND</b>\n\n"
-        "36 carte. Nomi tradizionali; i testi sono il dataset COSMOBOT.\n"
-        "1, 3, 5 o 9 carte. Le combinazioni lego le carte vicine."
+        "🌿 <b>LENORMAND</b>\n"
+        "<i>36 sibille. Una alla volta. Non serve una domanda.</i>\n\n"
+        "1, 3, 5 o 9 carte. Alla fine: il quadro e l'esito."
         f"{extra}",
         reply_markup=lenormand_menu_keyboard(),
     )
@@ -8036,16 +8188,128 @@ async def cmd_sibille(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await delete_user_command(update)
 
 
-async def send_lenormand_draw(update: Update, context: ContextTypes.DEFAULT_TYPE, n: str) -> None:
+async def show_leno_ready(update: Update, context: ContextTypes.DEFAULT_TYPE, n: str) -> None:
     meta = LENORMAND_SPREADS.get(n)
     if meta is None:
         await show_lenormand_menu(update, context)
         return
-    question = str(_leno_state(context).get("question") or _lettura_state(context).get("question") or "")
+    state = _leno_state(context)
+    state["n"] = n
+    state["step"] = "ready"
+    phrase = str(state.get("question") or _lettura_state(context).get("question") or "").strip()
+    if phrase:
+        state["question"] = phrase
+    text = (
+        f"🌿 <b>{e(meta['title'])}</b>\n"
+        f"<i>{int(meta['count'])} carte, una alla volta.</i>"
+    )
+    if phrase:
+        text += f"\n\nHai detto: <i>«{e(phrase)}»</i>"
+    await reply_html(update, context, text, reply_markup=lenormand_ready_keyboard())
+
+
+async def show_leno_phrase(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _leno_state(context)["step"] = "ask"
+    await reply_html(
+        update,
+        context,
+        "🌿 <b>Una frase alle sibille</b>\n"
+        "<i>Non è obbligatoria.</i>\n\n"
+        "Se vuoi, scrivi una riga. Poi mescoliamo lo stesso.",
+        reply_markup=InlineKeyboardMarkup(
+            [[_tarot_btn("🌿 Meglio senza", "leno:mix")], nav_row()]
+        ),
+    )
+
+
+async def start_leno_mix(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _leno_state(context)
+    n = str(state.get("n") or "")
+    meta = LENORMAND_SPREADS.get(n)
+    if meta is None:
+        await show_lenormand_menu(update, context)
+        return
+    await send_typing(update)
+    await deliver_text(update, context, "🌿 Mescolando le sibille…")
+    await asyncio.sleep(0.35)
     drawn = draw_lenormand(int(meta["count"]))
-    text = format_lenormand_reading(drawn, tuple(meta["positions"]), question)
-    _leno_state(context)["step"] = "done"
-    await reply_html(update, context, text, reply_markup=lenormand_after_keyboard())
+    state["drawn"] = drawn
+    state["index"] = 0
+    state["step"] = "reveal"
+    await deliver_text(update, context, "🌿 Taglio…")
+    await asyncio.sleep(0.25)
+    await reveal_leno(update, context)
+
+
+async def reveal_leno(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _leno_state(context)
+    n = str(state.get("n") or "")
+    meta = LENORMAND_SPREADS.get(n)
+    drawn = state.get("drawn") if isinstance(state.get("drawn"), list) else []
+    idx = int(state.get("index") or 0)
+    if not meta or not drawn or idx >= len(drawn):
+        await show_leno_quadro(update, context)
+        return
+    card = drawn[idx]
+    positions = tuple(meta["positions"])
+    hints = LENO_HINTS.get(n) or ()
+    pos = positions[idx] if idx < len(positions) else f"Carta {idx + 1}"
+    hint = hints[idx] if idx < len(hints) else ""
+    left = len(drawn) - idx - 1
+    text = (
+        f"🌿 <b>{e(pos)}</b>  ·  {idx + 1}/{len(drawn)}\n"
+        f"{card['emoji']} <b>{e(card['it'])}</b>\n"
+        f"<i>{e(card['keys'])}</i>\n\n"
+        f"{e(hint)}\n\n"
+        f"{e(first_sentences(card['meaning'], 2, 240))}"
+    )
+    if left:
+        text += f"\n\n<i>Restano {left} carte.</i>"
+    else:
+        text += "\n\n<i>Ultima carta. Poi il quadro: da dove parti, dove arrivi.</i>"
+    state["index"] = idx + 1
+    await reply_html(update, context, text, reply_markup=lenormand_next_keyboard(last=left == 0))
+
+
+async def show_leno_quadro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _leno_state(context)
+    n = str(state.get("n") or "")
+    meta = LENORMAND_SPREADS.get(n)
+    drawn = state.get("drawn") if isinstance(state.get("drawn"), list) else []
+    if not meta or not drawn:
+        await show_lenormand_menu(update, context)
+        return
+    phrase = str(state.get("question") or "").strip()
+    positions = tuple(meta["positions"])
+    lines = [
+        f"🌿 <b>{e(meta['title'])}</b>",
+        "<i>I nomi. Il resto l'hai già letto.</i>",
+        "",
+    ]
+    if phrase:
+        lines.append(f"Hai detto: <i>«{e(phrase)}»</i>")
+        lines.append("")
+    for idx, card in enumerate(drawn):
+        pos = positions[idx] if idx < len(positions) else f"Carta {idx + 1}"
+        lines.append(f"{idx + 1}. {e(pos)} — {card['emoji']} {e(card['it'])}")
+    pairs = pair_lines(drawn, limit=2)
+    if pairs:
+        lines.extend(["", "🔗 <b>VICINE</b>", *pairs])
+    lines.extend(
+        [
+            "",
+            "✨ <b>IN PRATICA</b>",
+            e(lenormand_closer(drawn)),
+            "",
+            "<i>Petit Lenormand. Specchio, non verdetto.</i>",
+        ]
+    )
+    state["step"] = "done"
+    await reply_html(update, context, "\n".join(lines), reply_markup=lenormand_after_keyboard())
+
+
+async def send_lenormand_draw(update: Update, context: ContextTypes.DEFAULT_TYPE, n: str) -> None:
+    await show_leno_ready(update, context, n)
 
 
 async def send_deck_card(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
@@ -8290,10 +8554,27 @@ async def on_leno_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     _remember_from_callback(update, context)
     parts = query.data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
     extra = parts[2] if len(parts) > 2 else ""
     if extra in LENORMAND_SPREADS:
-        await query.answer("Le sibille cadono…")
-        await send_lenormand_draw(update, context, extra)
+        await query.answer()
+        await show_leno_ready(update, context, extra)
+        return
+    if action == "mix":
+        await query.answer("Mescolando…")
+        await start_leno_mix(update, context)
+        return
+    if action == "next":
+        await query.answer()
+        await reveal_leno(update, context)
+        return
+    if action == "board":
+        await query.answer()
+        await show_leno_quadro(update, context)
+        return
+    if action == "phrase":
+        await query.answer()
+        await show_leno_phrase(update, context)
         return
     await query.answer()
     await show_lenormand_menu(update, context)
@@ -9647,6 +9928,16 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     rune = context.user_data.get(RUNE_STATE_KEY)
     if isinstance(rune, dict) and rune.get("step") == "ask":
         await receive_rune_question(update, context, text)
+        return
+    leno = context.user_data.get(LENO_STATE_KEY)
+    if isinstance(leno, dict) and leno.get("step") == "ask":
+        phrase = clip_text(text.strip(), 400)
+        if not phrase:
+            await reply_html(update, context, "Una riga basta. Oppure mescola, senza frase.")
+            return
+        leno["question"] = phrase
+        await show_leno_ready(update, context, str(leno.get("n") or "3"))
+        await delete_user_command(update)
         return
     if context.user_data.get("cielo_ask"):
         await receive_cielo_city(update, context, text)

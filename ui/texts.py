@@ -91,9 +91,9 @@ def oracoli_text() -> str:
 def rune_intro_text() -> str:
     return _card(
         "🪶 <b>RUNE</b>",
-        "Ventiquattro segni dell'Elder Futhark. Nomi storici, significati nostri.",
-        "Pensa a una domanda. Non deve essere sì/no.\n"
-        "Quando l'hai formulata, premi il pulsante.",
+        "Ventiquattro segni dell'Elder Futhark. Una o tre, una alla volta. Non serve una domanda.",
+        "ᚠ Una — il clima di adesso.\n"
+        "ᛏ Tre — situazione, ostacolo, direzione.",
     )
 
 

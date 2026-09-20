@@ -323,6 +323,22 @@ def deck_after_keyboard(kind: str) -> InlineKeyboardMarkup:
     )
 
 
+def lenormand_ready_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌿 Mescola", "leno:mix")],
+            [kb_btn("✍️ Una frase, se vuoi", "leno:phrase")],
+            nav_row(),
+        ]
+    )
+
+
+def lenormand_next_keyboard(*, last: bool) -> InlineKeyboardMarkup:
+    label = "✨ Il quadro" if last else "🌿 Gira la prossima"
+    data = "leno:board" if last else "leno:next"
+    return InlineKeyboardMarkup([[kb_btn(label, data)], nav_row()])
+
+
 def lenormand_after_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
@@ -333,16 +349,32 @@ def lenormand_after_keyboard() -> InlineKeyboardMarkup:
 
 
 def rune_ready_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[kb_btn("✨ SONO PRONTO", "rune:ready")], nav_row()])
-
-
-def rune_draw_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("ᚠ 1 RUNA", "rune:draw:1"), kb_btn("ᛏ 3 RUNE", "rune:draw:3")],
+            [kb_btn("ᚠ 1 runa", "rune:draw:1"), kb_btn("ᛏ 3 rune", "rune:draw:3")],
             nav_row(),
         ]
     )
+
+
+def rune_cast_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🪶 Scuoti il sacchetto", "rune:mix")],
+            [kb_btn("✍️ Una frase, se vuoi", "rune:phrase")],
+            nav_row(),
+        ]
+    )
+
+
+def rune_draw_keyboard() -> InlineKeyboardMarkup:
+    return rune_ready_keyboard()
+
+
+def rune_next_keyboard(*, last: bool) -> InlineKeyboardMarkup:
+    label = "✨ Il quadro" if last else "🪶 Gira la prossima"
+    data = "rune:board" if last else "rune:next"
+    return InlineKeyboardMarkup([[kb_btn(label, data)], nav_row()])
 
 
 def rune_after_keyboard() -> InlineKeyboardMarkup:
