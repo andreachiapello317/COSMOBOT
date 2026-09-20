@@ -248,10 +248,13 @@ async def fetch_eonet(
     *,
     limit: int = 12,
     category: str | None = None,
+    bbox: str | None = None,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {"status": "open", "limit": limit}
     if category:
         params["category"] = category
+    if bbox:
+        params["bbox"] = bbox
     response = await client.get("https://eonet.gsfc.nasa.gov/api/v3/events", params=params)
     response.raise_for_status()
     data = response.json()

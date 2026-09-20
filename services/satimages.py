@@ -98,6 +98,24 @@ def stamp_place_photo(data: bytes, place: str, when: str) -> bytes:
     return out.getvalue()
 
 
+def stamp_target_photo(data: bytes, place: str, when: str) -> bytes:
+    img = Image.open(BytesIO(data)).convert("RGB")
+    draw = ImageDraw.Draw(img)
+    cx, cy = img.width // 2, img.height // 2
+    r = 14
+    draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(230, 60, 50), width=3)
+    draw.line((cx, cy - 22, cx, cy + 22), fill=(230, 60, 50), width=2)
+    draw.line((cx - 22, cy, cx + 22, cy), fill=(230, 60, 50), width=2)
+    title = str(place or "evento").strip()[:42]
+    bar_h = 44
+    draw.rectangle((0, img.height - bar_h, img.width, img.height), fill=(8, 12, 20))
+    draw.text((12, img.height - 36), title, fill=(235, 238, 245), font=_font(20))
+    draw.text((12, img.height - 18), when, fill=(160, 175, 195), font=_font(13))
+    out = BytesIO()
+    img.save(out, format="JPEG", quality=88, optimize=True)
+    return out.getvalue()
+
+
 def _is_jpeg(data: bytes) -> bool:
     return data[:3] == b"\xff\xd8\xff" and len(data) > 8000 and not data.lstrip().startswith(b"<")
 

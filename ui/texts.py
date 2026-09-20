@@ -401,7 +401,7 @@ def geo_hub_text() -> str:
     return _card(
         "🌍 <b>TERRA</b>",
         "Bot di BOTSQUAD per fenomeni veri. Eventi atmosferici e naturali, animali live, pietre.",
-        "🌪️ <b>EVENTI</b> — terremoti, tempeste, eruzioni, ghiaccio: dati live\n"
+        "🌋 <b>EVENTI</b> — terremoti, incendi, tempeste, vulcani: dati + satellite\n"
         "🐾 <b>ANIMALI LIVE</b> — avvistamenti recenti (iNaturalist)\n"
         "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione",
     )
@@ -409,11 +409,14 @@ def geo_hub_text() -> str:
 
 def world_flora_text() -> str:
     return _card(
-        "🌪️ <b>EVENTI</b>",
-        "Dati atmosferici e naturali, adesso. Non è il meteo di Cuneo e non è lo zoo.",
-        "🌍 <b>EVENTI</b> — catastrofi e fenomeni importanti nel mondo\n"
-        "📡 <b>LIVE</b> — scosse, eruzioni, tempeste, incendi, ghiaccio: ogni evento ha un link\n"
-        "📖 <b>ESPLORA</b> — mari, oceani, terra, vulcani, placche, ghiacciai",
+        "🌋 <b>EVENTI E CALAMITÀ</b>",
+        "Cosa sta succedendo, e la foto della zona. Non è il meteo e non è un'allerta civile.",
+        "🌋 Terremoti LIVE — USGS intorno al luogo\n"
+        "🔥 Incendi LIVE — NASA FIRMS (VIIRS) + EONET\n"
+        "🌪️ Tempeste · 🌋 Vulcani · 🌊 Alluvioni · 🪨 Frane · 🌫️ Polvere / fumo — NASA EONET\n"
+        "🛰️ Vista satellitare — NASA Worldview / GIBS sul luogo\n"
+        "🌍 Eventi nel mondo — USGS significativi + EONET\n"
+        "📖 Esplora resta l'enciclopedia. 📡 Cataloghi sono i feed lunghi.",
     )
 
 

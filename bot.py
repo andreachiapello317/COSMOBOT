@@ -259,6 +259,19 @@ from services.earth import (
     format_world_events,
     geo_item,
 )
+from services.calamity import (
+    CALAM_KEYS,
+    PAGE_SIZE,
+    dump_items,
+    fetch_event_view,
+    format_calam_caption,
+    format_calam_detail,
+    format_calam_hub,
+    format_calam_list,
+    hub_counts,
+    load_calam_items,
+    stored_items,
+)
 from services.lenormand import (
     HINTS as LENO_HINTS,
     SPREADS as LENORMAND_SPREADS,
@@ -324,6 +337,11 @@ from ui.keyboards import (
     ss_bodies_keyboard,
     all_hub_keyboard,
     astro_hub_keyboard,
+    calam_detail_keyboard,
+    calam_hub_keyboard,
+    calam_list_keyboard,
+    calam_photo_keyboard,
+    kb_btn,
     geo_after_keyboard,
     geo_events_keyboard,
     geo_hub_keyboard,
@@ -553,6 +571,7 @@ NATURA_LAST_KEY = "natura_last"
 EARTH_OBS_KEY = "earth_obs_place"
 EARTH_OBS_LAYER_KEY = "earth_obs_layer"
 EARTH_OBS_SPAN_KEY = "earth_obs_span"
+GEO_CALAM_KEY = "geo_calam"
 BUSSOLA_LAST_KEY = "bussola_last"
 MATH_ASK_KEY = "math_ask"
 TOOL_CAL_KEY = "tool_cal_shift"
@@ -643,6 +662,9 @@ NAV_SKIP_PREFIXES = (
     "tool:cal:",
     "wx:d:",
     "watch:sats:earth:",
+    "geo:img:",
+    "geo:map:",
+    "geo:pg:",
     "loc:city:",
     "sq:ans:",
 )
@@ -6438,6 +6460,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
     if prefix == "world" and action == "fauna":
         await send_fauna_live(update, context)
         return
+    if prefix == "world" and action == "flora":
+        await send_calam_hub(update, context)
+        return
     if prefix == "watch" and action == "tonight":
         await send_watch_tonight(update, context)
         return
@@ -7490,6 +7515,9 @@ async def on_world_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if action == "fauna":
         await send_fauna_live(update, context)
         return
+    if action == "flora":
+        await send_calam_hub(update, context)
+        return
     pages = {
         "self": (world_self_text, world_self_keyboard),
         "div": (world_div_text, world_div_keyboard),
@@ -7790,6 +7818,19 @@ def _natura_place(context: ContextTypes.DEFAULT_TYPE) -> tuple[str, float, float
             float(last["lon"]),
         )
     return DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON
+
+
+def _ensure_natura_place(context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_natura_place(context):
+        _remember_natura_place(context, DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON)
+
+
+def _calam_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    raw = context.user_data.get(GEO_CALAM_KEY)
+    if not isinstance(raw, dict):
+        raw = {}
+        context.user_data[GEO_CALAM_KEY] = raw
+    return raw
 
 
 async def show_cielo_hub(
@@ -8776,7 +8817,7 @@ async def apply_place(
         return
     if purpose == "natev":
         _remember_natura_place(context, name, lat, lon)
-        await send_natura_here(update, context)
+        await send_calam_hub(update, context)
         return
     if purpose == "clock":
         await send_tool_clock(update, context, name=name, lat=lat, lon=lon)
@@ -13067,10 +13108,11 @@ async def show_natura_here(
     force_pick: bool = False,
 ) -> None:
     nav_mark(context, "geo:here")
-    if force_pick or not _has_natura_place(context):
+    if force_pick:
         await show_place_picker(update, context, "natev")
         return
-    await send_natura_here(update, context)
+    _ensure_natura_place(context)
+    await send_calam_hub(update, context)
 
 
 async def send_natura_here(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -13177,6 +13219,204 @@ async def send_natura_world(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         pidx += 1
     text = format_world_events(quakes=quakes, eonet=eonet)
     await reply_html(update, context, text, reply_markup=natura_world_keyboard())
+
+
+async def send_calam_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "world:flora")
+    _ensure_natura_place(context)
+    name, lat, lon = _natura_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"🌋 Cerco eventi vicino a {name}…")
+    try:
+        counts = await hub_counts(_http_client(context), lat, lon)
+    except Exception:
+        logger.exception("Eventi hub")
+        counts = {key: 0 for key in CALAM_KEYS}
+    await reply_html(
+        update,
+        context,
+        format_calam_hub(place=name, counts=counts),
+        reply_markup=calam_hub_keyboard(name, counts),
+    )
+
+
+async def send_calam_list(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    key: str,
+    *,
+    scope: str | None = None,
+    page: int | None = None,
+) -> None:
+    if key not in CALAM_KEYS:
+        await send_calam_hub(update, context)
+        return
+    nav_mark(context, f"geo:cat:{key}")
+    _ensure_natura_place(context)
+    name, lat, lon = _natura_place(context)
+    state = _calam_state(context)
+    if scope in {"n", "w"}:
+        state["scope"] = scope
+    used_scope = str(state.get("scope") or "n")
+    if used_scope not in {"n", "w"}:
+        used_scope = "n"
+        state["scope"] = used_scope
+    reload = state.get("cat") != key or state.get("scope") != used_scope or not state.get("items")
+    if scope in {"n", "w"}:
+        reload = True
+    await send_typing(update)
+    if reload:
+        await deliver_text(update, context, f"📡 Scarico {key}…")
+        try:
+            items = await load_calam_items(
+                _http_client(context), key, lat=lat, lon=lon, scope=used_scope
+            )
+        except Exception:
+            logger.exception("Eventi %s", key)
+            await reply_offline(update, context)
+            return
+        titles = [str(item.get("title") or "") for item in items if item.get("title")]
+        translated = await _translate_named_list(_http_client(context), titles[:12])
+        tidx = 0
+        for item in items:
+            if not item.get("title"):
+                continue
+            if tidx < len(translated) and translated[tidx]:
+                item["title"] = translated[tidx]
+            tidx += 1
+        state["cat"] = key
+        state["scope"] = used_scope
+        state["items"] = dump_items(items)
+        state["page"] = 0
+    items = stored_items(state.get("items"))
+    if page is None:
+        page = int(state.get("page") or 0)
+    max_page = max(0, (len(items) - 1) // PAGE_SIZE) if items else 0
+    page = max(0, min(int(page), max_page))
+    state["page"] = page
+    await reply_html(
+        update,
+        context,
+        format_calam_list(key=key, place=name, scope=used_scope, items=items, page=page),
+        reply_markup=calam_list_keyboard(key, items, scope=used_scope, page=page, page_size=PAGE_SIZE),
+    )
+
+
+async def send_calam_detail(update: Update, context: ContextTypes.DEFAULT_TYPE, index: int) -> None:
+    state = _calam_state(context)
+    items = stored_items(state.get("items"))
+    if index < 0 or index >= len(items):
+        key = str(state.get("cat") or "")
+        if key in CALAM_KEYS:
+            await send_calam_list(update, context, key)
+            return
+        await send_calam_hub(update, context)
+        return
+    key = str(state.get("cat") or "quake")
+    nav_mark(context, f"geo:i:{index}")
+    _ensure_natura_place(context)
+    name, _lat, _lon = _natura_place(context)
+    await reply_html(
+        update,
+        context,
+        format_calam_detail(key=key, place=name, item=items[index]),
+        reply_markup=calam_detail_keyboard(index),
+        preview=True,
+    )
+
+
+async def send_calam_image(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    index: int,
+    *,
+    kind: str = "sat",
+) -> None:
+    state = _calam_state(context)
+    items = stored_items(state.get("items"))
+    key = str(state.get("cat") or "quake")
+    _ensure_natura_place(context)
+    name, lat, lon = _natura_place(context)
+    item = items[index] if 0 <= index < len(items) else None
+    await send_typing(update)
+    await deliver_text(update, context, "🛰️ Worldview: scarico la zona…")
+    try:
+        view = await fetch_event_view(
+            _http_client(context),
+            key=key if item is not None else "quake",
+            item=item,
+            place=name,
+            lat=lat,
+            lon=lon,
+            kind=kind,
+        )
+    except Exception:
+        logger.exception("GIBS evento")
+        view = {}
+    image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
+    note = str(view.get("note") or "NASA Worldview / GIBS")
+    text = format_calam_caption(key=key, place=name, item=item, note=note, kind=kind)
+    markup = calam_photo_keyboard(index) if item is not None else calam_hub_keyboard(name)
+    if image:
+        ok = await deliver_photo_bytes(
+            update,
+            context,
+            bytes(image),
+            text,
+            filename=str(view.get("filename") or "evento.jpg"),
+            reply_markup=markup,
+        )
+        if ok:
+            return
+    extra = "\n\nNiente foto GIBS per questo punto. Prova mappa o un altro evento."
+    await reply_html(update, context, text + extra, reply_markup=markup)
+
+
+async def send_calam_place_sat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "geo:sat")
+    _ensure_natura_place(context)
+    name, lat, lon = _natura_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"🛰️ Worldview: {name}…")
+    try:
+        view = await fetch_event_view(
+            _http_client(context),
+            key="quake",
+            item=None,
+            place=name,
+            lat=lat,
+            lon=lon,
+            kind="map",
+        )
+    except Exception:
+        logger.exception("GIBS eventi luogo")
+        view = {}
+    image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
+    note = str(view.get("note") or "NASA Worldview / GIBS")
+    text = format_calam_caption(key="quake", place=name, item=None, note=note, kind="map")
+    markup = InlineKeyboardMarkup(
+        [
+            [kb_btn("🌋 Eventi", "world:flora")],
+            nav_row(),
+        ]
+    )
+    if image:
+        ok = await deliver_photo_bytes(
+            update,
+            context,
+            bytes(image),
+            text,
+            filename=str(view.get("filename") or "eventi.jpg"),
+            reply_markup=markup,
+        )
+        if ok:
+            return
+    await reply_html(
+        update,
+        context,
+        text + "\n\nNiente foto GIBS per questo luogo.",
+        reply_markup=markup,
+    )
 
 
 def _remember_bussola_place(
@@ -13704,6 +13944,33 @@ async def dispatch_geo(update: Update, context: ContextTypes.DEFAULT_TYPE, token
         return
     if action == "world":
         await send_natura_world(update, context)
+        return
+    if action == "sat":
+        await send_calam_place_sat(update, context)
+        return
+    if action == "back":
+        key = str(_calam_state(context).get("cat") or "")
+        if key in CALAM_KEYS:
+            await send_calam_list(update, context, key)
+            return
+        await send_calam_hub(update, context)
+        return
+    if action == "cat" and extra in CALAM_KEYS:
+        scope = extra2 if extra2 in {"n", "w"} else None
+        await send_calam_list(update, context, extra, scope=scope)
+        return
+    if action == "pg" and extra.isdigit():
+        key = str(_calam_state(context).get("cat") or "")
+        await send_calam_list(update, context, key, page=int(extra))
+        return
+    if action == "i" and extra.isdigit():
+        await send_calam_detail(update, context, int(extra))
+        return
+    if action == "img" and extra.isdigit():
+        await send_calam_image(update, context, int(extra), kind="sat")
+        return
+    if action == "map" and extra.isdigit():
+        await send_calam_image(update, context, int(extra), kind="map")
         return
     if action == "quake":
         await send_geo_quakes(update, context, extra or "day")

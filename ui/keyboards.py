@@ -83,7 +83,7 @@ def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
 def geo_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🌪️ Eventi", "world:flora")],
+            [kb_btn("🌋 Eventi", "world:flora")],
             [kb_btn("🐾 Animali live", "world:fauna")],
             [kb_btn("💎 Pietre", "world:pietre")],
             nav_row(),
@@ -91,12 +91,94 @@ def geo_hub_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def world_flora_keyboard() -> InlineKeyboardMarkup:
+def calam_hub_keyboard(place: str = "Cuneo", counts: dict[str, int] | None = None) -> InlineKeyboardMarkup:
+    from services.calamity import CALAM_CATS, CALAM_KEYS
+
+    def cat_btn(key: str) -> InlineKeyboardButton:
+        meta = CALAM_CATS[key]
+        n = int((counts or {}).get(key) or 0)
+        tail = f" ({n})" if n else ""
+        return kb_btn(f"{meta['emoji']} {meta['btn']}{tail}", f"geo:cat:{key}")
+
+    label = str(place or "Cuneo").strip()[:22]
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🌍 Eventi", "geo:world")],
-            [kb_btn("📡 Live", "world:live")],
-            [kb_btn("📖 Esplora", "world:natura")],
+            [kb_btn(f"📍 {label}", "geo:city")],
+            [cat_btn("quake"), cat_btn("fire")],
+            [cat_btn("storm"), cat_btn("volc")],
+            [cat_btn("flood"), cat_btn("slide")],
+            [cat_btn("dust")],
+            [kb_btn("🛰️ Vista satellitare", "geo:sat")],
+            [kb_btn("🌍 Eventi nel mondo", "geo:world")],
+            [kb_btn("📡 Cataloghi", "world:live"), kb_btn("📖 Esplora", "world:natura")],
+            nav_row(),
+        ]
+    )
+
+
+def world_flora_keyboard() -> InlineKeyboardMarkup:
+    return calam_hub_keyboard()
+
+
+def calam_list_keyboard(
+    key: str,
+    items: list[dict],
+    *,
+    scope: str = "n",
+    page: int = 0,
+    page_size: int = 5,
+) -> InlineKeyboardMarkup:
+    from services.calamity import item_button_label
+
+    near_mark = "· " if scope == "n" else ""
+    world_mark = "· " if scope == "w" else ""
+    start = page * page_size
+    chunk = items[start : start + page_size]
+    rows: list[list[InlineKeyboardButton]] = [
+        [kb_btn("📍 Cambia luogo", "geo:city")],
+        [
+            kb_btn(f"{near_mark}Vicino", f"geo:cat:{key}:n"),
+            kb_btn(f"{world_mark}Mondo", f"geo:cat:{key}:w"),
+        ],
+    ]
+    for offset, item in enumerate(chunk):
+        idx = start + offset
+        rows.append([kb_btn(item_button_label(key, item, idx + 1), f"geo:i:{idx}")])
+    nav: list[InlineKeyboardButton] = []
+    if page > 0:
+        nav.append(kb_btn("⬅️", f"geo:pg:{page - 1}"))
+    if start + page_size < len(items):
+        nav.append(kb_btn("➡️", f"geo:pg:{page + 1}"))
+    if nav:
+        rows.append(nav)
+    rows.append([kb_btn("🛰️ Mappa zona", "geo:sat")])
+    rows.append([kb_btn("🌋 Eventi", "world:flora")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
+
+
+def calam_detail_keyboard(index: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                kb_btn("🛰️ Satellite", f"geo:img:{index}"),
+                kb_btn("🗺️ Mappa", f"geo:map:{index}"),
+            ],
+            [kb_btn("⬅️ Lista", "geo:back")],
+            nav_row(),
+        ]
+    )
+
+
+def calam_photo_keyboard(index: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                kb_btn("🛰️ Satellite", f"geo:img:{index}"),
+                kb_btn("🗺️ Mappa", f"geo:map:{index}"),
+            ],
+            [kb_btn("📍 Dettagli", f"geo:i:{index}")],
+            [kb_btn("⬅️ Lista", "geo:back")],
             nav_row(),
         ]
     )
@@ -120,7 +202,7 @@ def world_live_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔥 Incendi aperti", "geo:ev:wildfires"), kb_btn("🧊 Ghiaccio", "geo:ev:seaLakeIce")],
             [kb_btn("🌊 Alluvioni", "geo:ev:floods"), kb_btn("🪨 Frane", "geo:ev:landslides")],
             [kb_btn("🌵 Siccità", "geo:ev:drought"), kb_btn("📋 Tutti i fenomeni", "geo:events")],
-            [kb_btn("🌪️ Eventi", "world:flora")],
+            [kb_btn("🌋 Eventi", "world:flora")],
             nav_row(),
         ]
     )
@@ -138,20 +220,14 @@ def world_natura_keyboard() -> InlineKeyboardMarkup:
 
 
 def natura_here_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("🔄 Aggiorna", "geo:here")],
-            [kb_btn("📍 Cambia città", "geo:city")],
-            nav_row(),
-        ]
-    )
+    return calam_hub_keyboard()
 
 
 def natura_world_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔄 Aggiorna", "geo:world")],
-            [kb_btn("🌪️ Eventi", "world:flora")],
+            [kb_btn("🌋 Eventi", "world:flora")],
             nav_row(),
         ]
     )
@@ -226,7 +302,7 @@ def geo_after_keyboard(kind: str) -> InlineKeyboardMarkup:
         "ocean": ("🌊 Oceani", "world:ocean"),
         "sea": ("🌊 Mari", "world:sea"),
         "ice": ("🧊 Ghiacciai", "world:ice"),
-    }.get(kind, ("🌪️ Eventi", "world:flora"))
+    }.get(kind, ("🌋 Eventi", "world:flora"))
     return InlineKeyboardMarkup([[kb_btn(back[0], back[1])], nav_row()])
 
 
