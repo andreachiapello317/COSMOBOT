@@ -94,7 +94,7 @@ from services.birthdays import (
     remove_birthday,
     touch_chat,
 )
-from services.calevents import clamp_year, format_events_card
+from services.calevents import format_events_card
 from services.tools import (
     draw_month_calendar,
     format_coord_card,
@@ -2710,23 +2710,20 @@ async def send_tool_feste(update: Update, context: ContextTypes.DEFAULT_TYPE, ex
     today = datetime.now(DEFAULT_TZ).date()
     state = context.user_data.get(TOOL_FESTE_KEY)
     if not isinstance(state, dict):
-        state = {"year": today.year, "view": "next"}
+        state = {"view": "hub", "page": 0}
         context.user_data[TOOL_FESTE_KEY] = state
-    year = clamp_year(int(state.get("year") or today.year))
-    view = str(state.get("view") or "next")
+    view = str(state.get("view") or "hub")
     token = (extra or "").strip()
     page = int(state.get("page") or 0)
-    if token in {"easter", "xmas", "it", "world", "season", "next"}:
+    aliases = {"easter": "rel", "xmas": "rel", "it": "r:it", "jd": "hub"}
+    if token in aliases:
+        view = aliases[token]
+        page = 0
+    elif token in {"hub", "reg", "world", "season", "next", "rel"}:
         view = token
         page = 0
-    elif token == "yprev":
-        year = clamp_year(year - 1)
-        page = 0
-    elif token == "ynext":
-        year = clamp_year(year + 1)
-        page = 0
-    elif token == "ynow":
-        year = today.year
+    elif token.startswith("r:") or token.startswith("w:"):
+        view = token
         page = 0
     elif token == "pprev":
         page -= 1
@@ -2734,24 +2731,25 @@ async def send_tool_feste(update: Update, context: ContextTypes.DEFAULT_TYPE, ex
         page += 1
     elif token == "stay":
         pass
-    elif token in {"", "jd"}:
-        view = "next"
+    elif token in {"yprev", "ynext", "ynow"}:
+        pass
+    elif token == "":
+        view = "hub"
         page = 0
-    text, page, pages = format_events_card(view, year, today, page)
-    state["year"] = year
+    text, page, pages = format_events_card(view, today.year, today, page)
     state["view"] = view
     state["page"] = page
     await reply_html(
         update,
         context,
         text,
-        reply_markup=calendar_events_keyboard(page, pages),
+        reply_markup=calendar_events_keyboard(view, page, pages),
     )
 
 
 async def send_tool_jd(update: Update, context: ContextTypes.DEFAULT_TYPE, when: datetime | None = None) -> None:
     _ = when
-    await send_tool_feste(update, context, extra="next")
+    await send_tool_feste(update, context, extra="hub")
 
 
 async def send_tool_clock(

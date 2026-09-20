@@ -260,7 +260,7 @@ def calendar_hub_text() -> str:
         "📅 <b>CALENDARIO</b>",
         "Una cartella di STRUMENTI. Ora italiana, feste, compleanni.",
         "🕐 <b>ORA E MESE</b> — orologio e griglia del mese\n"
-        "📅 <b>EVENTI</b> — Pasqua, Natale, Italia, mondo, stagioni\n"
+        "📅 <b>EVENTI</b> — regioni, religiose, mondo, stagioni\n"
         "🎂 <b>COMPLEANNI</b> — li carichi tu, avviso il giorno",
     )
 

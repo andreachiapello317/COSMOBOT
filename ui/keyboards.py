@@ -615,12 +615,31 @@ def birthday_alert_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def calendar_events_keyboard(page: int = 0, pages: int = 1) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = [
-        [kb_btn("📅 Prossimi", "tool:feste"), kb_btn("🐣 Pasqua", "tool:feste:easter")],
-        [kb_btn("🎄 Natale", "tool:feste:xmas"), kb_btn("🇮🇹 Italia", "tool:feste:it")],
-        [kb_btn("🌍 Mondo", "tool:feste:world"), kb_btn("☀️ Stagioni", "tool:feste:season")],
-    ]
+def calendar_events_keyboard(view: str = "hub", page: int = 0, pages: int = 1) -> InlineKeyboardMarkup:
+    from services.calevents import REGIONS, WORLD_SUB, parent_view
+
+    if view == "hub":
+        rows = [
+            [kb_btn("🗺️ Regioni", "tool:feste:reg"), kb_btn("✝️ Religiose", "tool:feste:rel")],
+            [kb_btn("🌍 Mondo", "tool:feste:world"), kb_btn("☀️ Stagioni", "tool:feste:season")],
+            [kb_btn("📅 Prossimi", "tool:feste:next")],
+            [kb_btn("🕐 Mese", "tool:clock"), kb_btn("🎂 Compleanni", "tool:bd")],
+            nav_row(),
+        ]
+        return InlineKeyboardMarkup(rows)
+    if view == "reg":
+        buttons = [kb_btn(f"{row['emoji']} {row['title'].title()}", f"tool:feste:r:{key}") for key, row in REGIONS.items()]
+        grid = _pairs(buttons)
+        grid.append([kb_btn("⬅️ Eventi", "tool:feste")])
+        grid.append(nav_row())
+        return InlineKeyboardMarkup(grid)
+    if view == "world":
+        buttons = [kb_btn(f"{row['emoji']} {row['title'].title()}", f"tool:feste:w:{key}") for key, row in WORLD_SUB.items()]
+        grid = _pairs(buttons)
+        grid.append([kb_btn("⬅️ Eventi", "tool:feste")])
+        grid.append(nav_row())
+        return InlineKeyboardMarkup(grid)
+    rows: list[list[InlineKeyboardButton]] = []
     if pages > 1:
         rows.append(
             [
@@ -629,14 +648,9 @@ def calendar_events_keyboard(page: int = 0, pages: int = 1) -> InlineKeyboardMar
                 kb_btn("▶", "tool:feste:pnext"),
             ]
         )
-    rows.append(
-        [
-            kb_btn("◀ anno", "tool:feste:yprev"),
-            kb_btn("quest'anno", "tool:feste:ynow"),
-            kb_btn("anno ▶", "tool:feste:ynext"),
-        ]
-    )
-    rows.append([kb_btn("🕐 Mese", "tool:clock"), kb_btn("🎂 Compleanni", "tool:bd")])
+    back = parent_view(view)
+    token = "tool:feste" if back == "hub" else f"tool:feste:{back}"
+    rows.append([kb_btn("⬅️ Cartella", token)])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 

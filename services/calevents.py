@@ -1,9 +1,11 @@
-"""Eventi di calendario: Pasqua, Natale, feste civili. Algoritmi veri, niente date inventate."""
+"""Eventi di calendario per cartelle: regioni, religiose, mondo. Niente cambio anno."""
 
 from __future__ import annotations
 
+import calendar
 import html as _html
 from datetime import date, datetime, timedelta, timezone
+from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
 import astronomy
@@ -24,8 +26,11 @@ _MONTHS = (
     "novembre",
     "dicembre",
 )
+_MONTHS_SHORT = ("gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic")
+PAGE_SIZE = 5
+YEAR_MIN = 1901
+YEAR_MAX = 2099
 
-# Capodanno lunare cinese: date civili pubblicate (non un algoritmo approssimato).
 _CNY: dict[int, tuple[int, int]] = {
     2015: (2, 19),
     2016: (2, 8),
@@ -55,8 +60,7 @@ _CNY: dict[int, tuple[int, int]] = {
     2040: (2, 12),
 }
 
-YEAR_MIN = 1901
-YEAR_MAX = 2099
+When = Callable[[int], date | None]
 
 
 def clamp_year(year: int) -> int:
@@ -64,7 +68,6 @@ def clamp_year(year: int) -> int:
 
 
 def easter_western(year: int) -> date:
-    """Pasqua gregoriana, algoritmo di Meeus/Jones/Butcher."""
     a = year % 19
     b = year // 100
     c = year % 100
@@ -83,7 +86,6 @@ def easter_western(year: int) -> date:
 
 
 def easter_orthodox(year: int) -> date:
-    """Pasqua ortodossa: computus giuliano, poi conversione al gregoriano."""
     a = year % 4
     b = year % 7
     c = year % 19
@@ -101,8 +103,12 @@ def nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
     return first + timedelta(days=add + 7 * (n - 1))
 
 
+def last_weekday(year: int, month: int, weekday: int) -> date:
+    last = date(year, month, calendar.monthrange(year, month)[1])
+    return last - timedelta(days=(last.weekday() - weekday) % 7)
+
+
 def advent_sunday(year: int) -> date:
-    """Prima domenica di Avvento: domenica tra il 27 novembre e il 3 dicembre."""
     start = date(year, 11, 27)
     return start + timedelta(days=(6 - start.weekday()) % 7)
 
@@ -128,82 +134,234 @@ def _event(day: date, emoji: str, title: str, note: str = "", *, kind: str) -> d
     return {"date": day, "emoji": emoji, "title": title, "note": note, "kind": kind}
 
 
-def events_easter(year: int) -> list[dict[str, object]]:
-    west = easter_western(year)
-    east = easter_orthodox(year)
-    rows = [
-        _event(west - timedelta(days=47), "🎭", "Martedì grasso", "47 giorni prima della Pasqua occidentale", kind="easter"),
-        _event(west - timedelta(days=46), "✝️", "Mercoledì delle Ceneri", "inizio Quaresima occidentale", kind="easter"),
-        _event(west - timedelta(days=7), "🌿", "Domenica delle Palme", kind="easter"),
-        _event(west - timedelta(days=3), "🍷", "Giovedì santo", kind="easter"),
-        _event(west - timedelta(days=2), "✝️", "Venerdì santo", kind="easter"),
-        _event(west, "🐣", "Pasqua occidentale", "computus gregoriano", kind="easter"),
-        _event(west + timedelta(days=1), "🧺", "Pasquetta", "lunedì dell'Angelo", kind="easter"),
-        _event(west + timedelta(days=39), "☁️", "Ascensione", "39 giorni dopo Pasqua", kind="easter"),
-        _event(west + timedelta(days=49), "🔥", "Pentecoste", "49 giorni dopo Pasqua", kind="easter"),
-        _event(west + timedelta(days=60), "🍞", "Corpus Domini", "60 giorni dopo Pasqua", kind="easter"),
-        _event(east, "☦️", "Pasqua ortodossa", "computus giuliano, data gregoriana", kind="easter"),
-    ]
+def _fixed(month: int, day: int) -> When:
+    return lambda year: date(year, month, day)
+
+
+def _from_easter(delta: int) -> When:
+    return lambda year: easter_western(year) + timedelta(days=delta)
+
+
+def _cny(year: int) -> date | None:
+    pair = _CNY.get(year)
+    return date(year, pair[0], pair[1]) if pair else None
+
+
+def _nowruz(year: int) -> date:
+    return season_marks(year)[0][0].date()
+
+
+def _build(year: int, specs: tuple[tuple[str, str, When], ...], kind: str) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for emoji, title, when in specs:
+        day = when(year)
+        if day is None:
+            continue
+        rows.append(_event(day, emoji, title, kind=kind))
     return sorted(rows, key=lambda row: row["date"])  # type: ignore[arg-type, return-value]
 
 
-def events_xmas(year: int) -> list[dict[str, object]]:
-    rows = [
-        _event(date(year, 1, 6), "⭐", "Epifania", "Befana", kind="xmas"),
-        _event(date(year, 1, 7), "🎄", "Natale ortodosso", "25 dicembre giuliano", kind="xmas"),
-        _event(date(year, 12, 8), "💠", "Immacolata Concezione", kind="xmas"),
-        _event(advent_sunday(year), "🕯️", "Prima domenica di Avvento", kind="xmas"),
-        _event(date(year, 12, 24), "🎁", "Vigilia di Natale", kind="xmas"),
-        _event(date(year, 12, 25), "🎄", "Natale", kind="xmas"),
-        _event(date(year, 12, 26), "🎁", "Santo Stefano", kind="xmas"),
-        _event(date(year, 1, 19), "💧", "Teofania ortodossa", "6 gennaio giuliano", kind="xmas"),
-    ]
-    return sorted(rows, key=lambda row: row["date"])  # type: ignore[arg-type, return-value]
+REGIONS: dict[str, dict[str, Any]] = {
+    "it": {
+        "emoji": "🇮🇹",
+        "title": "ITALIA",
+        "blurb": "Feste civili italiane, da oggi.",
+        "specs": (
+            ("🎆", "Capodanno", _fixed(1, 1)),
+            ("⭐", "Epifania", _fixed(1, 6)),
+            ("👔", "Festa del papà", _fixed(3, 19)),
+            ("🐣", "Pasqua", _from_easter(0)),
+            ("🧺", "Pasquetta", _from_easter(1)),
+            ("🇮🇹", "Liberazione", _fixed(4, 25)),
+            ("💐", "Festa della mamma", lambda y: nth_weekday(y, 5, 6, 2)),
+            ("🛠️", "Festa del Lavoro", _fixed(5, 1)),
+            ("🇮🇹", "Festa della Repubblica", _fixed(6, 2)),
+            ("☀️", "Ferragosto", _fixed(8, 15)),
+            ("🕯️", "Ognissanti", _fixed(11, 1)),
+            ("💠", "Immacolata", _fixed(12, 8)),
+            ("🎄", "Natale", _fixed(12, 25)),
+            ("🎁", "Santo Stefano", _fixed(12, 26)),
+        ),
+    },
+    "fr": {
+        "emoji": "🇫🇷",
+        "title": "FRANCIA",
+        "blurb": "Feste civili francesi, da oggi.",
+        "specs": (
+            ("🎆", "Capodanno", _fixed(1, 1)),
+            ("🧺", "Lundi de Pâques", _from_easter(1)),
+            ("🛠️", "Fête du Travail", _fixed(5, 1)),
+            ("🇫🇷", "Victoire 1945", _fixed(5, 8)),
+            ("☁️", "Ascension", _from_easter(39)),
+            ("🔥", "Lundi de Pentecôte", _from_easter(50)),
+            ("🇫🇷", "Presa della Bastiglia", _fixed(7, 14)),
+            ("☀️", "Assomption", _fixed(8, 15)),
+            ("🕯️", "Toussaint", _fixed(11, 1)),
+            ("🪖", "Armistizio 1918", _fixed(11, 11)),
+            ("🎄", "Noël", _fixed(12, 25)),
+        ),
+    },
+    "de": {
+        "emoji": "🇩🇪",
+        "title": "GERMANIA",
+        "blurb": "Feste federali tedesche, da oggi.",
+        "specs": (
+            ("🎆", "Neujahr", _fixed(1, 1)),
+            ("✝️", "Karfreitag", _from_easter(-2)),
+            ("🧺", "Ostermontag", _from_easter(1)),
+            ("🛠️", "Tag der Arbeit", _fixed(5, 1)),
+            ("☁️", "Christi Himmelfahrt", _from_easter(39)),
+            ("🔥", "Pfingstmontag", _from_easter(50)),
+            ("🇩🇪", "Tag der Deutschen Einheit", _fixed(10, 3)),
+            ("🎄", "Erster Weihnachtstag", _fixed(12, 25)),
+            ("🎁", "Zweiter Weihnachtstag", _fixed(12, 26)),
+        ),
+    },
+    "es": {
+        "emoji": "🇪🇸",
+        "title": "SPAGNA",
+        "blurb": "Feste nazionali spagnole, da oggi.",
+        "specs": (
+            ("🎆", "Año Nuevo", _fixed(1, 1)),
+            ("⭐", "Reyes", _fixed(1, 6)),
+            ("✝️", "Viernes Santo", _from_easter(-2)),
+            ("🛠️", "Fiesta del Trabajo", _fixed(5, 1)),
+            ("☀️", "Asunción", _fixed(8, 15)),
+            ("🇪🇸", "Fiesta Nacional", _fixed(10, 12)),
+            ("🕯️", "Todos los Santos", _fixed(11, 1)),
+            ("📜", "Día de la Constitución", _fixed(12, 6)),
+            ("💠", "Inmaculada", _fixed(12, 8)),
+            ("🎄", "Navidad", _fixed(12, 25)),
+        ),
+    },
+    "uk": {
+        "emoji": "🇬🇧",
+        "title": "REGNO UNITO",
+        "blurb": "Bank holiday inglesi, da oggi.",
+        "specs": (
+            ("🎆", "New Year's Day", _fixed(1, 1)),
+            ("✝️", "Good Friday", _from_easter(-2)),
+            ("🧺", "Easter Monday", _from_easter(1)),
+            ("🌷", "Early May bank holiday", lambda y: nth_weekday(y, 5, 0, 1)),
+            ("🌳", "Spring bank holiday", lambda y: last_weekday(y, 5, 0)),
+            ("☀️", "Summer bank holiday", lambda y: last_weekday(y, 8, 0)),
+            ("🎄", "Christmas Day", _fixed(12, 25)),
+            ("🎁", "Boxing Day", _fixed(12, 26)),
+        ),
+    },
+    "us": {
+        "emoji": "🇺🇸",
+        "title": "STATI UNITI",
+        "blurb": "Feste federali USA, da oggi.",
+        "specs": (
+            ("🎆", "New Year's Day", _fixed(1, 1)),
+            ("✊", "Martin Luther King Jr. Day", lambda y: nth_weekday(y, 1, 0, 3)),
+            ("🇺🇸", "Presidents' Day", lambda y: nth_weekday(y, 2, 0, 3)),
+            ("🌺", "Memorial Day", lambda y: last_weekday(y, 5, 0)),
+            ("🇺🇸", "Independence Day", _fixed(7, 4)),
+            ("🛠️", "Labor Day", lambda y: nth_weekday(y, 9, 0, 1)),
+            ("🦃", "Thanksgiving", lambda y: nth_weekday(y, 11, 3, 4)),
+            ("🎄", "Christmas Day", _fixed(12, 25)),
+        ),
+    },
+}
+
+RELIGIOUS_SPECS: tuple[tuple[str, str, When], ...] = (
+    ("⭐", "Epifania", _fixed(1, 6)),
+    ("🎄", "Natale ortodosso", _fixed(1, 7)),
+    ("💧", "Teofania ortodossa", _fixed(1, 19)),
+    ("🎭", "Martedì grasso", _from_easter(-47)),
+    ("✝️", "Mercoledì delle Ceneri", _from_easter(-46)),
+    ("🌿", "Domenica delle Palme", _from_easter(-7)),
+    ("🍷", "Giovedì santo", _from_easter(-3)),
+    ("✝️", "Venerdì santo", _from_easter(-2)),
+    ("🐣", "Pasqua occidentale", _from_easter(0)),
+    ("🧺", "Pasquetta", _from_easter(1)),
+    ("☁️", "Ascensione", _from_easter(39)),
+    ("🔥", "Pentecoste", _from_easter(49)),
+    ("🍞", "Corpus Domini", _from_easter(60)),
+    ("☦️", "Pasqua ortodossa", lambda y: easter_orthodox(y)),
+    ("💠", "Immacolata Concezione", _fixed(12, 8)),
+    ("🕯️", "Prima domenica di Avvento", advent_sunday),
+    ("🎁", "Vigilia di Natale", _fixed(12, 24)),
+    ("🎄", "Natale", _fixed(12, 25)),
+    ("🎁", "Santo Stefano", _fixed(12, 26)),
+)
+
+WORLD_SUB: dict[str, dict[str, Any]] = {
+    "love": {
+        "emoji": "💌",
+        "title": "AMORI",
+        "blurb": "Date civili legate all'amore.",
+        "specs": (
+            ("💌", "San Valentino", _fixed(2, 14)),
+            ("🤍", "White Day", _fixed(3, 14)),
+            ("💜", "Giornata della donna", _fixed(3, 8)),
+            ("💐", "Festa della mamma (IT)", lambda y: nth_weekday(y, 5, 6, 2)),
+            ("💑", "Singles' Day", _fixed(11, 11)),
+        ),
+    },
+    "fun": {
+        "emoji": "😄",
+        "title": "BUFFE",
+        "blurb": "Date curiose, vere, non inventate.",
+        "specs": (
+            ("🥧", "Pi Day", _fixed(3, 14)),
+            ("🃏", "Pesce d'aprile", _fixed(4, 1)),
+            ("⚔️", "Star Wars Day", _fixed(5, 4)),
+            ("🌌", "Towel Day", _fixed(5, 25)),
+            ("🎃", "Halloween", _fixed(10, 31)),
+        ),
+    },
+    "civil": {
+        "emoji": "🕊️",
+        "title": "CIVILI",
+        "blurb": "Giornate internazionali e civili.",
+        "specs": (
+            ("🎆", "Capodanno civile", _fixed(1, 1)),
+            ("🌍", "Giornata della Terra", _fixed(4, 22)),
+            ("🛠️", "Primo maggio", _fixed(5, 1)),
+            ("🕊️", "Giornata delle Nazioni Unite", _fixed(10, 24)),
+            ("🥂", "San Silvestro", _fixed(12, 31)),
+        ),
+    },
+    "culture": {
+        "emoji": "🧧",
+        "title": "CULTURE",
+        "blurb": "Feste culturali con data nota.",
+        "specs": (
+            ("🧧", "Capodanno cinese", _cny),
+            ("🌱", "Nowruz", _nowruz),
+            ("💀", "Día de Muertos", _fixed(11, 1)),
+            ("🦃", "Thanksgiving USA", lambda y: nth_weekday(y, 11, 3, 4)),
+            ("🎄", "Natale ortodosso", _fixed(1, 7)),
+        ),
+    },
+}
+
+MENUS = {
+    "hub": ("📅", "EVENTI", "Senza cambiare anno. Una cartella alla volta."),
+    "reg": ("🗺️", "REGIONI", "Feste civili per paese. Si può aggiungere una nazione."),
+    "world": ("🌍", "MONDO", "Sottosezioni. Amori, buffe, civili, culture."),
+}
 
 
-def events_italy(year: int) -> list[dict[str, object]]:
-    west = easter_western(year)
-    rows = [
-        _event(date(year, 1, 1), "🎆", "Capodanno", "festa civile italiana", kind="it"),
-        _event(date(year, 1, 6), "⭐", "Epifania", "festa civile italiana", kind="it"),
-        _event(date(year, 3, 19), "👔", "Festa del papà", "San Giuseppe", kind="it"),
-        _event(west, "🐣", "Pasqua", kind="it"),
-        _event(west + timedelta(days=1), "🧺", "Lunedì dell'Angelo", "Pasquetta", kind="it"),
-        _event(date(year, 4, 25), "🇮🇹", "Festa della Liberazione", kind="it"),
-        _event(nth_weekday(year, 5, 6, 2), "💐", "Festa della mamma", "seconda domenica di maggio", kind="it"),
-        _event(date(year, 5, 1), "🛠️", "Festa del Lavoro", kind="it"),
-        _event(date(year, 6, 2), "🇮🇹", "Festa della Repubblica", kind="it"),
-        _event(date(year, 8, 15), "☀️", "Ferragosto", "Assunzione", kind="it"),
-        _event(date(year, 11, 1), "🕯️", "Ognissanti", kind="it"),
-        _event(date(year, 12, 8), "💠", "Immacolata Concezione", kind="it"),
-        _event(date(year, 12, 25), "🎄", "Natale", kind="it"),
-        _event(date(year, 12, 26), "🎁", "Santo Stefano", kind="it"),
-    ]
-    return sorted(rows, key=lambda row: row["date"])  # type: ignore[arg-type, return-value]
+def events_region(key: str, year: int) -> list[dict[str, object]]:
+    meta = REGIONS.get(key)
+    if not meta:
+        return []
+    return _build(year, meta["specs"], f"r:{key}")
 
 
-def events_world(year: int) -> list[dict[str, object]]:
-    rows = [
-        _event(date(year, 1, 1), "🎆", "Capodanno civile", kind="world"),
-        _event(date(year, 2, 14), "💌", "San Valentino", kind="world"),
-        _event(date(year, 3, 8), "💜", "Giornata internazionale della donna", kind="world"),
-        _event(date(year, 4, 22), "🌍", "Giornata della Terra", kind="world"),
-        _event(date(year, 5, 1), "🛠️", "Primo maggio", kind="world"),
-        _event(date(year, 7, 4), "🇺🇸", "Independence Day", "Stati Uniti", kind="world"),
-        _event(date(year, 7, 14), "🇫🇷", "Presa della Bastiglia", "Francia", kind="world"),
-        _event(date(year, 10, 3), "🇩🇪", "Giorno dell'unità tedesca", kind="world"),
-        _event(date(year, 10, 24), "🕊️", "Giornata delle Nazioni Unite", kind="world"),
-        _event(date(year, 10, 31), "🎃", "Halloween", kind="world"),
-        _event(date(year, 11, 1), "💀", "Día de Muertos", "Messico, 1–2 novembre", kind="world"),
-        _event(nth_weekday(year, 11, 3, 4), "🦃", "Thanksgiving", "quarto giovedì di novembre, USA", kind="world"),
-        _event(date(year, 12, 31), "🥂", "San Silvestro", kind="world"),
-    ]
-    cny = _CNY.get(year)
-    if cny:
-        rows.append(_event(date(year, cny[0], cny[1]), "🧧", "Capodanno cinese", "data civile del calendario lunare", kind="world"))
-    eq = season_marks(year)[0][0]
-    rows.append(_event(eq.date(), "🌱", "Nowruz", "equinozio di marzo, Astronomy Engine", kind="world"))
-    return sorted(rows, key=lambda row: row["date"])  # type: ignore[arg-type, return-value]
+def events_religious(year: int) -> list[dict[str, object]]:
+    return _build(year, RELIGIOUS_SPECS, "rel")
+
+
+def events_world_sub(key: str, year: int) -> list[dict[str, object]]:
+    meta = WORLD_SUB.get(key)
+    if not meta:
+        return []
+    return _build(year, meta["specs"], f"w:{key}")
 
 
 def events_season(year: int) -> list[dict[str, object]]:
@@ -221,10 +379,30 @@ def events_season(year: int) -> list[dict[str, object]]:
     return rows
 
 
-def all_events(year: int) -> list[dict[str, object]]:
+def _upcoming(today: date, builder: Callable[[int], list[dict[str, object]]]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for year in (today.year, today.year + 1):
+        if YEAR_MIN <= year <= YEAR_MAX:
+            rows.extend(builder(year))
+    future = [row for row in rows if row["date"] >= today]  # type: ignore[operator]
+    seen: set[str] = set()
+    unique: list[dict[str, object]] = []
+    for row in future:
+        title = str(row.get("title") or "")
+        if title in seen:
+            continue
+        seen.add(title)
+        unique.append(row)
+    return unique
+
+
+def all_catalog(year: int) -> list[dict[str, object]]:
     seen: set[tuple[date, str]] = set()
     out: list[dict[str, object]] = []
-    for group in (events_easter(year), events_xmas(year), events_italy(year), events_world(year), events_season(year)):
+    groups = [events_religious(year), events_season(year)]
+    groups.extend(events_region(key, year) for key in REGIONS)
+    groups.extend(events_world_sub(key, year) for key in WORLD_SUB)
+    for group in groups:
         for row in group:
             key = (row["date"], str(row["title"]))  # type: ignore[index]
             if key in seen:
@@ -235,24 +413,41 @@ def all_events(year: int) -> list[dict[str, object]]:
 
 
 def upcoming(today: date, *, limit: int = 12) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for year in (today.year, today.year + 1):
-        if YEAR_MIN <= year <= YEAR_MAX:
-            rows.extend(all_events(year))
-    future = [row for row in rows if row["date"] >= today]  # type: ignore[operator]
-    return future[:limit]
+    return _upcoming(today, all_catalog)[:limit]
 
 
-VIEWS = {
-    "next": ("📅", "PROSSIMI", "Da oggi. Scorri le pagine."),
-    "easter": ("🐣", "PASQUA", "Gregoriana e ortodossa."),
-    "xmas": ("🎄", "NATALE", "Latino, ortodosso, Avvento."),
-    "it": ("🇮🇹", "ITALIA", "Feste civili e Pasqua."),
-    "world": ("🌍", "MONDO", "Feste civili note. Scorri."),
-    "season": ("☀️", "STAGIONI", "Equinozi e solstizi, ora di Roma."),
-}
-PAGE_SIZE = 5
-_MONTHS_SHORT = ("gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic")
+def rows_for(view: str, today: date) -> list[dict[str, object]]:
+    if view == "next":
+        return upcoming(today, limit=15)
+    if view == "season":
+        return events_season(today.year)
+    if view == "rel":
+        return _upcoming(today, events_religious)
+    if view.startswith("r:") and view[2:] in REGIONS:
+        key = view[2:]
+        return _upcoming(today, lambda year: events_region(key, year))
+    if view.startswith("w:") and view[2:] in WORLD_SUB:
+        key = view[2:]
+        return _upcoming(today, lambda year: events_world_sub(key, year))
+    return []
+
+
+def _meta(view: str) -> tuple[str, str, str]:
+    if view in MENUS:
+        return MENUS[view]
+    if view == "next":
+        return "📅", "PROSSIMI", "I più vicini, da oggi. Scorri solo se sono tanti."
+    if view == "season":
+        return "☀️", "STAGIONI", "Equinozi e solstizi, ora di Roma."
+    if view == "rel":
+        return "✝️", "RELIGIOSE", "Cristiane e ortodosse, da oggi."
+    if view.startswith("r:") and view[2:] in REGIONS:
+        meta = REGIONS[view[2:]]
+        return meta["emoji"], meta["title"], meta["blurb"]
+    if view.startswith("w:") and view[2:] in WORLD_SUB:
+        meta = WORLD_SUB[view[2:]]
+        return meta["emoji"], meta["title"], meta["blurb"]
+    return MENUS["hub"]
 
 
 def _fmt_day(day: date) -> str:
@@ -276,34 +471,34 @@ def _ago(day: date, today: date) -> str:
     return f"{-n}g fa"
 
 
-def rows_for(view: str, year: int, today: date) -> list[dict[str, object]]:
-    view = view if view in VIEWS else "next"
-    year = clamp_year(year)
-    if view == "next":
-        if year == today.year:
-            return upcoming(today, limit=15)
-        return all_events(year)
-    return {
-        "easter": events_easter,
-        "xmas": events_xmas,
-        "it": events_italy,
-        "world": events_world,
-        "season": events_season,
-    }[view](year)
-
-
 def format_events_card(view: str, year: int, today: date, page: int = 0) -> tuple[str, int, int]:
-    view = view if view in VIEWS else "next"
-    year = clamp_year(year)
-    emoji, title, blurb = VIEWS[view]
-    rows = rows_for(view, year, today)
-    head_year = "" if view == "next" and year == today.year else f" · {year}"
+    _ = year
+    if view in {"easter", "xmas"}:
+        view = "rel"
+    if view == "it":
+        view = "r:it"
+    if view not in {"hub", "reg", "world", "next", "season", "rel"} and not view.startswith(("r:", "w:")):
+        view = "hub"
+    emoji, title, blurb = _meta(view)
+    if view in {"hub", "reg", "world"}:
+        extra = ""
+        if view == "hub":
+            extra = (
+                "🗺️ <b>REGIONI</b> — Italia, Francia, Germania…\n"
+                "✝️ <b>RELIGIOSE</b> — Pasqua, Natale, Avvento\n"
+                "🌍 <b>MONDO</b> — amori, buffe, civili, culture\n"
+                "☀️ <b>STAGIONI</b> — equinozi e solstizi\n"
+                "📅 <b>PROSSIMI</b> — i più vicini da oggi"
+            )
+        elif view == "reg":
+            extra = "\n".join(f"{row['emoji']} <b>{row['title']}</b>" for row in REGIONS.values())
+        else:
+            extra = "\n".join(f"{row['emoji']} <b>{row['title']}</b> — {row['blurb']}" for row in WORLD_SUB.values())
+        text = f"{emoji} <b>{title}</b>\n<i>{_html.escape(blurb)}</i>\n\n{extra}"
+        return text, 0, 1
+    rows = rows_for(view, today)
     if view == "season":
-        lines = [
-            f"{emoji} <b>STAGIONI{head_year}</b>",
-            f"<i>{_html.escape(blurb)}</i>",
-            "",
-        ]
+        lines = [f"{emoji} <b>{title}</b>", f"<i>{_html.escape(blurb)}</i>", ""]
         for row in rows:
             day = row["date"]
             assert isinstance(day, date)
@@ -318,13 +513,9 @@ def format_events_card(view: str, year: int, today: date, page: int = 0) -> tupl
     pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE) if rows else 1
     page = max(0, min(int(page), pages - 1))
     chunk = rows[page * PAGE_SIZE : (page + 1) * PAGE_SIZE]
-    lines = [
-        f"{emoji} <b>{title}{head_year}</b>",
-        f"<i>{_html.escape(blurb)}</i>",
-        "",
-    ]
+    lines = [f"{emoji} <b>{title}</b>", f"<i>{_html.escape(blurb)}</i>", ""]
     if not chunk:
-        lines.append("Nessuna data in questo giro.")
+        lines.append("Nessuna data da oggi in poi, in questa cartella.")
     else:
         for row in chunk:
             day = row["date"]
@@ -336,3 +527,11 @@ def format_events_card(view: str, year: int, today: date, page: int = 0) -> tupl
     if pages > 1:
         lines.append(f"\n<i>Pagina {page + 1}/{pages}</i>")
     return "\n".join(lines), page, pages
+
+
+def parent_view(view: str) -> str:
+    if view.startswith("r:"):
+        return "reg"
+    if view.startswith("w:"):
+        return "world"
+    return "hub"

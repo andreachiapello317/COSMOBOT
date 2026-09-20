@@ -24,7 +24,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🧰 STRUMENTI → Calcolatrice | Scientifica: sen, log, radici, π, gradi/radianti | calcolo locale |
 | 🧰 STRUMENTI → Conversioni | Lunghezza, massa, temperatura, velocità, volume, angoli, cielo, tempo | calcolo locale |
 | 🧰 STRUMENTI → Bussola | Posizione, coordinate, nord, verso un luogo. Via e numero o numeri scritti | Open-Meteo + BGS WMM + Nominatim |
-| 🧰 STRUMENTI → Calendario | Cartella: ora e mese, eventi (Pasqua, Natale, mondo, stagioni), compleanni con avviso | orologio locale + computus + file locale |
+| 🧰 STRUMENTI → Calendario | Ora e mese; eventi per regioni / religiose / mondo (amori, buffe…); compleanni | orologio + computus + file locale |
 | 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, terra, strumenti | cataloghi locali; ASTRO ha anche Wikipedia live |
 | 🌍 TERRA → Eventi | Catastrofi e fenomeni atmosferici/naturali nel mondo | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
 | 🌍 TERRA → Eventi → Live | Scosse USGS e fenomeni NASA aperti; ogni evento ha cosa/dove e un link alla fonte | USGS + NASA EONET |
