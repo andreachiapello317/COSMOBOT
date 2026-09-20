@@ -32,7 +32,9 @@ EYE_LEVELS: dict[str, dict[str, Any]] = {
     "bino": {"star": 8.0, "planet": 8.0, "alt": 5.0, "it": "Binocolo", "btn": "Bino", "emoji": "🔭"},
 }
 EYE_ORDER = ("full", "easy", "eye", "bino")
+TONIGHT_EYE_ORDER = ("easy", "eye", "bino")
 DEFAULT_EYE_LEVEL = "full"
+DEFAULT_TONIGHT_EYE = "easy"
 
 
 def eye_level(key: str | None = None) -> dict[str, Any]:

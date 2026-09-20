@@ -68,12 +68,11 @@ def snapshot(lat: float, lon: float, when: datetime) -> dict[str, Any]:
     }
 
 
-# Crescendo: Facile ⊂ Occhio nudo ⊂ Binocolo ⊂ Tutto.
+# Crescendo: Facile ⊂ Occhio nudo ⊂ Binocolo.
 _STAR_STEPS = (
     ("easy", 1.55, 25.0, 4),
     ("eye", 3.45, 16.0, 8),
     ("bino", 5.25, 10.0, 12),
-    ("full", 5.25, 0.0, 18),
 )
 _PLANET_STEPS = {
     "easy": {"mag": 1.4, "alt": 18.0, "ice": False},
@@ -125,9 +124,9 @@ def tonight_picks(
             pts = max(1, pts - 1)
         return "⭐" * pts + "☆" * (5 - pts)
 
-    key = str(eye or "full")
-    if key not in _PLANET_STEPS:
-        key = "full"
+    key = str(eye or "easy")
+    if key not in {"easy", "eye", "bino"}:
+        key = "bino"
     planet_cfg = _PLANET_STEPS[key]
     picks: list[dict[str, Any]] = []
     moon = snap["moon"]

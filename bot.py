@@ -190,6 +190,7 @@ from services.skychart import (
     DEFAULT_EYE_LEVEL,
     EYE_LEVELS,
     EYE_ORDER,
+    TONIGHT_EYE_ORDER,
     SKY_STYLES,
     draw_atlas_chart,
     draw_ecliptic_chart,
@@ -7724,11 +7725,12 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await send_watch_calc(update, context)
         return
     if action == "lim" and extra in {*EYE_LEVELS, "prev", "next"}:
-        _eye_limit(context, extra)
         view = str(context.user_data.get(WATCH_EYE_VIEW_KEY) or "chart")
         if view == "tonight":
+            _eye_limit(context, extra, order=TONIGHT_EYE_ORDER)
             await send_watch_tonight(update, context)
             return
+        _eye_limit(context, extra)
         if view == "hub":
             await send_sky_now(update, context, style="pick")
             return
@@ -7736,11 +7738,12 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     if action == "eye":
         if extra in EYE_LEVELS:
-            _eye_limit(context, extra)
             view = str(context.user_data.get(WATCH_EYE_VIEW_KEY) or "chart")
             if view == "tonight":
+                _eye_limit(context, extra, order=TONIGHT_EYE_ORDER)
                 await send_watch_tonight(update, context)
                 return
+            _eye_limit(context, extra)
             await send_sky_now(update, context, style="pro")
             return
         if extra in {"", "hub"}:
@@ -7986,16 +7989,24 @@ def _sky_style(
     return current
 
 
-def _eye_limit(context: ContextTypes.DEFAULT_TYPE, asked: str | None = None) -> str:
+def _eye_limit(
+    context: ContextTypes.DEFAULT_TYPE,
+    asked: str | None = None,
+    *,
+    order: tuple[str, ...] | None = None,
+) -> str:
+    ring = order or EYE_ORDER
     current = str(context.user_data.get(WATCH_EYE_LIM_KEY) or DEFAULT_EYE_LEVEL)
     if current not in EYE_LEVELS:
         current = DEFAULT_EYE_LEVEL
+    if current not in ring:
+        current = "bino" if "bino" in ring else ring[0]
     if asked in {"next", "prev"}:
         step = 1 if asked == "next" else -1
-        if current not in EYE_ORDER:
-            current = DEFAULT_EYE_LEVEL
-        current = EYE_ORDER[(EYE_ORDER.index(current) + step) % len(EYE_ORDER)]
-    elif asked in EYE_LEVELS:
+        current = ring[(ring.index(current) + step) % len(ring)]
+    elif asked in ring:
+        current = asked
+    elif asked in EYE_LEVELS and order is None:
         current = asked
     context.user_data[WATCH_EYE_LIM_KEY] = current
     return current
@@ -8400,14 +8411,12 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
         weather = None
     snap = snapshot(lat, lon, when)
     frame = SkyFrame(lat, lon, when)
-    level = _eye_limit(context)
+    level = _eye_limit(context, order=TONIGHT_EYE_ORDER)
     context.user_data[WATCH_EYE_VIEW_KEY] = "tonight"
     nav_mark(context, "watch:tonight")
     picks, w_emoji, w_sky, clouds = tonight_picks(snap, weather=weather, eye=level, frame=frame)
     when_bit = "stasera 22:00" if projected else when.strftime("%H:%M")
-    if level == "full":
-        grade_line = "🌌 Tutto — Facile + nudo + binocolo, e il resto sopra l'orizzonte."
-    elif level == "easy":
+    if level == "easy":
         grade_line = "✨ Facile — le più ovvie (alte e luminose). Stanno anche nei gradi dopo."
     elif level == "eye":
         grade_line = "👁️ Occhio nudo — Facile, più le altre a occhio nudo."
@@ -8434,9 +8443,8 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"{row['emoji']} <b>{e(row['title'])}</b>  alt {row['alt']:.0f}°{look}{mag}"
         )
     footer = (
-        "<i>Hipparcos · crescendo Facile ⊂ nudo ⊂ binocolo ⊂ Tutto. "
-        + ("Tutto: elenco sul cielo di sfondo. " if level == "full" else "Mappa = questi oggetti. ")
-        + "Pianeti AE · nubi Open-Meteo.</i>"
+        "<i>Hipparcos · crescendo Facile ⊂ nudo ⊂ binocolo. "
+        "Mappa = questi oggetti. Pianeti AE · nubi Open-Meteo.</i>"
     )
     caption = _tonight_caption(head, pick_lines, footer, TELEGRAM_CAPTION_MAX)
     markup = watch_tonight_keyboard(level)

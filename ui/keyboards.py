@@ -481,10 +481,23 @@ def watch_sky_keyboard(style: str, level: str = "full") -> InlineKeyboardMarkup:
     )
 
 
-def watch_tonight_keyboard(level: str = "full") -> InlineKeyboardMarkup:
+def _tonight_limit_arrows(level: str) -> list[InlineKeyboardButton]:
+    from services.skychart import TONIGHT_EYE_ORDER, eye_level
+
+    if level not in TONIGHT_EYE_ORDER:
+        level = "easy"
+    meta = eye_level(level)
+    return [
+        kb_btn("◀", "watch:lim:prev"),
+        kb_btn(f"{meta['emoji']} {meta['it']}", f"watch:lim:{level}"),
+        kb_btn("▶", "watch:lim:next"),
+    ]
+
+
+def watch_tonight_keyboard(level: str = "easy") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            _eye_limit_arrows(level),
+            _tonight_limit_arrows(level),
             [kb_btn("🔄 Aggiorna", "watch:tonight")],
             nav_row(),
         ]
