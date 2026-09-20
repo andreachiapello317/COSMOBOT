@@ -2029,7 +2029,7 @@ def help_text() -> str:
         "/pietre — laboratorio e catalogo · /pietra — oracolo\n"
         "/cielo — cosa vedi adesso · /osserva — da una città\n"
         "/mondi — esopianeti NASA · /quiz · /cosmico · /random\n"
-        "/luna · /transiti · /apod · /iss\n\n"
+        "/luna · /apod · /iss\n\n"
         "Il resto (stelle, missioni, nani, comete, mazzi…) è nei mondi "
         "o si scrive ancora come comando.\n\n"
         "⬅️ <b>Indietro</b> torna al menu precedente.\n"
