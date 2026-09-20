@@ -179,6 +179,8 @@ from ui.keyboards import (
     sistemi_keyboard,
     sistemi_list_keyboard,
     ss_bodies_keyboard,
+    all_hub_keyboard,
+    cosmo_hub_keyboard,
     home_keyboard as section_home_keyboard,
     iss_keyboard,
     learn_keyboard,
@@ -237,10 +239,13 @@ from ui.keyboards import (
     yesno_keyboard,
 )
 from ui.texts import (
+    all_hub_text,
+    cosmo_hub_text,
     domanda_text,
     esplora_text,
     home_text,
     lettura_text,
+    next_bot_text,
     oracoli_text,
     rune_intro_text,
     world_div_text,
@@ -1299,6 +1304,11 @@ def nav_pop(context: ContextTypes.DEFAULT_TYPE) -> str | None:
 
 def _cmd_begin(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     _flows_reset(context)
+    if token not in {"home:menu", "bot:cosmo", "bot:next"}:
+        here = context.user_data.get(NAV_HERE_KEY)
+        if here in {None, "home:menu"}:
+            context.user_data[NAV_STACK_KEY] = ["home:menu"]
+            context.user_data[NAV_HERE_KEY] = "bot:cosmo"
     nav_mark(context, token)
 
 
@@ -1997,18 +2007,15 @@ async def show_loading(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 def start_text() -> str:
-    default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
-    return (
-        f"{home_text()}\n\n"
-        f"<i>Senza segno, /oroscopo usa {default_emoji} {default_it}.</i>"
-    )
+    return all_hub_text()
 
 
 def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
-        "📚 <b>COSMOBOT</b>\n\n"
-        "I sette mondi stanno su /start. Qui i comandi che usi davvero.\n\n"
+        "📚 <b>ALL BOT</b>\n\n"
+        "/start è il portale. 🌌 COSMO ha i sette mondi. "
+        "Qui i comandi di COSMO che usi davvero.\n\n"
         f"/oroscopo — senza segno uso {default_emoji} {default_it}\n"
         "/tema — natale guidato · /compatibilita — sinastria\n"
         "/oracoli — tarocchi, I Ching, rune, Lenormand, mazzi\n"
@@ -2028,10 +2035,45 @@ def help_text() -> str:
 # ---------------------------------------------------------------------------
 
 
+async def show_all_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_clear(context)
+    await reply_html(update, context, all_hub_text(), reply_markup=all_hub_keyboard())
+
+
+async def show_cosmo_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "bot:cosmo")
+    await reply_html(update, context, cosmo_hub_text(), reply_markup=cosmo_hub_keyboard())
+
+
+async def show_next_bot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "bot:next")
+    await reply_html(
+        update,
+        context,
+        next_bot_text(),
+        reply_markup=InlineKeyboardMarkup([nav_row()]),
+    )
+
+
+async def on_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    action = query.data.split(":")[1] if ":" in query.data else ""
+    await query.answer()
+    if action == "cosmo":
+        await show_cosmo_hub(update, context)
+        return
+    if action == "next":
+        await show_next_bot(update, context)
+        return
+    await show_all_hub(update, context)
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _flows_reset(context)
-    nav_clear(context)
-    await reply_html(update, context, start_text(), reply_markup=home_keyboard())
+    await show_all_hub(update, context)
     await delete_user_command(update)
 
 
@@ -5020,8 +5062,8 @@ async def cmd_domanda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def cmd_esplora(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    _cmd_begin(context, "home:esplora")
-    await reply_html(update, context, esplora_text(), reply_markup=esplora_keyboard())
+    _flows_reset(context)
+    await show_all_hub(update, context)
     await delete_user_command(update)
 
 
@@ -5042,6 +5084,15 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         "miss": (world_miss_text, world_miss_keyboard),
         "pietre": (world_pietre_text, world_pietre_keyboard),
     }
+    if prefix == "bot":
+        if action == "cosmo":
+            await show_cosmo_hub(update, context)
+            return
+        if action == "next":
+            await show_next_bot(update, context)
+            return
+        await show_all_hub(update, context)
+        return
     if prefix == "world" and action in worlds:
         text_fn, kb_fn = worlds[action]
         await reply_html(update, context, text_fn(), reply_markup=kb_fn())
@@ -9335,7 +9386,7 @@ async def post_init(application: Application) -> None:
     try:
         await application.bot.set_my_commands(
             [
-                BotCommand("start", "I sette mondi"),
+                BotCommand("start", "ALL BOT — tutti i bot"),
                 BotCommand("oroscopo", "Oroscopo giorno / settimana / mese"),
                 BotCommand("tema", "Tema natale"),
                 BotCommand("oracoli", "Tarocchi, I Ching, rune…"),
@@ -9444,6 +9495,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_yn_action, pattern=r"^yn:"))
     application.add_handler(CallbackQueryHandler(on_oq_action, pattern=r"^oq:"))
     application.add_handler(CallbackQueryHandler(on_lett_action, pattern=r"^lett:"))
+    application.add_handler(CallbackQueryHandler(on_bot_action, pattern=r"^bot:"))
     application.add_handler(CallbackQueryHandler(on_world_action, pattern=r"^world:"))
     application.add_handler(CallbackQueryHandler(on_sheet_action, pattern=r"^w:"))
     application.add_handler(CallbackQueryHandler(on_aster_action, pattern=r"^aster:"))

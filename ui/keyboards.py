@@ -47,7 +47,24 @@ def _pairs(items: list[InlineKeyboardButton]) -> list[list[InlineKeyboardButton]
     return rows
 
 
+def all_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🌌 COSMO", "bot:cosmo")],
+            [kb_btn("➕ Prossimo bot", "bot:next")],
+        ]
+    )
+
+
 def home_keyboard() -> InlineKeyboardMarkup:
+    return all_hub_keyboard()
+
+
+def esplora_keyboard() -> InlineKeyboardMarkup:
+    return all_hub_keyboard()
+
+
+def cosmo_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔮 Te stesso", "world:self"), kb_btn("🔮 Oracoli", "world:div")],
@@ -55,17 +72,6 @@ def home_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
             [kb_btn("💎 Pietre", "world:pietre")],
             [kb_btn("✨ COSMICO", "home:cosmico"), kb_btn("🎲 Casuale", "home:random")],
-        ]
-    )
-
-
-def esplora_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("🔮 Te stesso", "world:self"), kb_btn("🔮 Oracoli", "world:div")],
-            [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🪐 Mondi", "world:mondi")],
-            [kb_btn("👽 Vita", "world:vita"), kb_btn("🚀 Missioni", "world:miss")],
-            [kb_btn("💎 Pietre", "world:pietre"), kb_btn("✨ COSMICO", "home:cosmico")],
             nav_row(),
         ]
     )

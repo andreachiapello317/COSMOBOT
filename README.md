@@ -93,7 +93,7 @@ Il mondo **🔭 CIELO** è astronomia reale. Il mondo **🔮 ORACOLI** è esperi
 
 `/pietre` apre l’universo: schede (scienza / geologia / storia / simbolismo), colori, ambienti, laboratorio guidato, confronto, giochi, museo, collezione, pietre dallo spazio. `/pietra` è l’oracolo dichiarato come gioco. Una foto nel laboratorio (pietra al centro, tavolo uniforme) prima legge il colore (vincolo duro), poi confronta l’immagine con le miniature Wikipedia del catalogo e, se c’è `HF_TOKEN`, con CLIP zero-shot. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati. La rarità è di catalogo, non una quotazione.
 
-`/start` apre una home a **sette mondi** più **COSMICO** e **RANDOM**. I menu sono slanciati: nani/comete stanno in Cataloghi, i mazzi COSMOBOT in un sottomenu. I comandi lunghi (`/nani`, `/archetipi`…) restano se li scrivi. `/esplora` è ancora i sette mondi. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` prende un pezzo da ogni mondo: se una API cade, le altre restano.
+`/start` apre **ALL BOT**: un portale. **COSMO** è il primo bot e dentro ha i sette mondi (te stesso, oracoli, cielo, mondi, vita, missioni, pietre) più COSMICO e RANDOM. Il prossimo bot si aggiunge nello stesso Telegram, con i suoi mondi. I menu di COSMO sono slanciati: nani/comete stanno in Cataloghi, i mazzi in un sottomenu. I comandi lunghi (`/nani`, `/archetipi`…) restano se li scrivi. `/esplora` è ALL BOT. `/rune` è locale (24 rune Elder Futhark). `/iss` legge Where the ISS at? senza chiave. `/cosmico` prende un pezzo da ogni mondo di COSMO: se una API cade, le altre restano.
 
 Su ogni schermata (tranne la home) c’è **⬅️ Indietro**: torna al menu precedente, senza ripassare da Inizio. **🏠 Inizio** resta sempre disponibile.
 
@@ -266,8 +266,9 @@ services/compat.py     # segni e sinastria (tradizione + carte live)
 services/runes.py      # dataset Elder Futhark
 services/iss.py        # posizione ISS
 services/astronomy.py  # visibilità da numeri live
-ui/keyboards.py        # home a sette mondi + menu cielo + pietre
-ui/texts.py            # testi home / esplora / mondi
+services/bots.py       # registro ALL BOT (COSMO + prossimi)
+ui/keyboards.py        # ALL BOT + mondi COSMO + menu cielo + pietre
+ui/texts.py            # testi ALL BOT / COSMO / esplora / mondi
 requirements.txt
 .env.example
 README.md
