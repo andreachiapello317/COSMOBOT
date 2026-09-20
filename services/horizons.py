@@ -73,6 +73,7 @@ CNST_IT = {
 }
 
 PLANETS: dict[str, dict[str, str]] = {
+    "sun": {"command": "10", "it": "Sole", "emoji": "☀️"},
     "mer": {"command": "199", "it": "Mercurio", "emoji": "☿️"},
     "ven": {"command": "299", "it": "Venere", "emoji": "♀️"},
     "mar": {"command": "499", "it": "Marte", "emoji": "♂️"},
@@ -80,6 +81,18 @@ PLANETS: dict[str, dict[str, str]] = {
     "sat": {"command": "699", "it": "Saturno", "emoji": "♄"},
     "ura": {"command": "799", "it": "Urano", "emoji": "♅"},
     "nep": {"command": "899", "it": "Nettuno", "emoji": "♆"},
+}
+
+MOON_BODY: dict[str, dict[str, str]] = {
+    "lun": {"command": "301", "it": "Luna", "emoji": "🌙"},
+}
+
+COMETS: dict[str, dict[str, str]] = {
+    "1p": {"command": "1P;", "it": "1P/Halley", "emoji": "☄️"},
+    "2p": {"command": "2P;", "it": "2P/Encke", "emoji": "☄️"},
+    "9p": {"command": "9P;", "it": "9P/Tempel 1", "emoji": "☄️"},
+    "12p": {"command": "12P;", "it": "12P/Pons-Brooks", "emoji": "☄️"},
+    "13p": {"command": "13P;", "it": "13P/Olbers", "emoji": "☄️"},
 }
 
 ROCKS: dict[str, dict[str, str]] = {
@@ -90,11 +103,13 @@ ROCKS: dict[str, dict[str, str]] = {
     "apo": {"command": "99942;", "it": "Apophis", "emoji": "☄️"},
 }
 
-BODIES: dict[str, dict[str, str]] = {**PLANETS, **ROCKS}
+BODIES: dict[str, dict[str, str]] = {**PLANETS, **MOON_BODY, **ROCKS, **COMETS}
 
 ENGINE_BODY: dict[str, astronomy.Body] = {
+    "10": astronomy.Body.Sun,
     "199": astronomy.Body.Mercury,
     "299": astronomy.Body.Venus,
+    "301": astronomy.Body.Moon,
     "499": astronomy.Body.Mars,
     "599": astronomy.Body.Jupiter,
     "699": astronomy.Body.Saturn,
@@ -302,6 +317,8 @@ def observer_from_engine(command: str, lat: float, lon: float, when: datetime, *
         "when": when.astimezone(timezone.utc),
         "az": float(hor.azimuth),
         "alt": float(hor.altitude),
+        "ra": float(eq.ra),
+        "dec": float(eq.dec),
         "mag": float(ill.mag) if ill.mag is not None else None,
         "illum": float(fraction) * 100.0 if isinstance(fraction, (int, float)) else None,
         "delta_au": float(eq.dist),
@@ -412,6 +429,10 @@ async def fetch_observer(
         row["target"] = target_name(result)
         row["command"] = command
         row["source"] = "horizons"
+        if command in ENGINE_BODY:
+            extra = observer_from_engine(command, lat, lon, rounded, elev_km=elev_km)
+            row.setdefault("ra", extra.get("ra"))
+            row.setdefault("dec", extra.get("dec"))
         return _cache_set(cache_key, row)
     except HorizonsError:
         row = observer_from_engine(command, lat, lon, rounded, elev_km=elev_km)
@@ -661,6 +682,14 @@ def format_body_card(
         card = cardinal_from_az(az if isinstance(az, (int, float)) else None)
         az_bit = f" · azimut {az:.1f}° {card}" if isinstance(az, (int, float)) else ""
         lines.append(f"Altezza {alt:.1f}°{az_bit}")
+    ra = row.get("ra")
+    dec = row.get("dec")
+    if isinstance(ra, (int, float)) and isinstance(dec, (int, float)):
+        hours = int(ra)
+        mins = int(abs(ra - hours) * 60)
+        lines.append(f"RA {hours:02d}h {mins:02d}m · DEC {dec:+.2f}°")
+    visible = "sì" if isinstance(alt, (int, float)) and alt > 0 else "no"
+    lines.append(f"Sopra l'orizzonte: {visible}")
     if isinstance(mag, (int, float)):
         lines.append(f"Magnitudine apparente {mag:.2f}")
     if isinstance(illum, (int, float)):

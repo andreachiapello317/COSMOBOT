@@ -37,6 +37,7 @@ from telegram import (
     Chat,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    InputFile,
     InputMediaPhoto,
     Message,
     ReplyKeyboardRemove,
@@ -157,11 +158,16 @@ from services.compass import (
     reverse_place,
 )
 from services.geoapp import clean_purpose, install_geo_http, register_pin_handler
-from services.weather import fetch_forecast, format_forecast, parse_forecast_request
+from services.weather import fetch_forecast, fetch_now_conditions, format_forecast, parse_forecast_request
 from services.moon import moon_now, next_quarters
+from services.skycatalog import SkyFrame, visible_stars as catalog_stars
+from services.skychart import draw_sky_chart
+from services.watchevents import snapshot, tonight_picks, upcoming_events
 from services.horizons import (
     BODIES,
+    COMETS,
     HorizonsError,
+    MOON_BODY,
     PLANETS,
     ROCKS,
     fetch_group,
@@ -171,6 +177,7 @@ from services.horizons import (
     format_distances,
     format_observer_list,
     format_rts_list,
+    cardinal_from_az,
 )
 from services.earth import (
     fetch_eonet,
@@ -287,6 +294,7 @@ from ui.keyboards import (
     meteo_span_keyboard,
     sky_result_keyboard,
     watch_bodies_keyboard,
+    watch_next_keyboard,
     watch_result_keyboard,
     world_watch_keyboard,
     oracoli_keyboard,
@@ -449,6 +457,7 @@ TELEGRAM_CAPTION_MAX = 1024
 # In chat_data: ultimo messaggio del bot, da sostituire al comando successivo.
 LAST_BOT_MSG_KEY = "last_bot_msg"
 CIELO_LAST_KEY = "cielo_last"
+WATCH_EVENTS_KEY = "watch_next_events"
 NATURA_LAST_KEY = "natura_last"
 BUSSOLA_LAST_KEY = "bussola_last"
 MATH_ASK_KEY = "math_ask"
@@ -2203,6 +2212,52 @@ async def deliver_photo(
     return True
 
 
+async def deliver_photo_bytes(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    data: bytes,
+    caption: str,
+    *,
+    filename: str = "cielo.png",
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> bool:
+    chat = update.effective_chat
+    if chat is None:
+        return False
+    caption = clip_text(caption, TELEGRAM_CAPTION_MAX)
+    markup = reply_markup if reply_markup is not None else EMPTY_KEYBOARD
+    photo = InputFile(data, filename=filename)
+    media = InputMediaPhoto(media=photo, caption=caption, parse_mode=ParseMode.HTML)
+    last = _last_bot_msg(context)
+    if last and last.get("kind") == "photo":
+        try:
+            await context.bot.edit_message_media(
+                chat_id=chat.id,
+                message_id=int(last["id"]),
+                media=media,
+                reply_markup=markup,
+            )
+            return True
+        except TelegramError as exc:
+            if _is_not_modified(exc):
+                return True
+            logger.info("Modifica PNG non riuscita, sostituisco: %s", exc)
+    await _delete_last_bot_msg(context, chat.id)
+    try:
+        sent = await context.bot.send_photo(
+            chat_id=chat.id,
+            photo=InputFile(data, filename=filename),
+            caption=caption,
+            parse_mode=ParseMode.HTML,
+            reply_markup=markup,
+        )
+    except TelegramError:
+        logger.exception("PNG cielo non inviata")
+        return False
+    _remember_bot_msg(context, sent.message_id, "photo")
+    return True
+
+
 async def reply_html(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -2237,7 +2292,7 @@ def help_text() -> str:
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città o la tua posizione, niente carte).\n"
         "🔭 <b>ASTRO</b> — Cielo (luna e alba/tramonto), Meteo, Osservatorio "
-        "(stelle, eventi, JPL Horizons), Studia lo spazio (enciclopedia), "
+        "(carta del cielo, stelle Hipparcos, Horizons), Studia lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
@@ -7183,8 +7238,29 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     name, lat, lon = _cielo_place(context)
     await query.answer()
+    if action == "now":
+        await send_sky_now(update, context)
+        return
     if action == "stelle":
         await send_sky_stars(update, context, name=name, lat=lat, lon=lon)
+        return
+    if action == "luna":
+        await send_watch_moon(update, context)
+        return
+    if action == "comet":
+        await send_horizons_list(update, context, kind="comet")
+        return
+    if action == "sats":
+        await send_watch_sats(update, context)
+        return
+    if action == "tonight":
+        await send_watch_tonight(update, context)
+        return
+    if action == "next":
+        await send_watch_next(update, context)
+        return
+    if action == "nx" and extra.isdigit():
+        await send_watch_next_detail(update, context, int(extra))
         return
     if action == "eventi":
         await send_eventi(update, context)
@@ -7229,9 +7305,16 @@ async def send_horizons_list(
         await show_place_picker(update, context, "watch")
         return
     name, lat, lon = _cielo_place(context)
-    catalog = PLANETS if kind == "planets" else ROCKS
-    title = "🪐 <b>PIANETI</b>" if kind == "planets" else "🪨 <b>ASTEROIDI</b>"
-    wait = "pianeti" if kind == "planets" else "asteroidi"
+    catalogs = {"planets": PLANETS, "rocks": ROCKS, "comet": COMETS}
+    titles = {
+        "planets": "🪐 <b>PIANETI</b>",
+        "rocks": "🪨 <b>ASTEROIDI</b>",
+        "comet": "☄️ <b>COMETE</b>",
+    }
+    waits = {"planets": "pianeti", "rocks": "asteroidi", "comet": "comete"}
+    catalog = catalogs.get(kind, PLANETS)
+    title = titles.get(kind, "🪐 <b>PIANETI</b>")
+    wait = waits.get(kind, "corpi")
     await send_typing(update)
     await deliver_text(update, context, f"📡 Chiedo a JPL Horizons i {wait} sopra {name}…")
     tz, now = await _watch_clock(context, lat, lon)
@@ -7240,13 +7323,20 @@ async def send_horizons_list(
     except HorizonsError:
         await reply_offline(update, context)
         return
-    note = (
-        "Altezza, magnitudine, distanza e elongazione: tabella observer Horizons. "
-        "Non dico se li vedi a occhio nudo."
-        if kind == "planets"
-        else "Cerere, Pallade, Giunone, Vesta e Apophis: Horizons, stessi numeri della NASA. "
-        "Magnitudine 8 o 9 non è visibile a occhio nudo."
-    )
+    note = {
+        "planets": (
+            "Altezza, RA/DEC, magnitudine, distanza e elongazione: tabella observer Horizons. "
+            "Non dico se li vedi a occhio nudo."
+        ),
+        "rocks": (
+            "Cerere, Pallade, Giunone, Vesta e Apophis: Horizons, stessi numeri della NASA. "
+            "Magnitudine 8 o 9 non è visibile a occhio nudo."
+        ),
+        "comet": (
+            "Comete numerate da Horizons, dallo stesso luogo. "
+            "Se una riga manca, Horizons non ha risposto o il nome è ambiguo: non invento la posizione."
+        ),
+    }.get(kind, "JPL Horizons.")
     text = format_observer_list(
         title=title,
         place=name,
@@ -7341,7 +7431,7 @@ async def send_horizons_body(update: Update, context: ContextTypes.DEFAULT_TYPE,
     except HorizonsError:
         await reply_offline(update, context)
         return
-    kind = "planets" if key in PLANETS else "rocks"
+    kind = "planets" if key in PLANETS else "comet" if key in COMETS else "rocks"
     text = format_body_card(meta=meta, place=name, when=now, tz=tz, row=row)
     await reply_html(
         update,
@@ -7349,6 +7439,230 @@ async def send_horizons_body(update: Update, context: ContextTypes.DEFAULT_TYPE,
         text,
         reply_markup=watch_bodies_keyboard(kind),
     )
+
+
+async def send_sky_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"🔭 Disegno il cielo sopra {name}…")
+    tz, now = await _watch_clock(context, lat, lon)
+    try:
+        png = draw_sky_chart(place=name, lat=lat, lon=lon, when=now)
+    except Exception:
+        logger.exception("Carta del cielo non generata")
+        await reply_offline(update, context)
+        return
+    caption = (
+        f"🔭 <b>CIELO DI ADESSO — {e(name.upper())}</b>\n"
+        f"{e(format_day_it(now))} · {now.strftime('%H:%M')}\n"
+        "N in alto, orizzonte sul bordo. Stelle Hipparcos; Sole, Luna e pianeti da Astronomy Engine."
+    )
+    ok = await deliver_photo_bytes(
+        update,
+        context,
+        png,
+        caption,
+        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Rigenera", "watch:now")]),
+    )
+    if not ok:
+        await reply_html(
+            update,
+            context,
+            caption + "\n\nLa PNG non è partita. Riprova.",
+            reply_markup=watch_result_keyboard([_tarot_btn("🔄 Rigenera", "watch:now")]),
+        )
+
+
+async def send_watch_moon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"🌙 Horizons sulla Luna da {name}…")
+    tz, now = await _watch_clock(context, lat, lon)
+    phase = moon_now(now)
+    quarters = next_quarters(now, 4)
+    try:
+        row = await fetch_observer(_http_client(context), "301", lat, lon, now.astimezone(timezone.utc))
+    except HorizonsError:
+        row = None
+    lines = [
+        f"🌙 <b>LUNA — {e(name.upper())}</b>",
+        f"📅 {e(format_day_it(now))} · {now.strftime('%H:%M')}",
+        "",
+        f"{phase['emoji']} <b>{e(str(phase['name']))}</b>",
+    ]
+    if isinstance(phase.get("illum"), (int, float)):
+        lines.append(f"💡 Illuminata al <b>{phase['illum']:.0f}%</b>")
+    if row:
+        text = format_body_card(meta=MOON_BODY["lun"], place=name, when=now, tz=tz, row=row)
+        extra = "\n".join(text.splitlines()[3:])
+        lines.extend(["", extra])
+    else:
+        lines.append("Horizons non ha dato altezza e distanza adesso.")
+    lines.append("")
+    lines.append("📅 <b>PROSSIMI QUARTI</b>")
+    for item in quarters:
+        when = item["when"].astimezone(tz)
+        lines.append(f"{item['emoji']} {e(item['name'])}  {when.strftime('%d/%m %H:%M')}")
+    lines.extend(["", "<i>Fase: Astronomy Engine. Posizione: Horizons se risponde.</i>"])
+    await reply_html(
+        update,
+        context,
+        "\n".join(lines),
+        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Aggiorna", "watch:luna")]),
+    )
+
+
+async def send_watch_sats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    name, _lat, _lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, "🛰️ Chiedo la ISS…")
+    client = _http_client(context)
+    try:
+        data = await fetch_iss_position(client)
+        lat = float(data["latitude"])
+        lon = float(data["longitude"])
+        geo = await reverse_iss_place(client, lat, lon)
+    except Exception:
+        logger.exception("ISS osservatorio")
+        await reply_offline(update, context)
+        return
+    when = datetime.fromtimestamp(int(data.get("timestamp") or 0), tz=timezone.utc).astimezone(DEFAULT_TZ)
+    try:
+        alt = f"{float(data.get('altitude') or 0):.0f} km"
+    except (TypeError, ValueError):
+        alt = "—"
+    lines = [
+        f"🛰️ <b>SATELLITI — {e(name.upper())}</b>",
+        "",
+        "Solo oggetti con posizione live. Horizons non è un catalogo TLE: "
+        "non elenco Starlink né invento il prossimo passaggio sulla città.",
+        "",
+        "🛰️ <b>ISS</b>",
+        f"Adesso sopra: <b>{e(geo['place'])}</b>",
+        f"Lat <code>{lat:.4f}</code> · lon <code>{lon:.4f}</code> · quota {e(alt)}",
+        f"🕐 {when.strftime('%d/%m/%Y %H:%M')} UTC+Roma",
+        "",
+        "<i>Where the ISS at?, NORAD 25544. I passaggi ISS sulla città restano fuori.</i>",
+    ]
+    await reply_html(
+        update,
+        context,
+        "\n".join(lines),
+        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Aggiorna", "watch:sats")]),
+    )
+
+
+async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"🔭 Scelgo cosa merita da {name}…")
+    tz, now = await _watch_clock(context, lat, lon)
+    weather = None
+    try:
+        weather = await fetch_now_conditions(_http_client(context), lat, lon)
+    except Exception:
+        weather = None
+    snap = snapshot(lat, lon, now)
+    picks, w_emoji, w_sky, clouds = tonight_picks(snap, weather=weather)
+    lines = [
+        f"🔭 <b>COSA OSSERVARE STASERA — {e(name.upper())}</b>",
+        f"📅 {e(format_day_it(now))} · {now.strftime('%H:%M')}",
+        "",
+    ]
+    if snap["night"]:
+        lines.append("🌌 È notte: il cielo si può leggere.")
+    else:
+        lines.append("☀️ È ancora giorno: elenco chi è già sopra, ma la luce copre le stelle.")
+    lines.append(f"{w_emoji} {e(w_sky)}" + (f" · nubi {clouds:.0f}%" if isinstance(clouds, (int, float)) else ""))
+    lines.append("")
+    if not picks:
+        lines.append("Da qui, in quest'ora, non c'è un oggetto abbastanza alto da consigliare.")
+    for row in picks:
+        card = cardinal_from_az(row["az"]) if isinstance(row.get("az"), (int, float)) else ""
+        az_bit = f" · az {row['az']:.0f}° {card}" if isinstance(row.get("az"), (int, float)) else ""
+        lines.append(f"{row['emoji']} <b>{e(row['title'])}</b>  {row['stars']}")
+        lines.append(f"Alt {row['alt']:.0f}°{az_bit}" + (f" · {e(row['detail'])}" if row.get("detail") else ""))
+        lines.append("")
+    lines.append("<i>Pianeti e Luna: Astronomy Engine. Stelle: Hipparcos. Nubi: Open-Meteo. Non è un oracolo.</i>")
+    await reply_html(
+        update,
+        context,
+        "\n".join(lines),
+        reply_markup=watch_result_keyboard([_tarot_btn("🔄 Aggiorna", "watch:tonight")]),
+    )
+
+
+async def send_watch_next(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _has_cielo_place(context):
+        await show_place_picker(update, context, "watch")
+        return
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"📅 Calcolo i prossimi fenomeni da {name}…")
+    tz, now = await _watch_clock(context, lat, lon)
+    events = upcoming_events(lat, lon, now, tz)
+    context.user_data[WATCH_EVENTS_KEY] = events
+    lines = [
+        f"📅 <b>PROSSIMI EVENTI — {e(name.upper())}</b>",
+        "Solo fenomeni che so calcolare: quarti lunari, eclissi lunari visibili da qui, "
+        "congiunzioni e opposizioni entro due settimane.",
+        "",
+    ]
+    if not events:
+        lines.append("Nei prossimi giorni non esce un fenomeno calcolabile da questa città.")
+    for idx, item in enumerate(events, start=1):
+        when = item["when"]
+        lines.append(
+            f"{idx}. {item['emoji']} <b>{e(item['title'])}</b>\n"
+            f"{when.strftime('%d/%m %H:%M')}"
+        )
+        lines.append("")
+    lines.append("Tocca un numero per il dettaglio. Niente passaggi ISS inventati.")
+    await reply_html(update, context, "\n".join(lines), reply_markup=watch_next_keyboard(len(events)))
+
+
+async def send_watch_next_detail(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    index: int,
+) -> None:
+    events = context.user_data.get(WATCH_EVENTS_KEY)
+    if not isinstance(events, list) or index < 0 or index >= len(events):
+        await send_watch_next(update, context)
+        return
+    name, _lat, _lon = _cielo_place(context)
+    item = events[index]
+    when = item["when"]
+    lines = [
+        f"{item['emoji']} <b>{e(item['title'])}</b>",
+        f"📍 {e(name)}",
+        f"📅 {when.strftime('%d/%m/%Y')} · {when.strftime('%H:%M')}",
+        "",
+        e(str(item.get("detail") or "")),
+    ]
+    bodies = item.get("bodies") or []
+    if bodies:
+        lines.append("")
+        lines.append(" · ".join(e(str(b)) for b in bodies))
+    if isinstance(item.get("alt"), (int, float)):
+        card = cardinal_from_az(item.get("az") if isinstance(item.get("az"), (int, float)) else None)
+        az_bit = f" · az {item['az']:.0f}° {card}" if isinstance(item.get("az"), (int, float)) else ""
+        lines.append(f"Altezza {item['alt']:.0f}°{az_bit}")
+    if isinstance(item.get("sep"), (int, float)):
+        lines.append(f"Separazione {item['sep']:.1f}°")
+    await reply_html(update, context, "\n".join(lines), reply_markup=watch_next_keyboard(len(events)))
 
 
 def _place_pool(kind: str) -> tuple[tuple[str, float, float], ...]:
@@ -8002,46 +8316,17 @@ async def send_sky_stars(
     lat: float,
     lon: float,
 ) -> None:
-    """Osservatorio: stelle e figure sopra la città salvata. Niente schede enciclopedia."""
+    """Osservatorio: stelle Hipparcos sopra la città. Non è Horizons."""
     _remember_cielo_place(context, name, lat, lon)
     await send_typing(update)
     await deliver_text(update, context, f"⭐ Guardo le stelle sopra {name}…")
-    client = _http_client(context)
-    now = datetime.now(DEFAULT_TZ)
-    try:
-        tz_name = await api_timezone_name(client, lat, lon)
-        try:
-            tz = ZoneInfo(tz_name)
-        except Exception:
-            tz = DEFAULT_TZ
-        now = datetime.now(tz)
-        sky = await api_skymap(client, lat, lon)
-    except StelleOfflineError:
-        await reply_offline(update, context)
-        return
-    marks = collect_marks(sky)
-    stars_up = [
-        m
-        for m in marks
-        if m.get("kind") == "star"
-        and isinstance(m.get("alt"), (int, float))
-        and m["alt"] > 0
-    ]
-    stars_up.sort(key=lambda m: float(m.get("alt") or 0), reverse=True)
-    try:
-        sun_alt = float(sky.get("sun_alt")) if sky.get("sun_alt") is not None else None
-    except (TypeError, ValueError):
-        sun_alt = None
-    moon = sky.get("moon") if isinstance(sky.get("moon"), dict) else {}
-    try:
-        moon_alt = float(moon["alt"]) if moon.get("alt") is not None else None
-    except (TypeError, ValueError):
-        moon_alt = None
-    try:
-        moon_illum = float(moon["illum"]) if moon.get("illum") is not None else None
-    except (TypeError, ValueError):
-        moon_illum = None
-    night = sun_alt is None or sun_alt < 0
+    tz, now = await _watch_clock(context, lat, lon)
+    frame = SkyFrame(lat, lon, now)
+    snap = snapshot(lat, lon, now)
+    sun_alt = float(snap["sun_alt"])
+    stars_up = catalog_stars(frame, limit=12)
+    snap_figures = snap["figures"]
+    night = bool(snap["night"])
     lines = [
         f"⭐ <b>STELLE — {e(name.upper())}</b>",
         f"📅 {e(format_day_it(now))} · {now.strftime('%H:%M')}",
@@ -8050,42 +8335,30 @@ async def send_sky_stars(
     if night:
         lines.append("🌌 È notte: il cielo si può leggere.")
     else:
-        lines.append(
-            "☀️ È giorno: le stelle ci sono, ma la luce le copre. "
-            "Sotto, la mappa le elenca lo stesso."
-        )
-    if isinstance(sun_alt, (int, float)):
-        lines.append(f"☀️ Sole {sun_alt:.0f}°")
-    if isinstance(moon_alt, (int, float)):
-        illum_bit = f" · {moon_illum:.0f}%" if isinstance(moon_illum, (int, float)) else ""
-        side = "↑" if moon_alt > 0 else "↓"
-        lines.append(f"🌙 Luna {moon_alt:.0f}° {side}{illum_bit}")
+        lines.append("☀️ È giorno: le stelle ci sono, ma la luce le copre. Le elenco lo stesso.")
+    lines.append(f"☀️ Sole {sun_alt:.0f}°")
     lines.append("")
-    lines.append("🔭 <b>SOPRA L'ORIZZONTE</b>")
+    lines.append("🔭 <b>PIÙ LUMINOSE SOPRA</b>")
     if stars_up:
-        for mark in stars_up[:8]:
-            lines.append(visibility_line(mark))
+        for star in stars_up:
+            label = star["name"] or f"mag {star['mag']:.1f}"
+            card = cardinal_from_az(star["az"])
+            lines.append(
+                f"⭐ {e(label)}  mag {star['mag']:.1f} · alt {star['alt']:.0f}° · az {star['az']:.0f}° {card}"
+            )
     else:
-        lines.append("<i>In questa mappa nessuna stella luminosa è sopra l'orizzonte.</i>")
-    raw_ast = [str(a) for a in (sky.get("asterisms") or []) if a]
+        lines.append("<i>Nessuna stella del catalogo è sopra l'orizzonte.</i>")
     lines.append("")
-    lines.append("✨ <b>COSTELLAZIONI IN MAPPA</b>")
-    if raw_ast:
-        try:
-            names_it = await translate_to_italian(client, ", ".join(raw_ast[:8]))
-        except StelleOfflineError:
-            names_it = ", ".join(raw_ast[:8])
-        lines.append(e(names_it))
+    lines.append("✨ <b>FIGURE SOPRA</b>")
+    if snap_figures:
+        lines.append(", ".join(e(fig["name"]) for fig in snap_figures[:8]))
     else:
-        lines.append("<i>Nessuna figura arrivata in questa ora.</i>")
-    lines.append("")
-    lines.append(milky_way_hint(sun_alt=sun_alt, moon_alt=moon_alt, moon_illum=moon_illum))
+        lines.append("<i>Nessuna figura alta in quest'ora.</i>")
     lines.extend(
         [
             "",
-            "↑ sopra · 👁 mag ≤ 6 (soglia sul dato live)",
-            "<i>Osservatorio sulla città salvata. Le schede enciclopedia "
-            "staranno in un'altra sezione di ASTRO.</i>",
+            "<i>Catalogo Hipparcos mag ≤ 5.2 (d3-celestial). "
+            "Non è Horizons e non è Wikipedia. La carta sta in Cielo di adesso.</i>",
         ]
     )
     await reply_html(

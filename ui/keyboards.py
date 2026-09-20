@@ -409,9 +409,12 @@ def world_sky_keyboard() -> InlineKeyboardMarkup:
 def world_watch_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("⭐ Stelle", "watch:stelle"), kb_btn("🌠 Eventi", "watch:eventi")],
-            [kb_btn("🪐 Pianeti", "watch:planets"), kb_btn("🪨 Asteroidi", "watch:rocks")],
-            [kb_btn("📏 Distanze", "watch:dist"), kb_btn("⬆️ Alba/tramonto pianeti", "watch:rts")],
+            [kb_btn("🔭 Cielo di adesso", "watch:now")],
+            [kb_btn("⭐ Stelle", "watch:stelle"), kb_btn("🪐 Pianeti", "watch:planets")],
+            [kb_btn("🌙 Luna", "watch:luna"), kb_btn("☄️ Comete", "watch:comet")],
+            [kb_btn("🛰️ Satelliti", "watch:sats"), kb_btn("🌠 Eventi", "watch:eventi")],
+            [kb_btn("🔭 Cosa osservare stasera", "watch:tonight")],
+            [kb_btn("📅 Prossimi eventi", "watch:next")],
             [kb_btn("📍 Cambia città", "watch:city")],
             nav_row(),
         ]
@@ -433,13 +436,27 @@ def watch_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardM
 
 
 def watch_bodies_keyboard(kind: str) -> InlineKeyboardMarkup:
-    from services.horizons import PLANETS, ROCKS
+    from services.horizons import COMETS, PLANETS, ROCKS
 
-    catalog = PLANETS if kind == "planets" else ROCKS
+    catalogs = {"planets": PLANETS, "rocks": ROCKS, "comet": COMETS}
+    catalog = catalogs.get(kind, PLANETS)
     buttons = [kb_btn(f"{row['emoji']} {row['it']}", f"watch:b:{key}") for key, row in catalog.items()]
     grid = _pairs(buttons)
-    back = "watch:planets" if kind == "planets" else "watch:rocks"
+    back = {"planets": "watch:planets", "rocks": "watch:rocks", "comet": "watch:comet"}.get(kind, "watch:planets")
+    extras = []
+    if kind == "planets":
+        extras.append([kb_btn("🪨 Asteroidi", "watch:rocks"), kb_btn("📏 Distanze", "watch:dist")])
+        extras.append([kb_btn("⬆️ Alba/tramonto", "watch:rts")])
+    grid.extend(extras)
     grid.append([kb_btn("🔄 Elenco", back), kb_btn("🔭 Osservatorio", "world:watch")])
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def watch_next_keyboard(n: int) -> InlineKeyboardMarkup:
+    buttons = [kb_btn(f"{idx + 1}", f"watch:nx:{idx}") for idx in range(n)]
+    grid = _pairs(buttons)
+    grid.append([kb_btn("📅 Prossimi eventi", "watch:next"), kb_btn("🔭 Osservatorio", "world:watch")])
     grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 

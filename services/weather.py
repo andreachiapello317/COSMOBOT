@@ -146,6 +146,24 @@ def parse_forecast_request(text: str, *, today: Any = None) -> dict[str, Any]:
     return {"days": 2, "indices": [0, 1], "label": "oggi e domani"}
 
 
+async def fetch_now_conditions(client: httpx.AsyncClient, lat: float, lon: float) -> dict[str, Any]:
+    response = await client.get(
+        "https://api.open-meteo.com/v1/forecast",
+        params={
+            "latitude": lat,
+            "longitude": lon,
+            "current": "weather_code,cloud_cover",
+            "forecast_days": 1,
+            "timezone": "auto",
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, dict) or not isinstance(data.get("current"), dict):
+        raise ValueError("meteo adesso vuoto")
+    return data
+
+
 async def fetch_forecast(
     client: httpx.AsyncClient,
     lat: float,
