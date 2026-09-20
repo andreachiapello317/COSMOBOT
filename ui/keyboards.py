@@ -723,12 +723,35 @@ def world_mondi_keyboard() -> InlineKeyboardMarkup:
 def watch_sats_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🛰️ ISS adesso", "watch:sats:iss"), kb_btn("👥 Chi è lassù", "watch:sats:crew")],
-            [kb_btn("🏠 Tiangong", "watch:sats:css"), kb_btn("🔭 Hubble", "watch:sats:hst")],
-            [kb_btn("🏠 Stazioni", "watch:sats:sta")],
+            [kb_btn("📍 Posizione satelliti", "watch:sats:pos")],
+            [kb_btn("👥 Chi è lassù", "watch:sats:crew")],
             [kb_btn("🌍 Osservazione Terra", "watch:sats:earth")],
-            [kb_btn("🌦️ Meteo sat", "watch:sats:meteo")],
+            nav_row(),
+        ]
+    )
+
+
+def watch_sats_pos_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🛰️ ISS adesso", "watch:sats:iss"), kb_btn("🏠 Tiangong", "watch:sats:css")],
+            [kb_btn("🔭 Hubble", "watch:sats:hst"), kb_btn("🏠 Stazioni", "watch:sats:sta")],
             [kb_btn("📡 Starlink", "watch:sats:sl")],
+            nav_row(),
+        ]
+    )
+
+
+def watch_earth_keyboard(layer: str = "terra") -> InlineKeyboardMarkup:
+    def mark(key: str, label: str) -> InlineKeyboardButton:
+        prefix = "· " if key == layer else ""
+        return kb_btn(f"{prefix}{label}", f"watch:sats:earth:{key}")
+
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("📍 Cambia luogo", "loc:go:terra")],
+            [mark("terra", "🌍 Terra"), mark("aqua", "💧 Aqua")],
+            [kb_btn("🔄 Aggiorna", "watch:sats:earth")],
             nav_row(),
         ]
     )
@@ -738,7 +761,6 @@ def watch_sats_card_keyboard(view: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔄 Aggiorna", f"watch:sats:{view}")],
-            [kb_btn("🛰️ Satelliti", "watch:sats")],
             nav_row(),
         ]
     )
@@ -917,7 +939,7 @@ def iss_keyboard(map_url: str | None = None) -> InlineKeyboardMarkup:
     rows = []
     if map_url:
         rows.append([InlineKeyboardButton("🗺️ Vedi posizione", url=map_url)])
-    rows.append([kb_btn("🔄 Aggiorna", "watch:sats:iss"), kb_btn("🛰️ Satelliti", "watch:sats")])
+    rows.append([kb_btn("🔄 Aggiorna", "watch:sats:iss")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 

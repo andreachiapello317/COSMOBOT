@@ -77,7 +77,7 @@ def parent_bot_token(token: str) -> str:
     if raw.startswith(("loc:go:gps", "loc:go:compass", "loc:go:brfrom", "loc:go:brto", "loc:go:clock", "loc:go:coord")):
         return "bot:tool"
     if raw.startswith(
-        ("loc:go:cielo", "loc:go:meteo", "loc:go:sole", "loc:go:osserva", "loc:go:luna", "loc:go:watch")
+        ("loc:go:cielo", "loc:go:meteo", "loc:go:sole", "loc:go:osserva", "loc:go:luna", "loc:go:watch", "loc:go:terra")
     ):
         return "bot:astro"
     oracolo = (

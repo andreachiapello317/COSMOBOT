@@ -326,8 +326,10 @@ from ui.keyboards import (
     home_keyboard as section_home_keyboard,
     oracolo_hub_keyboard,
     iss_keyboard,
+    watch_earth_keyboard,
     watch_sats_card_keyboard,
     watch_sats_hub_keyboard,
+    watch_sats_pos_keyboard,
     learn_keyboard,
     lenormand_after_keyboard,
     lenormand_menu_keyboard,
@@ -458,6 +460,7 @@ from ui.texts import (
     sistemi_text,
     world_mondi_text,
     watch_sats_hub_text,
+    watch_sats_pos_text,
     world_self_text,
     compat_advanced_text,
     compat_hub_text,
@@ -527,6 +530,8 @@ WATCH_EYE_KEY = "watch_eye_style"
 WATCH_EYE_LIM_KEY = "watch_eye_lim"
 WATCH_EYE_VIEW_KEY = "watch_eye_view"
 NATURA_LAST_KEY = "natura_last"
+EARTH_OBS_KEY = "earth_obs_place"
+EARTH_OBS_LAYER_KEY = "earth_obs_layer"
 BUSSOLA_LAST_KEY = "bussola_last"
 MATH_ASK_KEY = "math_ask"
 TOOL_CAL_KEY = "tool_cal_shift"
@@ -611,12 +616,13 @@ NAV_SKIP_PREFIXES = (
     "cp:loc:",
     "cp:p:",
     "cp:el:",
-        "cp:src:",
-        "calc:cv:",
-        "tool:cal:",
-        "wx:d:",
-        "loc:city:",
-        "sq:ans:",
+    "cp:src:",
+    "calc:cv:",
+    "tool:cal:",
+    "wx:d:",
+    "watch:sats:earth:",
+    "loc:city:",
+    "sq:ans:",
 )
 NAV_HOME_TOKENS = frozenset({"home:menu", "osserva:home", "natal:homebtn", "iching:home"})
 
@@ -7465,6 +7471,29 @@ def _ensure_cielo_place(context: ContextTypes.DEFAULT_TYPE) -> None:
         _remember_cielo_place(context, DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON)
 
 
+def _earth_obs_place(context: ContextTypes.DEFAULT_TYPE) -> tuple[str, float, float]:
+    last = context.user_data.get(EARTH_OBS_KEY)
+    if isinstance(last, dict) and last.get("lat") is not None:
+        return (
+            str(last.get("name") or DEFAULT_PLACE_NAME),
+            float(last["lat"]),
+            float(last["lon"]),
+        )
+    return DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON
+
+
+def _remember_earth_obs_place(context: ContextTypes.DEFAULT_TYPE, name: str, lat: float, lon: float) -> None:
+    context.user_data[EARTH_OBS_KEY] = {"name": name, "lat": lat, "lon": lon}
+
+
+def _earth_obs_layer(context: ContextTypes.DEFAULT_TYPE, choose: str | None = None) -> str:
+    if choose in {"terra", "aqua"}:
+        context.user_data[EARTH_OBS_LAYER_KEY] = choose
+        return choose
+    current = str(context.user_data.get(EARTH_OBS_LAYER_KEY) or "terra")
+    return current if current in {"terra", "aqua"} else "terra"
+
+
 def _remember_natura_place(context: ContextTypes.DEFAULT_TYPE, name: str, lat: float, lon: float) -> None:
     context.user_data[NATURA_LAST_KEY] = {"name": name, "lat": lat, "lon": lon}
 
@@ -7568,6 +7597,7 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     parts = query.data.split(":")
     action = parts[1] if len(parts) > 1 else ""
     extra = parts[2] if len(parts) > 2 else ""
+    extra2 = parts[3] if len(parts) > 3 else ""
     if action == "city":
         await query.answer()
         await show_watch_hub(update, context, force_pick=True)
@@ -7619,6 +7649,8 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await send_horizons_list(update, context, kind="comet")
         return
     if action == "sats":
+        if extra == "earth" and extra2 in {"terra", "aqua"}:
+            _earth_obs_layer(context, extra2)
         await send_watch_sats(update, context, view=extra or "hub")
         return
     if action == "tonight":
@@ -8022,13 +8054,21 @@ async def send_watch_moon(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def show_sats_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     nav_mark(context, "watch:sats")
-    _ensure_cielo_place(context)
-    name, _lat, _lon = _cielo_place(context)
     await reply_html(
         update,
         context,
-        watch_sats_hub_text(name),
+        watch_sats_hub_text(),
         reply_markup=watch_sats_hub_keyboard(),
+    )
+
+
+async def show_sats_pos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "watch:sats:pos")
+    await reply_html(
+        update,
+        context,
+        watch_sats_pos_text(),
+        reply_markup=watch_sats_pos_keyboard(),
     )
 
 
@@ -8040,6 +8080,12 @@ async def send_watch_sats(
 ) -> None:
     asked = view or "hub"
     if asked in {"hub", ""}:
+        await show_sats_hub(update, context)
+        return
+    if asked == "pos":
+        await show_sats_pos(update, context)
+        return
+    if asked == "meteo":
         await show_sats_hub(update, context)
         return
     if asked == "iss":
@@ -8123,33 +8169,30 @@ async def send_sat_group(update: Update, context: ContextTypes.DEFAULT_TYPE, gro
             rows.append({"key": key, "error": True})
         else:
             rows.append(item)
-    if all(row.get("error") for row in rows):
+    if all(row.get("error") for row in rows) and group != "earth":
         await reply_offline(update, context)
         return
     text = format_sat_group(group=group, when=now, rows=rows)
     markup = watch_sats_card_keyboard(group)
-    _ensure_cielo_place(context)
-    place_name, plat, plon = _cielo_place(context)
     image = None
     filename = "sat.jpg"
     if group == "earth":
-        view = await fetch_sat_view(_http_client(context), "terra", plat, plon)
+        place_name, plat, plon = _earth_obs_place(context)
+        layer = _earth_obs_layer(context)
+        markup = watch_earth_keyboard(layer)
+        view = await fetch_sat_view(_http_client(context), layer, plat, plon)
         image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
-        filename = str(view.get("filename") or "terra.jpg")
-        if view.get("note"):
-            text = (
-                f"{text}\n🖼️ Zona di <b>{e(place_name)}</b> oggi, vero colore MODIS Terra. "
-                f"{e(str(view['note']))}"
-            )
-    elif group == "meteo":
-        view = await fetch_sat_view(_http_client(context), "g16", plat, plon)
-        image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
-        filename = str(view.get("filename") or "goes16.jpg")
-        if view.get("note"):
-            text = (
-                f"{text}\n🖼️ Disco GOES-16 (Americhe): è il meteo visto dallo spazio, "
-                f"non la previsione di {e(place_name)}. {e(str(view['note']))}"
-            )
+        filename = str(view.get("filename") or f"{layer}.jpg")
+        sat_it = "Terra" if layer == "terra" else "Aqua"
+        text = (
+            f"{text}\n"
+            f"🖼️ Luogo di questa cartella: <b>{e(place_name)}</b> "
+            f"(<code>{plat:.3f}, {plon:.3f}</code>). "
+            f"Cambia il luogo e cambia la foto. Non tocca Cielo, Horizons né Starlink.\n"
+            f"Oggi, vero colore MODIS {e(sat_it)}"
+            + (f" — {e(str(view['note']))}" if view.get("note") else "")
+            + "."
+        )
     if image:
         ok = await deliver_photo_bytes(
             update,
@@ -8357,6 +8400,7 @@ async def show_place_picker(
         "clock": "Di quale città vuoi ora e calendario?",
         "coord": "Punto preciso: via e numero, oppure le coordinate decimali o in gradi.",
         "watch": "Da dove punta l'osservatorio? La salvo per stelle, eventi e Horizons.",
+        "terra": "Quale pezzo di Terra vuoi vedere dal satellite? Vale solo per Osservazione Terra, non per il resto.",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
     if step == "it":
@@ -8390,6 +8434,12 @@ async def apply_place(
     context.user_data[LOC_ASK_KEY] = False
     context.user_data["cielo_ask"] = False
     purpose = _loc_purpose(context)
+    if purpose == "terra":
+        _remember_earth_obs_place(context, name, lat, lon)
+        if context.user_data.get(NAV_HERE_KEY) == "loc:go:terra":
+            context.user_data[NAV_HERE_KEY] = "watch:sats:earth"
+        await send_sat_group(update, context, "earth")
+        return
     if purpose == "natev":
         _remember_natura_place(context, name, lat, lon)
         await send_natura_here(update, context)
@@ -8462,7 +8512,7 @@ async def receive_place_city(update: Update, context: ContextTypes.DEFAULT_TYPE,
     purpose = _loc_purpose(context)
     places: list[dict[str, Any]] = []
     source = "città"
-    if purpose in {"gps", "coord", "compass", "clock", "brfrom", "brto"}:
+    if purpose in {"gps", "coord", "compass", "clock", "brfrom", "brto", "terra"}:
         try:
             places = await search_place(client, text)
             source = "OpenStreetMap"

@@ -174,7 +174,7 @@ def world_watch_text(place: str = "") -> str:
         f"{where}\n"
         "🔭 Cielo di adesso — 6 carte con grado sulla cartina, e cosa osservare stasera\n"
         "📡 Horizons NASA — stelle, luna, pianeti, comete, calcoli, eventi\n"
-        "🛰️ Satelliti — ISS, equipaggio, Tiangong, Hubble, Terra, meteo, Starlink\n\n"
+        "🛰️ Satelliti — posizioni live, chi è lassù, osservazione Terra\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
     )
 
@@ -312,24 +312,26 @@ def world_mondi_text() -> str:
 
 
 def watch_sats_hub_text(place: str = "") -> str:
-    where = (
-        f"Città salvata: <b>{_html.escape(place)}</b>. I passaggi sopra quella città non li calcolo."
-        if place
-        else "I passaggi sopra una città non li calcolo."
-    )
+    _ = place
     return _card(
         "🛰️ <b>SATELLITI</b>",
-        "Posizioni live, adesso. L'enciclopedia Wikipedia sta in Studia lo spazio.",
-        f"{where}\n"
+        "Tre porte. L'enciclopedia Wikipedia sta in Studia lo spazio.",
+        "📍 <b>POSIZIONE SATELLITI</b> — ISS, Tiangong, Hubble, stazioni, Starlink. Dove sono adesso.\n"
+        "👥 <b>CHI È LASSÙ</b> — chi è in orbita, Open Notify.\n"
+        "🌍 <b>OSSERVAZIONE TERRA</b> — foto del suolo sul luogo che scegli lì. "
+        "Quel luogo vale solo per questa cartella.\n\n"
+        "I passaggi sopra una città non li calcolo.",
+    )
+
+
+def watch_sats_pos_text() -> str:
+    return _card(
+        "📍 <b>POSIZIONE SATELLITI</b>",
+        "Dove sono adesso. Non è un passaggio sulla tua città.",
         "🛰️ <b>ISS</b> — Where the ISS at? (NORAD 25544)\n"
-        "👥 <b>CHI È LASSÙ</b> — Open Notify\n"
         "🏠 <b>TIANGONG</b> · 🔭 <b>HUBBLE</b> — TLE live + SGP4\n"
         "🏠 <b>STAZIONI</b> — ISS e Tiangong insieme\n"
-        "🌍 <b>OSSERVAZIONE TERRA</b> — Terra, Aqua, Landsat, Sentinel: fotografano il suolo. "
-        "Posizione + immagine del giorno (NASA GIBS)\n"
-        "🌦️ <b>METEO SAT</b> — NOAA-20/21 e GOES-16: nubi e oceani, non il meteo di Cuneo. "
-        "Posizione + disco GOES / vero colore\n"
-        "📡 <b>STARLINK</b> — quanti sono sopra di te adesso (TLE + SGP4)\n\n"
+        "📡 <b>STARLINK</b> — quanti sono sopra il luogo dell'osservatorio, TLE + SGP4\n\n"
         "La visibilità ISS «al sole / in ombra» è geometria del satellite, non un avvistamento da terra.",
     )
 

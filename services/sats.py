@@ -111,13 +111,7 @@ GROUPS: dict[str, dict[str, Any]] = {
         "it": "Osservazione Terra",
         "emoji": "🌍",
         "keys": ("terra", "aqua", "ld8", "ld9", "s2a"),
-        "blurb": "Satelliti che fotografano il suolo. Posizione adesso e, se arriva, l'immagine pubblica del giorno.",
-    },
-    "meteo": {
-        "it": "Meteo sat",
-        "emoji": "🌦️",
-        "keys": ("n20", "n21", "g16"),
-        "blurb": "Satelliti meteo polari e GOES-16 geostazionario. Fotografano nubi e oceani, non è il meteo di Cuneo.",
+        "blurb": "Satelliti che fotografano il suolo. La foto è del luogo scelto in questa cartella, non del resto del bot.",
     },
     "sl": {
         "it": "Starlink",
