@@ -2702,23 +2702,37 @@ async def send_tool_feste(update: Update, context: ContextTypes.DEFAULT_TYPE, ex
     year = clamp_year(int(state.get("year") or today.year))
     view = str(state.get("view") or "next")
     token = (extra or "").strip()
+    page = int(state.get("page") or 0)
     if token in {"easter", "xmas", "it", "world", "season", "next"}:
         view = token
+        page = 0
     elif token == "yprev":
         year = clamp_year(year - 1)
+        page = 0
     elif token == "ynext":
         year = clamp_year(year + 1)
+        page = 0
     elif token == "ynow":
         year = today.year
+        page = 0
+    elif token == "pprev":
+        page -= 1
+    elif token == "pnext":
+        page += 1
+    elif token == "stay":
+        pass
     elif token in {"", "jd"}:
         view = "next"
+        page = 0
+    text, page, pages = format_events_card(view, year, today, page)
     state["year"] = year
     state["view"] = view
+    state["page"] = page
     await reply_html(
         update,
         context,
-        format_events_card(view, year, today),
-        reply_markup=calendar_events_keyboard(),
+        text,
+        reply_markup=calendar_events_keyboard(page, pages),
     )
 
 

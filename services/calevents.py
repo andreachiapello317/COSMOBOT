@@ -244,17 +244,23 @@ def upcoming(today: date, *, limit: int = 12) -> list[dict[str, object]]:
 
 
 VIEWS = {
-    "next": ("📅", "PROSSIMI", "Da oggi in poi. Date civili Europe/Rome."),
-    "easter": ("🐣", "PASQUA", "Computus gregoriano e ortodosso. Le date mobili partono da lì."),
-    "xmas": ("🎄", "NATALE", "Natale latino e ortodosso, Avvento, Epifania."),
-    "it": ("🇮🇹", "ITALIA", "Feste civili italiane più Pasqua e Pasquetta."),
-    "world": ("🌍", "MONDO", "Feste civili note. Il capodanno cinese è da tavola pubblicata."),
-    "season": ("☀️", "STAGIONI", "Equinozi e solstizi, Astronomy Engine, ora di Roma."),
+    "next": ("📅", "PROSSIMI", "Da oggi. Scorri le pagine."),
+    "easter": ("🐣", "PASQUA", "Gregoriana e ortodossa."),
+    "xmas": ("🎄", "NATALE", "Latino, ortodosso, Avvento."),
+    "it": ("🇮🇹", "ITALIA", "Feste civili e Pasqua."),
+    "world": ("🌍", "MONDO", "Feste civili note. Scorri."),
+    "season": ("☀️", "STAGIONI", "Equinozi e solstizi, ora di Roma."),
 }
+PAGE_SIZE = 5
+_MONTHS_SHORT = ("gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic")
 
 
 def _fmt_day(day: date) -> str:
     return f"{_WEEKDAYS[day.weekday()]} {day.day} {_MONTHS[day.month - 1]} {day.year}"
+
+
+def _fmt_short(day: date) -> str:
+    return f"{day.day} {_MONTHS_SHORT[day.month - 1]}"
 
 
 def _ago(day: date, today: date) -> str:
@@ -266,52 +272,67 @@ def _ago(day: date, today: date) -> str:
     if n == -1:
         return "ieri"
     if n > 0:
-        return f"tra {n} giorni"
-    return f"{-n} giorni fa"
+        return f"tra {n}g"
+    return f"{-n}g fa"
 
 
-def format_events_card(view: str, year: int, today: date) -> str:
+def rows_for(view: str, year: int, today: date) -> list[dict[str, object]]:
+    view = view if view in VIEWS else "next"
+    year = clamp_year(year)
+    if view == "next":
+        if year == today.year:
+            return upcoming(today, limit=15)
+        return all_events(year)
+    return {
+        "easter": events_easter,
+        "xmas": events_xmas,
+        "it": events_italy,
+        "world": events_world,
+        "season": events_season,
+    }[view](year)
+
+
+def format_events_card(view: str, year: int, today: date, page: int = 0) -> tuple[str, int, int]:
     view = view if view in VIEWS else "next"
     year = clamp_year(year)
     emoji, title, blurb = VIEWS[view]
-    if view == "next":
-        if year == today.year:
-            rows = upcoming(today)
-            head_year = ""
-        else:
-            rows = all_events(year)[:16]
-            head_year = f" · {year}"
-    else:
-        rows = {
-            "easter": events_easter,
-            "xmas": events_xmas,
-            "it": events_italy,
-            "world": events_world,
-            "season": events_season,
-        }[view](year)
-        head_year = f" · {year}"
-    lines = [
-        f"{emoji} <b>EVENTI DI CALENDARIO — {title}{head_year}</b>",
-        f"<i>{_html.escape(blurb)}</i>",
-        "",
-    ]
-    if not rows:
-        lines.append("Nessuna data in questo giro.")
-    else:
+    rows = rows_for(view, year, today)
+    head_year = "" if view == "next" and year == today.year else f" · {year}"
+    if view == "season":
+        lines = [
+            f"{emoji} <b>STAGIONI{head_year}</b>",
+            f"<i>{_html.escape(blurb)}</i>",
+            "",
+        ]
         for row in rows:
             day = row["date"]
             assert isinstance(day, date)
             note = str(row.get("note") or "")
-            extra = f" · {_html.escape(note)}" if note else ""
+            extra = f"\n{_html.escape(note)}" if note else ""
             lines.append(
                 f"{row['emoji']} <b>{_html.escape(str(row['title']))}</b>\n"
                 f"{_fmt_day(day)} · <i>{_ago(day, today)}</i>{extra}"
             )
-    lines.extend(
-        [
-            "",
-            "<i>Pasqua: Meeus/Jones/Butcher e computus giuliano. "
-            "Stagioni: Astronomy Engine. Non è un oracolo e non è il calendario di TERRA.</i>",
-        ]
-    )
-    return "\n".join(lines)
+        lines.extend(["", "<i>Astronomy Engine · Europe/Rome.</i>"])
+        return "\n".join(lines), 0, 1
+    pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE) if rows else 1
+    page = max(0, min(int(page), pages - 1))
+    chunk = rows[page * PAGE_SIZE : (page + 1) * PAGE_SIZE]
+    lines = [
+        f"{emoji} <b>{title}{head_year}</b>",
+        f"<i>{_html.escape(blurb)}</i>",
+        "",
+    ]
+    if not chunk:
+        lines.append("Nessuna data in questo giro.")
+    else:
+        for row in chunk:
+            day = row["date"]
+            assert isinstance(day, date)
+            lines.append(
+                f"{row['emoji']} <b>{_html.escape(str(row['title']))}</b> · "
+                f"{_fmt_short(day)} · <i>{_ago(day, today)}</i>"
+            )
+    if pages > 1:
+        lines.append(f"\n<i>Pagina {page + 1}/{pages}</i>")
+    return "\n".join(lines), page, pages

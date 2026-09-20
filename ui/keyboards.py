@@ -605,20 +605,29 @@ def birthday_alert_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def calendar_events_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("📅 Prossimi", "tool:feste"), kb_btn("🐣 Pasqua", "tool:feste:easter")],
-            [kb_btn("🎄 Natale", "tool:feste:xmas"), kb_btn("🇮🇹 Italia", "tool:feste:it")],
-            [kb_btn("🌍 Mondo", "tool:feste:world"), kb_btn("☀️ Stagioni", "tool:feste:season")],
+def calendar_events_keyboard(page: int = 0, pages: int = 1) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [kb_btn("📅 Prossimi", "tool:feste"), kb_btn("🐣 Pasqua", "tool:feste:easter")],
+        [kb_btn("🎄 Natale", "tool:feste:xmas"), kb_btn("🇮🇹 Italia", "tool:feste:it")],
+        [kb_btn("🌍 Mondo", "tool:feste:world"), kb_btn("☀️ Stagioni", "tool:feste:season")],
+    ]
+    if pages > 1:
+        rows.append(
             [
-                kb_btn("◀ anno", "tool:feste:yprev"),
-                kb_btn("quest'anno", "tool:feste:ynow"),
-                kb_btn("anno ▶", "tool:feste:ynext"),
-            ],
-            nav_row(),
+                kb_btn("◀", "tool:feste:pprev"),
+                kb_btn(f"{page + 1}/{pages}", "tool:feste:stay"),
+                kb_btn("▶", "tool:feste:pnext"),
+            ]
+        )
+    rows.append(
+        [
+            kb_btn("◀ anno", "tool:feste:yprev"),
+            kb_btn("quest'anno", "tool:feste:ynow"),
+            kb_btn("anno ▶", "tool:feste:ynext"),
         ]
     )
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
 
 
 def calc_keyboard(pad: str = "bas", *, deg: bool = True) -> InlineKeyboardMarkup:
