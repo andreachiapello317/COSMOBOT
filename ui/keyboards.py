@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from services.earth import EARTH_TOPICS, GLACIERS, OCEANS, PLATES, SEAS, VOLCANOES, WATER
 from services.stones import CATS, COLORS, ENVS, MUSEUM, RARITY, STONES
@@ -252,11 +252,10 @@ def world_asksky_keyboard() -> InlineKeyboardMarkup:
 
 
 def place_here_button(purpose: str | None = None) -> InlineKeyboardButton:
-    from services.geoapp import geo_web_url
-
-    url = geo_web_url(purpose)
-    if url:
-        return InlineKeyboardButton("📍 La tua posizione", web_app=WebAppInfo(url=url))
+    # Solo callback: Telegram rifiuta web_app se il dominio non è in BotFather
+    # (Button_type_invalid) e Cielo/Meteo/Osservatorio non si aprono.
+    if purpose in {"gps", "compass", "brfrom", "brto"}:
+        return kb_btn("📍 La tua posizione", f"loc:go:{purpose}")
     return kb_btn("📍 La tua posizione", "loc:here")
 
 

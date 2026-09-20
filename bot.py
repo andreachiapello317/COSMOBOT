@@ -415,7 +415,7 @@ from ui.texts import (
     meteo_span_text,
 )
 from telegram.constants import ChatAction, ParseMode
-from telegram.error import TelegramError
+from telegram.error import BadRequest, RetryAfter, TelegramError
 from telegram.ext import (
     Application,
     CallbackContext,
@@ -2126,6 +2126,32 @@ async def delete_user_command(update: Update) -> None:
         logger.info("Comando utente non cancellato: %s", exc)
 
 
+def _markup_without_webapp(markup: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    for row in markup.inline_keyboard:
+        new_row: list[InlineKeyboardButton] = []
+        for btn in row:
+            if getattr(btn, "web_app", None) is not None:
+                new_row.append(InlineKeyboardButton(btn.text, callback_data="loc:here"))
+            else:
+                new_row.append(btn)
+        rows.append(new_row)
+    return InlineKeyboardMarkup(rows)
+
+
+async def _call_telegram(action, *args, **kwargs):
+    last: Exception | None = None
+    for attempt in range(4):
+        try:
+            return await action(*args, **kwargs)
+        except RetryAfter as exc:
+            last = exc
+            wait = float(getattr(exc, "retry_after", 1) or 1) + 0.4
+            logger.info("Flood Telegram, attendo %.1fs (tentativo %s)", wait, attempt + 1)
+            await asyncio.sleep(wait)
+    raise last if last else TelegramError("Telegram non ha risposto")
+
+
 async def deliver_text(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -2143,31 +2169,56 @@ async def deliver_text(
     # Sempre esplicito: se ometti reply_markup Telegram lascia i bottoni vecchi.
     markup = reply_markup if reply_markup is not None else EMPTY_KEYBOARD
 
+    async def edit() -> None:
+        await _call_telegram(
+            context.bot.edit_message_text,
+            chat_id=chat.id,
+            message_id=int(last["id"]),
+            text=text,
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=not preview,
+            reply_markup=markup,
+        )
+
+    async def send() -> None:
+        sent = await _call_telegram(
+            context.bot.send_message,
+            chat_id=chat.id,
+            text=text,
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=not preview,
+            reply_markup=markup,
+        )
+        _remember_bot_msg(context, sent.message_id, "text")
+
     if last and last.get("kind") == "text":
         try:
-            await context.bot.edit_message_text(
-                chat_id=chat.id,
-                message_id=int(last["id"]),
-                text=text,
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=not preview,
-                reply_markup=markup,
-            )
+            await edit()
             return
+        except BadRequest as exc:
+            if "button_type_invalid" in str(exc).lower() and markup is not EMPTY_KEYBOARD:
+                markup = _markup_without_webapp(markup)
+                try:
+                    await edit()
+                    return
+                except TelegramError:
+                    pass
+            if _is_not_modified(exc):
+                return
+            logger.info("Modifica testo non riuscita, sostituisco il messaggio: %s", exc)
         except TelegramError as exc:
             if _is_not_modified(exc):
                 return
             logger.info("Modifica testo non riuscita, sostituisco il messaggio: %s", exc)
 
     await _delete_last_bot_msg(context, chat.id)
-    sent = await context.bot.send_message(
-        chat_id=chat.id,
-        text=text,
-        parse_mode=ParseMode.HTML,
-        disable_web_page_preview=not preview,
-        reply_markup=markup,
-    )
-    _remember_bot_msg(context, sent.message_id, "text")
+    try:
+        await send()
+    except BadRequest as exc:
+        if "button_type_invalid" not in str(exc).lower() or markup is EMPTY_KEYBOARD:
+            raise
+        markup = _markup_without_webapp(markup)
+        await send()
 
 
 async def deliver_photo(
