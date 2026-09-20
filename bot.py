@@ -2232,7 +2232,7 @@ def help_text() -> str:
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
         "pianeti sopra di te: città o la tua posizione, niente carte).\n"
-        "🔭 <b>ASTRO</b> — Cielo (luna e alba/tramonto), Meteo, Osserva lo spazio "
+        "🔭 <b>ASTRO</b> — Cielo (luna e alba/tramonto), Meteo, Osservatorio "
         "(stelle, eventi, JPL Horizons), Esplora lo spazio (enciclopedia), "
         "In orbita (ISS). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
@@ -7376,7 +7376,7 @@ async def show_place_picker(
         "compass": "Da dove calcolo nord geografico e magnetico?",
         "brfrom": "Da dove parti? Poi ti chiedo la destinazione.",
         "brto": "Verso quale città o luogo?",
-        "watch": "Da dove osservi lo spazio? La salvo per stelle, eventi e Horizons.",
+        "watch": "Da dove punta l'osservatorio? La salvo per stelle, eventi e Horizons.",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
     if step == "it":
@@ -8095,7 +8095,7 @@ async def show_stelle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         context,
         "⭐ <b>STELLE</b>\n\n"
         "Enciclopedia: schede Wikipedia e Wikidata. "
-        "Cosa si vede adesso dalla tua città sta in 🌌 Osserva lo spazio → Stelle.",
+        "Cosa si vede adesso dalla tua città sta in 🔭 Osservatorio → Stelle.",
         reply_markup=stelle_menu_keyboard(),
     )
 

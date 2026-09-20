@@ -45,9 +45,9 @@ def astro_hub_text() -> str:
     return _card(
         "🔭 <b>ASTRO</b>",
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
-        "🔭 <b>CIELO</b> — luna (fasi) e alba/tramonto da un luogo\n"
+        "☀️ <b>CIELO</b> — luna (fasi) e alba/tramonto da un luogo\n"
         "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
-        "🌌 <b>OSSERVA LO SPAZIO</b> — stelle, eventi, pianeti e asteroidi JPL Horizons\n"
+        "🔭 <b>OSSERVATORIO</b> — stelle, eventi, pianeti e asteroidi JPL Horizons\n"
         "🚀 <b>ESPLORA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
@@ -156,11 +156,11 @@ def world_sky_text(place: str = "") -> str:
         else "Appena entri, chiedo la città o la tua posizione e la tengo."
     )
     return _card(
-        "🔭 <b>CIELO</b>",
+        "☀️ <b>CIELO</b>",
         "Orari del Sole e della Luna da questo luogo. Niente stelle, niente eventi, niente enciclopedia.",
         f"{where}\n"
         "🌙 Luna (fase, illuminazione, prossimi quarti) · 🌅 Alba e tramonto.\n"
-        "Stelle, eventi e corpi Horizons stanno in 🌌 Osserva lo spazio.",
+        "Stelle, eventi e corpi Horizons stanno in 🔭 Osservatorio.",
     )
 
 
@@ -171,7 +171,7 @@ def world_watch_text(place: str = "") -> str:
         else "Appena entri, chiedo la città o la tua posizione e la tengo."
     )
     return _card(
-        "🌌 <b>OSSERVA LO SPAZIO</b>",
+        "🔭 <b>OSSERVATORIO</b>",
         "Cosa sta sopra di te. Stelle e eventi dalla mappa; pianeti e asteroidi da JPL Horizons.",
         f"{where}\n"
         "⭐ Stelle · 🌠 Eventi (solo se osservabili da qui)\n"

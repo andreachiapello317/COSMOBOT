@@ -233,8 +233,8 @@ def geo_after_keyboard(kind: str) -> InlineKeyboardMarkup:
 def astro_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔭 Cielo", "world:sky"), kb_btn("🌤️ Meteo", "loc:go:meteo")],
-            [kb_btn("🌌 Osserva lo spazio", "world:watch")],
+            [kb_btn("☀️ Cielo", "world:sky"), kb_btn("🌤️ Meteo", "loc:go:meteo")],
+            [kb_btn("🔭 Osservatorio", "world:watch")],
             [kb_btn("🚀 Esplora lo spazio", "world:mondi")],
             [kb_btn("🛰️ In orbita", "world:orbit")],
             nav_row(),
@@ -407,14 +407,14 @@ def world_watch_keyboard() -> InlineKeyboardMarkup:
 
 def sky_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
     rows = [list(row) for row in extra if row]
-    rows.append([kb_btn("🔭 Cielo", "world:sky"), kb_btn("📍 Cambia città", "sky:city")])
+    rows.append([kb_btn("☀️ Cielo", "world:sky"), kb_btn("📍 Cambia città", "sky:city")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
 
 def watch_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
     rows = [list(row) for row in extra if row]
-    rows.append([kb_btn("🌌 Osserva", "world:watch"), kb_btn("📍 Cambia città", "watch:city")])
+    rows.append([kb_btn("🔭 Osservatorio", "world:watch"), kb_btn("📍 Cambia città", "watch:city")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
 
@@ -426,7 +426,7 @@ def watch_bodies_keyboard(kind: str) -> InlineKeyboardMarkup:
     buttons = [kb_btn(f"{row['emoji']} {row['it']}", f"watch:b:{key}") for key, row in catalog.items()]
     grid = _pairs(buttons)
     back = "watch:planets" if kind == "planets" else "watch:rocks"
-    grid.append([kb_btn("🔄 Elenco", back), kb_btn("🌌 Osserva", "world:watch")])
+    grid.append([kb_btn("🔄 Elenco", back), kb_btn("🔭 Osservatorio", "world:watch")])
     grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
