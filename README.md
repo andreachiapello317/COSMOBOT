@@ -25,7 +25,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🧰 STRUMENTI → Conversioni | Lunghezza, massa, temperatura, velocità, volume, angoli, cielo, tempo | calcolo locale |
 | 🧰 STRUMENTI → Bussola | Posizione, coordinate, nord, verso un luogo. Via e numero o numeri scritti | Open-Meteo + BGS WMM + Nominatim |
 | 🧰 STRUMENTI → Eventi di calendario | Pasqua (occidentale e ortodossa), Natale, feste italiane, mondo, equinozi | computus + Astronomy Engine |
-| 🧰 STRUMENTI → Ora e calendario | Ora italiana grande + mese civile, frecce per mese e anno. Niente cambio città | orologio locale Europe/Rome |
+| 🧰 STRUMENTI → Ora e calendario | Ora italiana grande + mese civile, frecce per mese e anno. Niente cambio città. Compleanni salvati, avviso il giorno | orologio locale + file locale |
 | 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, terra, strumenti | cataloghi locali; ASTRO ha anche Wikipedia live |
 | 🌍 TERRA → Eventi | Catastrofi e fenomeni atmosferici/naturali nel mondo | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
 | 🌍 TERRA → Eventi → Live | Scosse USGS e fenomeni NASA aperti; ogni evento ha cosa/dove e un link alla fonte | USGS + NASA EONET |
@@ -233,6 +233,7 @@ services/astronomy.py  # visibilità da numeri live
 services/bots.py       # registro BOTSQUAD (cinque bot)
 services/tools.py      # coordinate, ora e calendario civile di STRUMENTI
 services/calevents.py  # Pasqua, Natale, feste civili, stagioni
+services/birthdays.py  # compleanni nel calendario + avviso del giorno
 services/wildlife.py   # avvistamenti iNaturalist per Animali live
 ui/keyboards.py        # BOTSQUAD + ORACOLO + ASTRO + STRUMENTI
 ui/texts.py            # testi BOTSQUAD / ORACOLO / ASTRO / STRUMENTI

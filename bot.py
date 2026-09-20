@@ -24,7 +24,7 @@ import random
 import re
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time as daytime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
 from typing import Any
@@ -81,6 +81,19 @@ from services.imagine import format_imaginary, generate_world
 from services.i18n import compass_it, discovery_it, event_name_it, kp_label_it, star_it
 from services.eclipses import fetch_eclipses, kind_it, next_of, parse_peak
 from services.iss import fetch_iss_position, fetch_people_in_space, reverse_iss_place
+from services.birthdays import (
+    add_birthday,
+    due_alerts,
+    format_birthday_alert,
+    format_birthdays_card,
+    list_birthdays,
+    mark_sent,
+    month_days,
+    occurs_on,
+    parse_birthday_line,
+    remove_birthday,
+    touch_chat,
+)
 from services.calevents import clamp_year, format_events_card
 from services.tools import (
     draw_month_calendar,
@@ -340,6 +353,8 @@ from ui.keyboards import (
     lettura_method_keyboard,
     oracle_question_keyboard,
     calc_keyboard,
+    birthday_alert_keyboard,
+    birthday_keyboard,
     calendar_events_keyboard,
     clock_calendar_keyboard,
     compass_hub_keyboard,
@@ -2494,7 +2509,7 @@ def help_text() -> str:
         "🌍 <b>TERRA</b> — Eventi (atmosferici e naturali, live), "
         "Animali live (iNaturalist), Pietre.\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
-        "eventi di calendario, ora e calendario.\n"
+        "eventi di calendario, ora, calendario e compleanni.\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, terra, strumenti.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
@@ -2628,10 +2643,16 @@ async def dispatch_tool(
         await send_tool_feste(update, context, extra=extra)
         return
     if action in {"clock", "cal"}:
+        ask = context.user_data.get(MATH_ASK_KEY)
+        if isinstance(ask, dict) and ask.get("mode") == "bday":
+            context.user_data[MATH_ASK_KEY] = None
         _ensure_cielo_place(context)
         name, lat, lon = _cielo_place(context)
         delta = {"prev": -1, "next": 1, "now": 0, "yprev": -12, "ynext": 12}.get(extra)
         await send_tool_clock(update, context, name=name, lat=lat, lon=lon, month_delta=delta)
+        return
+    if action == "bd":
+        await send_tool_birthdays(update, context, extra=extra)
         return
     await show_tool_hub(update, context)
 
@@ -2740,11 +2761,27 @@ async def send_tool_clock(
         f"<b>{local.strftime('%H:%M:%S')}</b> · {e(weekday_it(local.date()))} {local.strftime('%d/%m/%Y')}\n"
         f"UTC: <code>{utc.strftime('%H:%M:%S')}</code> · <code>{e(tz_name)}</code> UTC{sign}{abs(off_h):.0f}h\n"
         f"Oggi: {phase.get('emoji') or '🌙'} {e(str(phase.get('name') or 'Luna'))}\n"
-        "<i>Ora italiana. Riquadro = oggi. Lunedì in testa.</i>"
+        "<i>Ora italiana. Riquadro = oggi. Lunedì in testa. Compleanni in arancio.</i>"
     )
+    user = update.effective_user
+    chat = update.effective_chat
+    marks: set[int] = set()
+    rows: list[dict[str, Any]] = []
+    if user is not None:
+        try:
+            rows = await list_birthdays(int(user.id))
+            marks = month_days(rows, year, month)
+            if chat is not None:
+                await touch_chat(int(user.id), int(chat.id))
+                await flush_birthday_alerts(context, int(user.id), int(chat.id))
+        except Exception:
+            logger.exception("Compleanni sul calendario")
+    today_hits = [row["name"] for row in rows if occurs_on(local.date(), int(row["month"]), int(row["day"]))]
+    if today_hits:
+        text += "\n🎂 Oggi: " + ", ".join(e(str(name)) for name in today_hits)
     markup = clock_calendar_keyboard()
     try:
-        png = draw_month_calendar(year, month, local.date(), clock=local)
+        png = draw_month_calendar(year, month, local.date(), clock=local, marks=marks or None)
     except Exception:
         logger.exception("Calendario PNG")
         await reply_html(
@@ -2771,6 +2808,76 @@ async def send_tool_clock(
         )
 
 
+async def flush_birthday_alerts(
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int | None = None,
+    chat_id: int | None = None,
+) -> None:
+    today = datetime.now(DEFAULT_TZ).date()
+    try:
+        due = await due_alerts(today)
+    except Exception:
+        logger.exception("Compleanni: elenco avvisi")
+        return
+    for pack in due:
+        if user_id is not None and int(pack["user_id"]) != int(user_id):
+            continue
+        dest = int(chat_id or pack["chat_id"])
+        items = list(pack["items"])
+        if not items or dest <= 0:
+            continue
+        try:
+            await context.bot.send_message(
+                chat_id=dest,
+                text=format_birthday_alert(items, today),
+                parse_mode=ParseMode.HTML,
+                reply_markup=birthday_alert_keyboard(),
+                disable_web_page_preview=True,
+            )
+            await mark_sent(int(pack["user_id"]), today, [str(item.get("id") or "") for item in items])
+        except TelegramError:
+            logger.warning("Compleanno non recapitato a %s", dest)
+        except Exception:
+            logger.exception("Compleanno avviso")
+
+
+async def birthday_alert_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    await flush_birthday_alerts(context)
+
+
+async def send_tool_birthdays(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    extra: str = "",
+    *,
+    error: str = "",
+    prompt: str = "",
+) -> None:
+    nav_mark(context, "tool:bd")
+    user = update.effective_user
+    chat = update.effective_chat
+    if user is None:
+        await show_tool_hub(update, context)
+        return
+    user_id = int(user.id)
+    if chat is not None:
+        await touch_chat(user_id, int(chat.id))
+        await flush_birthday_alerts(context, user_id, int(chat.id))
+    token = (extra or "").strip()
+    if token.startswith("rm:"):
+        await remove_birthday(user_id, token.split(":", 1)[1])
+    items = await list_birthdays(user_id)
+    wait = token == "add" or (not items and not error)
+    context.user_data[MATH_ASK_KEY] = {"mode": "bday"}
+    ask = "Scrivi nome e data: Anna 21/03 oppure Luca 3 marzo 1994." if wait else ""
+    await reply_html(
+        update,
+        context,
+        format_birthdays_card(items, datetime.now(DEFAULT_TZ).date(), prompt=prompt or ask, error=error),
+        reply_markup=birthday_keyboard(items),
+    )
+
+
 async def on_tool_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None or not query.data:
@@ -2778,7 +2885,7 @@ async def on_tool_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     _remember_from_callback(update, context)
     parts = query.data.split(":")
     action = parts[1] if len(parts) > 1 else ""
-    extra = parts[2] if len(parts) > 2 else ""
+    extra = ":".join(parts[2:]) if len(parts) > 2 else ""
     await query.answer()
     await dispatch_tool(update, context, action, extra)
 
@@ -12844,6 +12951,22 @@ async def post_init(application: Application) -> None:
         )
     except TelegramError as exc:
         logger.warning("Impossibile impostare i comandi del menu: %s", exc)
+    jobs = application.job_queue
+    if jobs is not None:
+        jobs.run_daily(
+            birthday_alert_job,
+            time=daytime(8, 0, tzinfo=DEFAULT_TZ),
+            name="birthday-daily",
+        )
+        jobs.run_repeating(
+            birthday_alert_job,
+            interval=2700,
+            first=45,
+            name="birthday-catchup",
+        )
+        logger.info("Avvisi compleanno: 08:00 Europe/Rome e controllo ogni 45 minuti")
+    else:
+        logger.warning("JobQueue assente: i compleanni avvisano solo se apri il calendario")
     logger.info("StelleBot inizializzato")
 
 
@@ -13388,6 +13511,34 @@ async def receive_math_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     if mode == "jd":
         await delete_user_command(update)
         await send_tool_feste(update, context, extra="next")
+        return
+    if mode == "bday":
+        parsed = parse_birthday_line(text)
+        await delete_user_command(update)
+        if parsed is None:
+            await send_tool_birthdays(
+                update,
+                context,
+                extra="add",
+                error="Non ho letto nome e data. Prova Anna 21/03.",
+            )
+            return
+        user = update.effective_user
+        chat = update.effective_chat
+        if user is None or chat is None:
+            await send_tool_birthdays(update, context, error="Non so a chi salvarlo.")
+            return
+        items = await add_birthday(int(user.id), int(chat.id), parsed)
+        context.user_data[MATH_ASK_KEY] = {"mode": "bday"}
+        await send_tool_birthdays(
+            update,
+            context,
+            prompt=f"Salvato {parsed['name']}.",
+        )
+        today = datetime.now(DEFAULT_TZ).date()
+        if occurs_on(today, int(parsed["month"]), int(parsed["day"])):
+            await flush_birthday_alerts(context, int(user.id), int(chat.id))
+        _ = items
         return
     context.user_data[MATH_ASK_KEY] = None
     await show_math_hub(update, context)

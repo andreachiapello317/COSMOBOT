@@ -576,8 +576,31 @@ def clock_calendar_keyboard() -> InlineKeyboardMarkup:
                 kb_btn("◀ mese", "tool:cal:prev"),
                 kb_btn("mese ▶", "tool:cal:next"),
             ],
-            [kb_btn("🕐 Ora", "tool:clock")],
+            [kb_btn("🕐 Ora", "tool:clock"), kb_btn("🎂 Compleanni", "tool:bd")],
             nav_row(),
+        ]
+    )
+
+
+def birthday_keyboard(items: list[dict] | None = None) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [kb_btn("➕ Aggiungi", "tool:bd:add")],
+    ]
+    for item in (items or [])[:12]:
+        sid = str(item.get("id") or "")
+        name = str(item.get("name") or "compleanno")[:16]
+        if sid:
+            rows.append([kb_btn(f"🗑 {name}", f"tool:bd:rm:{sid}")])
+    rows.append([kb_btn("🕐 Calendario", "tool:clock")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
+
+
+def birthday_alert_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🎂 Compleanni", "tool:bd")],
+            [kb_btn("🕐 Calendario", "tool:clock")],
         ]
     )
 

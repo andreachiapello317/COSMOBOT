@@ -193,6 +193,7 @@ def draw_month_calendar(
     month: int,
     today: date,
     clock: datetime | None = None,
+    marks: set[int] | None = None,
 ) -> bytes:
     """Ora grande + mese civile a colonne. Lunedì in testa, oggi nel riquadro."""
     cal = calendar.Calendar(firstweekday=calendar.MONDAY)
@@ -237,8 +238,13 @@ def draw_month_calendar(
             if day == 0:
                 continue
             is_today = today.year == year and today.month == month and today.day == day
+            is_bday = bool(marks) and day in marks
             if is_today:
                 draw.rounded_rectangle((x0, y0, x1, y1), radius=14, fill=(52, 92, 168))
+            elif is_bday:
+                draw.rounded_rectangle((x0, y0, x1, y1), radius=14, outline=(214, 140, 90), width=3)
+            if is_today and is_bday:
+                draw.ellipse((x1 - 16, y0 + 6, x1 - 6, y0 + 16), fill=(230, 168, 96))
             label = str(day)
             db = draw.textbbox((0, 0), label, font=day_font)
             tw, th = db[2] - db[0], db[3] - db[1]
