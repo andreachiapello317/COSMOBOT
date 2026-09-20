@@ -326,6 +326,9 @@ NAV_SKIP_EXACT = frozenset(
         "nav:back",
         "miss:ok",
         "tarot:draw",
+        "tarot:mix",
+        "tarot:next",
+        "tarot:board",
         "iching:ready",
         "iching:throw",
         "iching:home",
@@ -943,69 +946,80 @@ TAROT_SPREADS: dict[str, dict[str, Any]] = {
     "one": {
         "count": 1,
         "include_minor": False,
-        "button": "🔹 1 carta",
-        "title": "Energia del momento",
-        "positions": ("Energia del momento",),
-        "ritual": "Una sola carta, un'indicazione. Pensa a ciò che senti adesso.",
+        "title": "Una carta",
+        "positions": ("Adesso",),
+        "hints": ("Cosa è in gioco in questo momento.",),
+        "ready": "Una sola carta. Non serve una domanda: tieni in mente quello che senti.",
     },
     "three": {
         "count": 3,
         "include_minor": True,
-        "button": "🔹 3 carte",
-        "title": "Situazione · Ostacolo · Direzione",
+        "title": "Tre carte",
         "positions": ("Situazione", "Ostacolo", "Direzione"),
-        "ritual": "Tre carte: dove sei, cosa ostacola, dove puoi andare. Non serve scrivere la situazione.",
+        "hints": ("Dove sei, adesso.", "Cosa frena o confonde.", "Un passo possibile."),
+        "ready": "Tre carte, una alla volta: dove sei, cosa ostacola, dove puoi andare.",
     },
     "love": {
         "count": 3,
         "include_minor": True,
-        "button": "❤️ Amore",
-        "title": "Tu · L'altra persona · La dinamica",
-        "positions": ("Tu", "L'altra persona", "La dinamica"),
-        "ritual": "Tre carte sul legame: tu, l'altra persona, la dinamica in mezzo.",
+        "title": "Amore",
+        "positions": ("Tu", "L'altra persona", "Il rapporto"),
+        "hints": ("Come stai nel legame.", "Come arriva l'altra persona.", "Cosa succede in mezzo."),
+        "ready": "Tre carte sul clima del legame. Non chiedo nomi.",
     },
     "work": {
         "count": 3,
         "include_minor": True,
-        "button": "💼 Lavoro",
-        "title": "Situazione · Sfida · Sviluppo",
-        "positions": ("Situazione", "Sfida", "Possibile sviluppo"),
-        "ritual": "Tre carte sul lavoro: il quadro, la sfida, un possibile sviluppo.",
+        "title": "Lavoro",
+        "positions": ("Quadro", "Nodo", "Sviluppo"),
+        "hints": ("Il lavoro com'è ora.", "Il punto che si è stretto.", "Un possibile sviluppo."),
+        "ready": "Tre carte sul lavoro: il quadro, il nodo, un possibile sviluppo.",
     },
     "ask": {
         "count": 3,
         "include_minor": True,
-        "button": "❓ Domanda",
-        "title": "Lettura sulla tua domanda",
-        "positions": ("Nocciolo", "Ostacolo", "Indicazione"),
-        "ritual": "Ho la tua domanda. Concentrati su ciò che vuoi comprendere, poi pesca.",
+        "title": "Tre carte",
+        "positions": ("Situazione", "Ostacolo", "Direzione"),
+        "hints": ("Dove sei, adesso.", "Cosa frena o confonde.", "Un passo possibile."),
+        "ready": "Tre carte su quello che hai detto alle carte.",
     },
     "day": {
         "count": 1,
         "include_minor": False,
-        "button": "☀️ Carta del giorno",
         "title": "Carta del giorno",
-        "positions": ("Energia di oggi",),
-        "ritual": "Una carta per la giornata. Non è un oroscopo: è un'indicazione del mazzo live.",
+        "positions": ("Oggi",),
+        "hints": ("Un'indicazione per le prossime ore, non un oroscopo.",),
+        "ready": "Una carta per oggi. Poi la lasci andare.",
     },
     "celtic": {
         "count": 10,
         "include_minor": True,
-        "button": "✝️ Croce Celtica",
         "title": "Croce Celtica",
         "positions": (
-            "Situazione presente",
-            "Incrocio / sfida",
-            "Fondamento",
-            "Passato recente",
-            "Corona / possibile",
-            "Futuro prossimo",
+            "Presente",
+            "Attraverso",
+            "Sotto",
+            "Dietro",
+            "Sopra",
+            "Davanti",
             "Tu",
-            "Ambiente",
-            "Speranze e paure",
+            "Intorno",
+            "Speranze",
             "Esito",
         ),
-        "ritual": "Dieci carte. La Croce Celtica è ampia: tieni una domanda chiara, poi pesca.",
+        "hints": (
+            "Il cuore della cosa, ora.",
+            "Cosa la attraversa o la blocca.",
+            "La base, ciò che sta sotto.",
+            "Quello che stai lasciando.",
+            "Cosa si affaccia, in alto.",
+            "Il prossimo passo visibile.",
+            "Come stai tu in tutto questo.",
+            "L'ambiente, gli altri.",
+            "Cosa speri e cosa temi.",
+            "Verso dove tende, se resti così.",
+        ),
+        "ready": "Dieci carte, una alla volta. Un percorso, non un paragrafo.",
     },
 }
 
@@ -1079,18 +1093,33 @@ def _tarot_btn(label: str, data: str) -> InlineKeyboardButton:
 def tarot_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [_tarot_btn("🔹 1 carta", "tarot:pick:one"), _tarot_btn("🔹 3 carte", "tarot:pick:three")],
+            [_tarot_btn("🃏 Una carta", "tarot:pick:one"), _tarot_btn("🃏 Tre carte", "tarot:pick:three")],
             [_tarot_btn("❤️ Amore", "tarot:pick:love"), _tarot_btn("💼 Lavoro", "tarot:pick:work")],
-            [_tarot_btn("❓ Domanda", "tarot:pick:ask"), _tarot_btn("☀️ Carta del giorno", "tarot:pick:day")],
-            [_tarot_btn("✝️ Croce Celtica", "tarot:pick:celtic")],
-            [_tarot_btn("📖 Storico", "tarot:hist"), _tarot_btn("🔮 Oracoli", "home:oracoli")],
+            [_tarot_btn("☀️ Oggi", "tarot:pick:day"), _tarot_btn("✝️ Croce Celtica", "tarot:pick:celtic")],
+            [_tarot_btn("📖 Storico", "tarot:hist")],
+            nav_row(),
+        ]
+    )
+
+
+def tarot_ready_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [_tarot_btn("🃏 Mescola", "tarot:mix")],
+            [_tarot_btn("✍️ Una frase, se vuoi", "tarot:phrase")],
             nav_row(),
         ]
     )
 
 
 def tarot_draw_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[_tarot_btn("🔮 PESCA LE CARTE", "tarot:draw")], nav_row()])
+    return tarot_ready_keyboard()
+
+
+def tarot_next_keyboard(*, last: bool) -> InlineKeyboardMarkup:
+    label = "✨ Il quadro" if last else "🃏 Gira la prossima"
+    data = "tarot:board" if last else "tarot:next"
+    return InlineKeyboardMarkup([[_tarot_btn(label, data)], nav_row()])
 
 
 def tarot_after_keyboard() -> InlineKeyboardMarkup:
@@ -2245,33 +2274,30 @@ async def cmd_tarocchi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def show_tarot_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _flows_reset(context)
     text = (
-        "🔮 <b>Lettura dei Tarocchi</b>\n\n"
-        "Concentrati sulla domanda che vuoi portare alle carte.\n"
-        "Il mazzo è live (78 carte, Rider–Waite). I significati arrivano dall'API; "
-        "dritta o capovolta la decide il mazzo quando peschi.\n\n"
-        "✨ <b>Scegli il tipo di lettura</b>\n"
-        "🔹 <b>1 carta</b> — energia / indicazione del momento\n"
-        "🔹 <b>3 carte</b> — situazione / ostacolo / direzione\n"
-        "❤️ <b>Amore</b> — tu / l'altra persona / dinamica\n"
-        "💼 <b>Lavoro</b> — situazione / sfida / possibile sviluppo\n"
-        "❓ <b>Domanda</b> — tre carte sulla tua domanda\n"
-        "☀️ <b>Carta del giorno</b> — un'indicazione per oggi\n"
-        "✝️ <b>Croce Celtica</b> — dieci carte, lettura ampia"
+        "🃏 <b>TAROCCHI</b>\n"
+        "<i>Mazzo live, Rider–Waite. Scegli come pescare. Non serve una domanda.</i>\n\n"
+        "🃏 Una · 🃏 Tre · ❤️ Amore · 💼 Lavoro · ☀️ Oggi\n"
+        "✝️ Croce Celtica — dieci carte, una alla volta."
     )
     await reply_html(update, context, text, reply_markup=tarot_menu_keyboard())
 
 
 async def show_tarot_ask_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = _tarot_state(context)
-    state.clear()
-    state["spread"] = "ask"
+    if not state.get("spread"):
+        state["spread"] = "three"
     state["awaiting_question"] = True
-    text = (
-        "🔮 <b>Qual è la tua domanda?</b>\n\n"
-        "Scrivila in un messaggio. Resta tra te e le carte: serve solo a "
-        "incorniciare i significati ufficiali, non la mando in giro."
+    await reply_html(
+        update,
+        context,
+        "🃏 <b>Una frase alle carte</b>\n"
+        "<i>Non è un esame e non è obbligatoria.</i>\n\n"
+        "Se vuoi, scrivi una riga. Serve solo a te, per ricordare il clima. "
+        "Poi mescoliamo lo stesso.",
+        reply_markup=InlineKeyboardMarkup(
+            [[_tarot_btn("🃏 Meglio senza", "tarot:mix")], nav_row()]
+        ),
     )
-    await reply_html(update, context, text, reply_markup=InlineKeyboardMarkup([nav_row()]))
 
 
 async def show_tarot_ritual(
@@ -2281,24 +2307,39 @@ async def show_tarot_ritual(
     *,
     question: str | None = None,
 ) -> None:
+    await show_tarot_ready(update, context, spread, phrase=question)
+
+
+async def show_tarot_ready(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    spread: str,
+    *,
+    phrase: str | None = None,
+) -> None:
     if spread not in TAROT_SPREADS:
+        spread = "three"
+    if spread == "ask":
         spread = "three"
     meta = TAROT_SPREADS[spread]
     state = _tarot_state(context)
+    keep_phrase = str(state.get("question") or "").strip()
+    state.clear()
     state["spread"] = spread
+    state["step"] = "ready"
     state["awaiting_question"] = False
-    if question:
-        state["question"] = question
-    elif spread != "ask":
-        state.pop("question", None)
+    if phrase:
+        state["question"] = clip_text(phrase, 400)
+    elif keep_phrase:
+        state["question"] = keep_phrase
     text = (
-        f"🃏 <b>{e(meta['title'])}</b>\n\n"
-        f"{e(meta['ritual'])}\n\n"
+        f"🃏 <b>{e(meta['title'])}</b>\n"
+        f"<i>{e(meta['ready'])}</i>\n\n"
+        f"{int(meta['count'])} carte. Le giriamo una alla volta."
     )
     if state.get("question"):
-        text += f"<b>Domanda:</b> <i>{e(state['question'])}</i>\n\n"
-    text += "Quando sei pronto, premi il bottone."
-    await reply_html(update, context, text, reply_markup=tarot_draw_keyboard())
+        text += f"\n\nHai detto: <i>«{e(state['question'])}»</i>"
+    await reply_html(update, context, text, reply_markup=tarot_ready_keyboard())
 
 
 async def receive_tarot_question(
@@ -2306,73 +2347,64 @@ async def receive_tarot_question(
     context: ContextTypes.DEFAULT_TYPE,
     question: str,
 ) -> None:
-    question = clip_text(question.strip(), 400)
-    if not question:
-        await reply_html(
-            update,
-            context,
-            "Ho bisogno di una domanda scritta, anche breve. Riprova.",
-        )
+    phrase = clip_text(question.strip(), 400)
+    if not phrase:
+        await reply_html(update, context, "Una riga basta. Oppure tocca Mescola, senza frase.")
         return
-    await show_tarot_ritual(update, context, "ask", question=question)
+    spread = str(_tarot_state(context).get("spread") or "three")
+    await show_tarot_ready(update, context, spread, phrase=phrase)
     await delete_user_command(update)
 
 
-async def _orient_and_translate_card(
+async def _tarot_localize_card(
     client: httpx.AsyncClient,
     card: dict[str, Any],
+    *,
+    reversed_card: bool,
     position: str,
+    hint: str,
 ) -> dict[str, str]:
-    name_en = str(card.get("name") or "Unnamed card")
-    reversed_card = bool(random.choice((False, True)))
+    name_en = str(card.get("name") or "Carta")
     meaning_en = str(card.get("meaning_rev" if reversed_card else "meaning_up") or "")
     name_it = await translate_to_italian(client, name_en)
-    framed = (
-        f"For the position '{position}', the card {name_en} "
-        f"({'reversed' if reversed_card else 'upright'}) traditionally means: {meaning_en}"
-    )
-    meaning_it = await translate_to_italian(client, framed) if meaning_en else "—"
+    meaning_it = await translate_to_italian(client, meaning_en) if meaning_en else "—"
     return {
         "name_en": name_en,
         "name_it": name_it,
         "position": position,
-        "kind": "Arcano maggiore" if str(card.get("type") or "") == "major" else "Arcano minore",
+        "hint": hint,
+        "kind": "arcano maggiore" if str(card.get("type") or "") == "major" else "arcano minore",
         "reversed": "1" if reversed_card else "0",
         "emoji": tarot_card_emoji(name_en),
-        "meaning_it": meaning_it,
+        "meaning_it": first_sentences(meaning_it, 2, 240) or "—",
         "meaning_en": meaning_en,
     }
 
 
-async def _tarot_synthesis(client: httpx.AsyncClient, drawn: list[dict[str, str]], question: str | None) -> str:
-    if not drawn:
-        return ""
-    if len(drawn) == 1:
-        return drawn[0]["meaning_it"]
-    pieces = []
-    if question:
-        pieces.append(f"The querent asked: {question}.")
-    for item in drawn:
-        orient = "reversed" if item["reversed"] == "1" else "upright"
-        pieces.append(
-            f"{item['position']} is {item['name_en']} ({orient}): {item['meaning_en']}"
-        )
-    pieces.append("Summarize these official tarot meanings as one short combined reading.")
-    return await translate_to_italian(client, " ".join(pieces))
+def _format_tarot_card(item: dict[str, str], *, idx: int, total: int) -> str:
+    rev = "rovesciata" if item["reversed"] == "1" else "diritta"
+    return (
+        f"🃏 <b>{e(item['position'])}</b>  ·  {idx}/{total}\n"
+        f"{item['emoji']} <b>{e(item['name_it'])}</b>\n"
+        f"<i>{e(rev)} · {e(item['kind'])}</i>\n\n"
+        f"{e(item.get('hint') or '')}\n\n"
+        f"{e(item['meaning_it'])}"
+    )
 
 
-async def send_tarot_draw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start_tarot_mix(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = _tarot_state(context)
     spread = str(state.get("spread") or "")
     if spread not in TAROT_SPREADS:
         await show_tarot_menu(update, context)
         return
     meta = TAROT_SPREADS[spread]
-    question = str(state.get("question") or "").strip() or None
+    state["awaiting_question"] = False
     await send_typing(update)
-    await deliver_text(update, context, "🃏 Sto mescolando il mazzo…")
+    await deliver_text(update, context, "🃏 Apro il mazzo…")
+    await asyncio.sleep(0.35)
+    await deliver_text(update, context, "🃏 Mescolando…")
     client = _http_client(context)
-
     try:
         cards = await api_tarot_draw(
             client,
@@ -2384,49 +2416,102 @@ async def send_tarot_draw(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await reply_html(
             update,
             context,
-            "Le stelle sono temporaneamente non raggiungibili ✨ riprova tra poco\n\n"
-            "Il mazzo live non ha risposto. Puoi ritentare la pesca.",
-            reply_markup=tarot_draw_keyboard(),
+            "Il mazzo live non ha risposto. Riprova a mescolare.",
+            reply_markup=tarot_ready_keyboard(),
         )
         return
-
-    positions: tuple[str, ...] = tuple(meta["positions"])
-    drawn: list[dict[str, str]] = []
-    for idx, card in enumerate(cards[: len(positions)]):
-        drawn.append(await _orient_and_translate_card(client, card, positions[idx]))
-
-    try:
-        synthesis = await _tarot_synthesis(client, drawn, question)
-    except StelleOfflineError:
-        synthesis = " ".join(item["meaning_it"] for item in drawn)
-
-    circles = ("①", "②", "③")
-    lines = ["🃏 <b>LE TUE CARTE</b>", f"<i>{e(meta['title'])}</i>", ""]
-    if question:
-        lines.append(f"❓ <b>Domanda:</b> <i>{e(question)}</i>")
-        lines.append("")
-    for idx, item in enumerate(drawn):
-        mark = circles[idx] if idx < len(circles) else f"{idx + 1}."
-        rev = " — rovesciata" if item["reversed"] == "1" else ""
-        meaning = item["meaning_it"]
-        if len(drawn) >= 8:
-            meaning = clip_text(meaning, 180)
-        lines.append(
-            f"{mark} <b>{e(item['position'].upper())}</b>\n"
-            f"{item['emoji']} <b>{e(item['name_it'])}</b>{e(rev)}\n"
-            f"<i>{e(item['kind'])}</i>\n\n"
-            f"{e(meaning)}"
+    need = int(meta["count"])
+    cards = list(cards[:need])
+    if len(cards) < need:
+        await reply_html(
+            update,
+            context,
+            "Il mazzo ha dato poche carte. Riprova a mescolare.",
+            reply_markup=tarot_ready_keyboard(),
         )
-        lines.append("")
-    if len(drawn) > 1 and synthesis:
-        lines.append("🔮 <b>Sintesi</b>")
-        lines.append(e(synthesis))
-        lines.append("")
-    lines.append(
-        "<i>Carte live da freehoroscopeapi.com · significati ufficiali tradotti. "
-        "Non è un oracolo infallibile, è un mazzo con un'API.</i>"
-    )
+        return
+    state["raw"] = cards
+    state["orients"] = [bool(random.choice((False, True))) for _ in cards]
+    state["shown"] = []
+    state["index"] = 0
+    state["step"] = "reveal"
+    await asyncio.sleep(0.3)
+    await deliver_text(update, context, "🃏 Taglio il mazzo…")
+    await asyncio.sleep(0.28)
+    await reveal_tarot_card(update, context)
 
+
+async def reveal_tarot_card(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _tarot_state(context)
+    spread = str(state.get("spread") or "")
+    meta = TAROT_SPREADS.get(spread)
+    raw = state.get("raw") if isinstance(state.get("raw"), list) else []
+    orients = state.get("orients") if isinstance(state.get("orients"), list) else []
+    shown = state.setdefault("shown", [])
+    if not isinstance(shown, list):
+        shown = []
+        state["shown"] = shown
+    if not meta or not raw:
+        await show_tarot_menu(update, context)
+        return
+    idx = int(state.get("index") or 0)
+    if idx < 0 or idx >= len(raw):
+        await show_tarot_quadro(update, context)
+        return
+    positions = tuple(meta["positions"])
+    hints = tuple(meta.get("hints") or ())
+    client = _http_client(context)
+    await send_typing(update)
+    item = await _tarot_localize_card(
+        client,
+        raw[idx] if isinstance(raw[idx], dict) else {},
+        reversed_card=bool(orients[idx]) if idx < len(orients) else False,
+        position=str(positions[idx] if idx < len(positions) else f"Carta {idx + 1}"),
+        hint=str(hints[idx] if idx < len(hints) else ""),
+    )
+    shown.append(item)
+    state["index"] = idx + 1
+    total = int(meta["count"])
+    left = total - (idx + 1)
+    text = _format_tarot_card(item, idx=idx + 1, total=total)
+    if left:
+        text += f"\n\n<i>Restano {left} carte. Girale quando vuoi.</i>"
+    else:
+        text += "\n\n<i>Ultima carta. Poi il quadro, senza prediche.</i>"
+    await reply_html(update, context, text, reply_markup=tarot_next_keyboard(last=left == 0))
+
+
+async def show_tarot_quadro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state = _tarot_state(context)
+    spread = str(state.get("spread") or "")
+    meta = TAROT_SPREADS.get(spread) or TAROT_SPREADS["three"]
+    shown = state.get("shown") if isinstance(state.get("shown"), list) else []
+    if not shown:
+        await show_tarot_menu(update, context)
+        return
+    lines = [
+        f"🃏 <b>{e(meta['title'])}</b>",
+        "<i>Il quadro. I nomi, le posizioni. Il resto l'hai già letto.</i>",
+        "",
+    ]
+    phrase = str(state.get("question") or "").strip()
+    if phrase:
+        lines.append(f"Hai detto: <i>«{e(phrase)}»</i>")
+        lines.append("")
+    for idx, item in enumerate(shown, start=1):
+        if not isinstance(item, dict):
+            continue
+        rev = "R" if item.get("reversed") == "1" else "D"
+        lines.append(
+            f"{idx}. {e(str(item.get('position') or ''))} — "
+            f"{item.get('emoji') or '🃏'} {e(str(item.get('name_it') or 'Carta'))} ({rev})"
+        )
+    lines.extend(
+        [
+            "",
+            "<i>D = diritta, R = rovesciata. Un mazzo live, non un verdetto.</i>",
+        ]
+    )
     user = update.effective_user
     if user is not None:
         await tarot_history_add(
@@ -2435,19 +2520,25 @@ async def send_tarot_draw(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 "at": datetime.now(DEFAULT_TZ).isoformat(timespec="minutes"),
                 "spread": spread,
                 "title": meta["title"],
-                "question": question,
+                "question": phrase or None,
                 "cards": [
                     {
-                        "name": item["name_it"],
-                        "position": item["position"],
-                        "reversed": item["reversed"] == "1",
+                        "name": item.get("name_it"),
+                        "position": item.get("position"),
+                        "reversed": item.get("reversed") == "1",
                     }
-                    for item in drawn
+                    for item in shown
+                    if isinstance(item, dict)
                 ],
             },
         )
-
+    state["step"] = "done"
     await reply_html(update, context, "\n".join(lines), reply_markup=tarot_after_keyboard())
+
+
+async def send_tarot_draw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Sorprendimi e vecchio bottone pesca: parte il mescolo."""
+    await start_tarot_mix(update, context)
 
 
 async def show_tarot_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2508,19 +2599,27 @@ async def on_tarot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.answer()
         await show_tarot_history(update, context)
         return
-    if action == "pick" and extra == "ask":
+    if action == "phrase":
         await query.answer()
         await show_tarot_ask_prompt(update, context)
         return
     if action == "pick" and extra in TAROT_SPREADS:
         await query.answer()
-        await show_tarot_ritual(update, context, extra)
+        await show_tarot_ready(update, context, extra)
         return
-    if action == "draw":
-        await query.answer("Mazzo in movimento…")
-        await send_tarot_draw(update, context)
+    if action in {"draw", "mix"}:
+        await query.answer("Mescolando…")
+        await start_tarot_mix(update, context)
         return
-        await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
+    if action == "next":
+        await query.answer()
+        await reveal_tarot_card(update, context)
+        return
+    if action == "board":
+        await query.answer()
+        await show_tarot_quadro(update, context)
+        return
+    await query.answer("Bottone stanco. Torna a Inizio e tocca di nuovo.")
 
 
 # ---------------------------------------------------------------------------
@@ -5140,11 +5239,15 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         if action == "hist":
             await show_tarot_history(update, context)
             return
-        if action == "pick" and extra == "ask":
-            await show_tarot_ask_prompt(update, context)
-            return
         if action == "pick" and extra in TAROT_SPREADS:
-            await show_tarot_ritual(update, context, extra)
+            await show_tarot_ready(update, context, extra)
+            return
+        if action == "board":
+            await show_tarot_quadro(update, context)
+            return
+        if action in {"mix", "draw", "next", "phrase"}:
+            spread = str(_tarot_state(context).get("spread") or "three")
+            await show_tarot_ready(update, context, spread)
             return
     if prefix == "iching":
         if action in {"open", "new"}:
@@ -8088,7 +8191,7 @@ async def start_lettura_method(update: Update, context: ContextTypes.DEFAULT_TYP
     if method == "surprise":
         method = random.choice(("tarot", "iching", "rune", "leno"))
     if method == "tarot":
-        await show_tarot_ritual(update, context, "ask", question=question)
+        await show_tarot_ready(update, context, "three", phrase=question)
         return
     if method == "iching":
         state = _iching_state(context)

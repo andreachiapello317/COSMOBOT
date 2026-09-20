@@ -29,7 +29,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Compatibilità** sta in 🔮 ORACOLO / Te stesso. Prima i due segni (Soli). Poi, se vuoi, Lune, ascendenti, Venere e Marte, Big Three. Nella Big Three, per ciascuna persona: se conosci Sole/Luna/Ascendente li scegli; altrimenti il bot li calcola da data, ora e luogo. È astrologia tradizionale, non astronomia. Niente percentuali.
 
-**Tarocchi**: scegli lo spread, (se serve) scrivi la domanda, poi **PESCA LE CARTE**. L’API decide quali carte escono; dritta/rovesciata è casuale; i testi sono i significati ufficiali, tradotti e letti insieme.
+**Tarocchi**: scegli lo spread (non serve una domanda). Mescola, poi gira le carte **una alla volta**. Ogni carta ha una riga sul posto e due frasi di significato. Alla fine il quadro è solo l’elenco. Una frase alle carte è opzionale.
 
 **I Ching**: prima la domanda, poi **SONO PRONTO**, conferma, **LANCIA LE MONETE**. Le sei linee si costruiscono dal basso verso l’alto (metodo delle tre monete: 6/7/8/9). I testi arrivano dal libro Wilhelm 1924 in JSON pubblico.
 
