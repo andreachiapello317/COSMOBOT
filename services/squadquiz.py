@@ -16,7 +16,7 @@ from services.stones import CATS, STONES
 WORLD_META: dict[str, dict[str, str]] = {
     "oracolo": {"emoji": "🔮", "name": "ORACOLO", "blurb": "Tradizione dei mazzi e dei segni. Non è una lettura."},
     "astro": {"emoji": "🔭", "name": "ASTRO", "blurb": "Catalogo e, se vuoi, domande live da Wikipedia."},
-    "geo": {"emoji": "🌿", "name": "NATURA", "blurb": "Pietre, terra, vulcani, oceani. Fauna ancora no."},
+    "geo": {"emoji": "🌍", "name": "TERRA", "blurb": "Eventi naturali, animali live, pietre."},
     "tool": {"emoji": "🧰", "name": "STRUMENTI", "blurb": "Calcoli, cardinali, conversioni. Il risultato si può verificare."},
 }
 
@@ -212,7 +212,7 @@ def _geo_list(rows: tuple[dict[str, str], ...], tid: str, title: str) -> dict[st
         f"{title}: quale voce ha wiki <b>{item.get('wiki_it') or item.get('wiki')}</b>?",
         item["it"],
         [row["it"] for row in rows],
-        source="catalogo NATURA / Wikipedia title",
+        source="catalogo TERRA / Wikipedia title",
         explain=f"È {item['it']}. Apro la voce, non la riscrivo.",
         wid="geo",
         tid=tid,

@@ -81,13 +81,12 @@ from services.imagine import format_imaginary, generate_world
 from services.i18n import compass_it, discovery_it, event_name_it, kp_label_it, star_it
 from services.eclipses import fetch_eclipses, kind_it, next_of, parse_peak
 from services.iss import fetch_iss_position, fetch_people_in_space, reverse_iss_place
+from services.calevents import clamp_year, format_events_card
 from services.tools import (
     draw_month_calendar,
     format_coord_card,
-    format_julian_card,
     format_month_calendar,
     parse_coord_pair,
-    parse_tool_date,
     shift_month,
     weekday_it,
 )
@@ -233,6 +232,7 @@ from services.horizons import (
     height_it,
     mag_it,
 )
+from services.wildlife import WildlifeError, format_animals_card, recent_animals
 from services.earth import (
     fetch_eonet,
     fetch_quakes,
@@ -339,6 +339,7 @@ from ui.keyboards import (
     lettura_method_keyboard,
     oracle_question_keyboard,
     calc_keyboard,
+    calendar_events_keyboard,
     clock_calendar_keyboard,
     compass_hub_keyboard,
     compass_result_keyboard,
@@ -536,6 +537,7 @@ EARTH_OBS_LAYER_KEY = "earth_obs_layer"
 BUSSOLA_LAST_KEY = "bussola_last"
 MATH_ASK_KEY = "math_ask"
 TOOL_CAL_KEY = "tool_cal_shift"
+TOOL_FESTE_KEY = "tool_feste"
 COMPASS_SHARE_KEY = "compass_share"
 MONDI_LIST_KEY = "mondi_list"
 MONDI_SYS_KEY = "mondi_sys"
@@ -2488,11 +2490,11 @@ def help_text() -> str:
         "🔭 <b>ASTRO</b> — Cielo (luna, sole, terra e schema a emoji), Meteo (Cuneo, oggi e domani), Osservatorio "
         "(cielo di adesso con grado sulla carta, Horizons NASA, satelliti live), Studia lo spazio (enciclopedia). "
         "Niente divinazione.\n"
-        "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
-        "Fauna (vuota), Pietre.\n"
+        "🌍 <b>TERRA</b> — Eventi (atmosferici e naturali, live), "
+        "Animali live (iNaturalist), Pietre.\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
-        "giorno giuliano, ora e calendario.\n"
-        "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, natura, strumenti.\n\n"
+        "eventi di calendario, ora e calendario.\n"
+        "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, terra, strumenti.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
         "nome del segno in chat.\n\n"
@@ -2525,6 +2527,28 @@ async def show_astro_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def show_geo_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     nav_mark(context, "bot:geo")
     await reply_html(update, context, geo_hub_text(), reply_markup=geo_hub_keyboard())
+
+
+async def send_fauna_live(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "world:fauna")
+    await send_typing(update)
+    await deliver_text(update, context, "🐾 Cerco avvistamenti recenti…")
+    try:
+        rows = await recent_animals(_http_client(context))
+    except WildlifeError:
+        await reply_html(
+            update,
+            context,
+            "🐾 <b>ANIMALI LIVE</b>\n\n"
+            "iNaturalist non ha dato avvistamenti adesso. Riprova.",
+            reply_markup=world_fauna_keyboard(),
+        )
+        return
+    except Exception:
+        logger.exception("Animali live")
+        await reply_offline(update, context)
+        return
+    await reply_html(update, context, format_animals_card(rows), reply_markup=world_fauna_keyboard())
 
 
 def _calc_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
@@ -2599,8 +2623,8 @@ async def dispatch_tool(
     if action == "coord":
         await send_tool_coord(update, context)
         return
-    if action == "jd":
-        await send_tool_jd(update, context)
+    if action in {"jd", "feste"}:
+        await send_tool_feste(update, context, extra=extra)
         return
     if action in {"clock", "cal"}:
         _ensure_cielo_place(context)
@@ -2643,17 +2667,42 @@ async def send_tool_coord(
     )
 
 
-async def send_tool_jd(update: Update, context: ContextTypes.DEFAULT_TYPE, when: datetime | None = None) -> None:
-    nav_mark(context, "tool:jd")
-    context.user_data[MATH_ASK_KEY] = {"mode": "jd"}
-    stamp = when or datetime.now(timezone.utc)
-    label = stamp.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M")
+async def send_tool_feste(update: Update, context: ContextTypes.DEFAULT_TYPE, extra: str = "") -> None:
+    nav_mark(context, "tool:feste")
+    if context.user_data.get(MATH_ASK_KEY) and isinstance(context.user_data.get(MATH_ASK_KEY), dict):
+        if context.user_data[MATH_ASK_KEY].get("mode") == "jd":
+            context.user_data[MATH_ASK_KEY] = None
+    today = datetime.now(DEFAULT_TZ).date()
+    state = context.user_data.get(TOOL_FESTE_KEY)
+    if not isinstance(state, dict):
+        state = {"year": today.year, "view": "next"}
+        context.user_data[TOOL_FESTE_KEY] = state
+    year = clamp_year(int(state.get("year") or today.year))
+    view = str(state.get("view") or "next")
+    token = (extra or "").strip()
+    if token in {"easter", "xmas", "it", "world", "season", "next"}:
+        view = token
+    elif token == "yprev":
+        year = clamp_year(year - 1)
+    elif token == "ynext":
+        year = clamp_year(year + 1)
+    elif token == "ynow":
+        year = today.year
+    elif token in {"", "jd"}:
+        view = "next"
+    state["year"] = year
+    state["view"] = view
     await reply_html(
         update,
         context,
-        format_julian_card(stamp, label),
-        reply_markup=tool_result_keyboard("jd"),
+        format_events_card(view, year, today),
+        reply_markup=calendar_events_keyboard(),
     )
+
+
+async def send_tool_jd(update: Update, context: ContextTypes.DEFAULT_TYPE, when: datetime | None = None) -> None:
+    _ = when
+    await send_tool_feste(update, context, extra="next")
 
 
 async def send_tool_clock(
@@ -2675,12 +2724,9 @@ async def send_tool_clock(
         shift = int(context.user_data.get(TOOL_CAL_KEY) or 0) + month_delta
         context.user_data[TOOL_CAL_KEY] = shift
     await send_typing(update)
-    tz_name = await api_timezone_name(_http_client(context), lat, lon)
-    try:
-        zone = ZoneInfo(tz_name)
-    except Exception:
-        zone = DEFAULT_TZ
-        tz_name = str(DEFAULT_TZ)
+    _ = (name, lat, lon)
+    zone = DEFAULT_TZ
+    tz_name = str(DEFAULT_TZ)
     local = datetime.now(zone)
     utc = datetime.now(timezone.utc)
     offset = local.utcoffset()
@@ -2689,16 +2735,15 @@ async def send_tool_clock(
     year, month = shift_month(local.year, local.month, shift)
     phase = moon_now(local)
     text = (
-        f"🕐 <b>ORA E CALENDARIO — {e(name.upper())}</b>\n"
-        f"Lì: <b>{local.strftime('%d/%m/%Y %H:%M:%S')}</b> · {e(weekday_it(local.date()))}\n"
-        f"UTC: <code>{utc.strftime('%d/%m/%Y %H:%M:%S')}</code>\n"
-        f"Fuso: <code>{e(tz_name)}</code> · UTC{sign}{abs(off_h):.0f}h\n"
+        f"🕐 <b>ORA E CALENDARIO</b>\n"
+        f"<b>{local.strftime('%H:%M:%S')}</b> · {e(weekday_it(local.date()))} {local.strftime('%d/%m/%Y')}\n"
+        f"UTC: <code>{utc.strftime('%H:%M:%S')}</code> · <code>{e(tz_name)}</code> UTC{sign}{abs(off_h):.0f}h\n"
         f"Oggi: {phase.get('emoji') or '🌙'} {e(str(phase.get('name') or 'Luna'))}\n"
-        "<i>Riquadro = oggi. Lunedì in testa. Frecce per mese e anno.</i>"
+        "<i>Ora italiana. Riquadro = oggi. Lunedì in testa.</i>"
     )
     markup = clock_calendar_keyboard()
     try:
-        png = draw_month_calendar(year, month, local.date())
+        png = draw_month_calendar(year, month, local.date(), clock=local)
     except Exception:
         logger.exception("Calendario PNG")
         await reply_html(
@@ -6237,6 +6282,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
     if prefix == "world" and action == "watch":
         await show_watch_hub(update, context)
         return
+    if prefix == "world" and action == "fauna":
+        await send_fauna_live(update, context)
+        return
     if prefix == "watch" and action == "tonight":
         await send_watch_tonight(update, context)
         return
@@ -7285,6 +7333,9 @@ async def on_world_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     if action == "orbit":
         await show_sats_hub(update, context)
+        return
+    if action == "fauna":
+        await send_fauna_live(update, context)
         return
     pages = {
         "self": (world_self_text, world_self_keyboard),
@@ -8499,7 +8550,6 @@ async def show_place_picker(
         "compass": "Da dove calcolo nord geografico e magnetico? Via e numero, o le coordinate.",
         "brfrom": "Da dove parti? Via e numero, città, o le coordinate.",
         "brto": "Verso quale via, città o coordinate?",
-        "clock": "Di quale città vuoi ora e calendario?",
         "coord": "Punto preciso: via e numero, oppure le coordinate decimali o in gradi.",
         "watch": "Da dove punta l'osservatorio? La salvo per stelle, eventi e Horizons.",
         "terra": "Quale pezzo di Terra vuoi vedere dal satellite? Vale solo per Osservazione Terra, non per il resto.",
@@ -8547,7 +8597,6 @@ async def apply_place(
         await send_natura_here(update, context)
         return
     if purpose == "clock":
-        _remember_cielo_place(context, name, lat, lon)
         await send_tool_clock(update, context, name=name, lat=lat, lon=lon)
         return
     if purpose == "coord":
@@ -12742,7 +12791,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale.\n"
         "Scrivi un segno (es. <i>vergine</i>) per l'oroscopo, "
-        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧰 STRUMENTI o 🧩 QUIZ.",
+        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 🧰 STRUMENTI o 🧩 QUIZ.",
         reply_markup=all_hub_keyboard(),
     )
 
@@ -12752,7 +12801,7 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update,
         context,
         "I comandi scritti non ci sono più: qui si va a pulsanti.\n"
-        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌿 NATURA, 🧰 STRUMENTI o 🧩 QUIZ, oppure 📚 Aiuto.",
+        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 🧰 STRUMENTI o 🧩 QUIZ, oppure 📚 Aiuto.",
         reply_markup=all_hub_keyboard(),
     )
     await delete_user_command(update)
@@ -13329,12 +13378,8 @@ async def receive_math_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         await send_tool_coord(update, context)
         return
     if mode == "jd":
-        parsed = parse_tool_date(text)
         await delete_user_command(update)
-        if parsed is None:
-            await send_tool_jd(update, context)
-            return
-        await send_tool_jd(update, context, when=parsed)
+        await send_tool_feste(update, context, extra="next")
         return
     context.user_data[MATH_ASK_KEY] = None
     await show_math_hub(update, context)
@@ -13385,7 +13430,7 @@ async def send_geo_events(update: Update, context: ContextTypes.DEFAULT_TYPE, ca
 async def send_earth_topic(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str, sid: str) -> None:
     item = geo_item(kind, sid)
     if item is None:
-        await reply_html(update, context, "Questa scheda non è in catalogo NATURA.", reply_markup=geo_hub_keyboard())
+        await reply_html(update, context, "Questa scheda non è in catalogo TERRA.", reply_markup=geo_hub_keyboard())
         return
     await send_typing(update)
     await deliver_text(update, context, f"{item.get('emoji') or '🌍'} Apro la voce di {item['it']}…")

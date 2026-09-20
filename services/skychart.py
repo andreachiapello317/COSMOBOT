@@ -1335,7 +1335,7 @@ def format_cielo_terra(
     when: datetime,
     daylight: str = "",
 ) -> str:
-    """Il pianeta sotto i piedi: numeri, non l'enciclopedia di NATURA."""
+    """Il pianeta sotto i piedi: numeri, non l'enciclopedia di TERRA."""
     place = _html.escape(place)
     frame = SkyFrame(lat, lon, when)
     sun_alt, _az, _ra, _dec = frame.body_altaz(astronomy.Body.Sun)
@@ -1359,7 +1359,7 @@ def format_cielo_terra(
             f"☀️ Distanza dal Sole: <b>{au:.4f} au</b>",
             f"{moon.get('emoji') or '🌙'} Distanza dalla Luna: <b>{int(round(moon_km)):,}".replace(",", ".") + " km</b>",
             "",
-            "<i>Astronomy Engine. Non è l'enciclopedia di 🌿 NATURA e non è un GPS.</i>",
+            "<i>Astronomy Engine. Non è l'enciclopedia di 🌍 TERRA e non è un GPS.</i>",
         ]
     )
 

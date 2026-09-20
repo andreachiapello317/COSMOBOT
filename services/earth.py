@@ -1,4 +1,4 @@
-"""Dati sulla Terra per NATURA: cataloghi Wikipedia + feed live. Niente geologia inventata."""
+"""Dati sulla Terra per TERRA: cataloghi Wikipedia + feed live. Niente geologia inventata."""
 
 from __future__ import annotations
 

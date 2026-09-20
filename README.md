@@ -10,7 +10,7 @@ Repository GitHub: [andreachiapello317/COSMOBOT](https://github.com/andreachiape
 
 Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/aiuto`. Qualunque altro `/comando` viene ignorato e rimanda ai pulsanti. **📚 Aiuto** sta anche sul portale.
 
-`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO**, **🔭 ASTRO**, **🌿 NATURA**, **🧰 STRUMENTI** e **🧩 QUIZ**. Il quiz è un bot a parte: scegli il mondo, poi l'argomento. Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
+`/start` apre **BOTSQUAD**: un portale. **🔮 ORACOLO**, **🔭 ASTRO**, **🌍 TERRA**, **🧰 STRUMENTI** e **🧩 QUIZ**. Il quiz è un bot a parte: scegli il mondo, poi l'argomento. Ogni scheda ha una riga di presentazione. I mondi non si mescolano.
 
 | Pulsante / mondo | Effetto | Fonte live |
 | --- | --- | --- |
@@ -24,14 +24,14 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🧰 STRUMENTI → Calcolatrice | Scientifica: sen, log, radici, π, gradi/radianti | calcolo locale |
 | 🧰 STRUMENTI → Conversioni | Lunghezza, massa, temperatura, velocità, volume, angoli, cielo, tempo | calcolo locale |
 | 🧰 STRUMENTI → Bussola | Posizione, coordinate, nord, verso un luogo. Via e numero o numeri scritti | Open-Meteo + BGS WMM + Nominatim |
-| 🧰 STRUMENTI → Giorno giuliano | Cos'è il JD, più MJD e J2000 | Astronomy Engine |
-| 🧰 STRUMENTI → Ora e calendario | Ora locale + mese civile, frecce per mese e anno | Open-Meteo timezone |
-| 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, natura, strumenti | cataloghi locali; ASTRO ha anche Wikipedia live |
-| 🌿 NATURA → Flora → Eventi | Catastrofi e fenomeni importanti nel mondo (senza il mare di incendi) | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
-| 🌿 NATURA → Flora → Live | Scosse USGS e fenomeni NASA aperti; ogni evento ha cosa/dove e un link alla fonte | USGS + NASA EONET |
-| 🌿 NATURA → Flora → Esplora | Enciclopedia: terra, oceani, mari, vulcani, placche, ghiacciai | Wikipedia / Wikidata |
-| 🌿 NATURA → Fauna | Vuota, di proposito. Gli animali arrivano dopo | — |
-| 🌿 NATURA → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |
+| 🧰 STRUMENTI → Eventi di calendario | Pasqua (occidentale e ortodossa), Natale, feste italiane, mondo, equinozi | computus + Astronomy Engine |
+| 🧰 STRUMENTI → Ora e calendario | Ora italiana grande + mese civile, frecce per mese e anno. Niente cambio città | orologio locale Europe/Rome |
+| 🧩 QUIZ | Una prova per ogni bot: oracolo, astro, terra, strumenti | cataloghi locali; ASTRO ha anche Wikipedia live |
+| 🌍 TERRA → Eventi | Catastrofi e fenomeni atmosferici/naturali nel mondo | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
+| 🌍 TERRA → Eventi → Live | Scosse USGS e fenomeni NASA aperti; ogni evento ha cosa/dove e un link alla fonte | USGS + NASA EONET |
+| 🌍 TERRA → Eventi → Esplora | Enciclopedia: terra, oceani, mari, vulcani, placche, ghiacciai | Wikipedia / Wikidata |
+| 🌍 TERRA → Animali live | Avvistamenti recenti | [iNaturalist](https://www.inaturalist.org) |
+| 🌍 TERRA → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |
 
 Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come oroscopo.
 
@@ -47,7 +47,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Pietre in Consultazioni**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
-**Cielo** in ASTRO è Sole, Luna e Terra da un luogo: scheda alba/tramonto, Luna (fase, illuminazione, quarti), Terra (giorno/notte, stagione, distanze) e uno **schema a emoji** Sole–Luna–Terra. Non è l'enciclopedia di NATURA. **Osservatorio** ha un solo **Cielo di adesso**: le 6 carte PNG (frecce per lo stile e per il grado: Tutto / Facile / Occhio nudo / Binocolo) e, a parte, **Cosa osservare stasera**. **Tutto** è il cielo completo, senza filtro. Gli altri gradi nascondono Sole e oggetti troppo deboli o bassi; se è ancora giorno usano le 22:00. **Horizons NASA** resta a parte (schede singolo corpo da [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/tutorial.html); **Calcoli**: più alto, più luminoso, separazioni, prossimo a sorgere; stelle Hipparcos; eventi e prossimi). Horizons non è un catalogo stellare. **Cosa osservare stasera** pesca le stelle con nome proprio dal catalogo Hipparcos in crescendo: Facile ⊂ Occhio nudo ⊂ Binocolo ⊂ Tutto (le stelle facili restano anche nei gradi dopo). Ogni grado, Tutto compreso, ha la sua mappa PNG. **Satelliti** in Osservatorio ha tre porte: **Posizione satelliti** (ISS, Tiangong, Hubble, stazioni, Starlink), **Chi è lassù**, **Osservazione Terra**. La foto Terra (NASA GIBS) usa un luogo solo di quella cartella: cambiarlo cambia l'immagine, non Cielo né Starlink. I passaggi sopra una città non si inventano. **Studia lo spazio** è l'enciclopedia, anche satelliti e sonde. **Meteo** apre subito la previsione di Cuneo (o dell'ultima città): oggi e domani, con i tasti per 3/7/14 giorni o un'altra città. **STRUMENTI** unisce calcolatrice scientifica, conversioni, bussola (con le coordinate), giorno giuliano e ora+calendario. **QUIZ** è il quinto bot: una porta per ogni mondo, domande nel recinto di quel bot. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Se non scegli una città, il bot usa **Cuneo, Italia**. Il tasto GPS è stato tolto: su Telegram desktop non funzionava. Non si mescolano.
+**Cielo** in ASTRO è Sole, Luna e Terra da un luogo: scheda alba/tramonto, Luna (fase, illuminazione, quarti), Terra (giorno/notte, stagione, distanze) e uno **schema a emoji** Sole–Luna–Terra. Non è l'enciclopedia di TERRA. **Osservatorio** ha un solo **Cielo di adesso**: le 6 carte PNG (frecce per lo stile e per il grado: Tutto / Facile / Occhio nudo / Binocolo) e, a parte, **Cosa osservare stasera**. **Tutto** è il cielo completo, senza filtro. Gli altri gradi nascondono Sole e oggetti troppo deboli o bassi; se è ancora giorno usano le 22:00. **Horizons NASA** resta a parte (schede singolo corpo da [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/tutorial.html); **Calcoli**: più alto, più luminoso, separazioni, prossimo a sorgere; stelle Hipparcos; eventi e prossimi). Horizons non è un catalogo stellare. **Cosa osservare stasera** pesca le stelle con nome proprio dal catalogo Hipparcos in crescendo: Facile ⊂ Occhio nudo ⊂ Binocolo ⊂ Tutto (le stelle facili restano anche nei gradi dopo). Ogni grado, Tutto compreso, ha la sua mappa PNG. **Satelliti** in Osservatorio ha tre porte: **Posizione satelliti** (ISS, Tiangong, Hubble, stazioni, Starlink), **Chi è lassù**, **Osservazione Terra**. La foto Terra (NASA GIBS) usa un luogo solo di quella cartella: cambiarlo cambia l'immagine, non Cielo né Starlink. I passaggi sopra una città non si inventano. **Studia lo spazio** è l'enciclopedia, anche satelliti e sonde. **Meteo** apre subito la previsione di Cuneo (o dell'ultima città): oggi e domani, con i tasti per 3/7/14 giorni o un'altra città. **STRUMENTI** unisce calcolatrice scientifica, conversioni, bussola (con le coordinate), eventi di calendario (Pasqua, Natale, Italia, mondo, stagioni) e ora+calendario italiano. Il calendario non ha cambio città. **QUIZ** è il quinto bot: una porta per ogni mondo, domande nel recinto di quel bot. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌍 TERRA** ha Eventi (atmosferici e naturali), Animali live e Pietre. Se non scegli una città, il bot usa **Cuneo, Italia**. Il tasto GPS è stato tolto: su Telegram desktop non funzionava. Non si mescolano.
 
 Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 
@@ -231,7 +231,9 @@ services/sats.py       # TLE live + SGP4 (Tiangong, Hubble, Terra, Starlink)
 services/satimages.py  # foto GIBS del suolo sul luogo di Osservazione Terra
 services/astronomy.py  # visibilità da numeri live
 services/bots.py       # registro BOTSQUAD (cinque bot)
-services/tools.py      # coordinate e giorno giuliano di STRUMENTI
+services/tools.py      # coordinate, ora e calendario civile di STRUMENTI
+services/calevents.py  # Pasqua, Natale, feste civili, stagioni
+services/wildlife.py   # avvistamenti iNaturalist per Animali live
 ui/keyboards.py        # BOTSQUAD + ORACOLO + ASTRO + STRUMENTI
 ui/texts.py            # testi BOTSQUAD / ORACOLO / ASTRO / STRUMENTI
 requirements.txt

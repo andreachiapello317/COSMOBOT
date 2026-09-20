@@ -1,4 +1,4 @@
-"""Attrezzi di STRUMENTI: coordinate, giorno giuliano, calendario. Algoritmi veri."""
+"""Attrezzi di STRUMENTI: coordinate, ora e calendario civile. Algoritmi veri."""
 
 from __future__ import annotations
 
@@ -188,23 +188,38 @@ def _cal_font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont | Imag
     return ImageFont.load_default()
 
 
-def draw_month_calendar(year: int, month: int, today: date) -> bytes:
-    """Mese civile a colonne uguali. Lunedì in testa, oggi nel riquadro."""
+def draw_month_calendar(
+    year: int,
+    month: int,
+    today: date,
+    clock: datetime | None = None,
+) -> bytes:
+    """Ora grande + mese civile a colonne. Lunedì in testa, oggi nel riquadro."""
     cal = calendar.Calendar(firstweekday=calendar.MONDAY)
     weeks = cal.monthdayscalendar(year, month)
     cols, rows = 7, len(weeks)
-    left, top = 28, 92
+    left = 28
+    clock_h = 118 if clock is not None else 0
+    top = 92 + clock_h
     width, height = 720, top + 56 + rows * 72 + 28
     cell_w = (width - left * 2) / cols
     cell_h = 68
     img = Image.new("RGB", (width, height), (10, 12, 20))
     draw = ImageDraw.Draw(img)
-    title_font = _cal_font(34, bold=True)
+    clock_font = _cal_font(56, bold=True)
+    title_font = _cal_font(28, bold=True)
     head_font = _cal_font(18, bold=True)
     day_font = _cal_font(26, bold=True)
+    if clock is not None:
+        stamp = clock.strftime("%H:%M:%S")
+        cb = draw.textbbox((0, 0), stamp, font=clock_font)
+        draw.text(((width - (cb[2] - cb[0])) / 2, 18), stamp, fill=(245, 248, 255), font=clock_font)
+        dayline = f"{_WEEKDAYS_IT[clock.weekday()]} {clock.strftime('%d/%m/%Y')}"
+        db = draw.textbbox((0, 0), dayline, font=head_font)
+        draw.text(((width - (db[2] - db[0])) / 2, 82), dayline, fill=(168, 178, 198), font=head_font)
     title = f"{_MONTHS_IT[month - 1]} {year}"
     box = draw.textbbox((0, 0), title, font=title_font)
-    draw.text(((width - (box[2] - box[0])) / 2, 22), title, fill=(236, 239, 247), font=title_font)
+    draw.text(((width - (box[2] - box[0])) / 2, 22 + clock_h), title, fill=(236, 239, 247), font=title_font)
     for idx, head in enumerate(_CAL_HEAD):
         x = left + idx * cell_w
         hb = draw.textbbox((0, 0), head, font=head_font)

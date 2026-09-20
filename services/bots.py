@@ -23,9 +23,9 @@ BOTS: tuple[dict[str, Any], ...] = (
     },
     {
         "id": "geo",
-        "emoji": "🌿",
-        "name": "NATURA",
-        "tag": "Flora, fauna, pietre",
+        "emoji": "🌍",
+        "name": "TERRA",
+        "tag": "Eventi, animali live, pietre",
         "ready": True,
         "worlds": ("flora", "fauna", "pietre"),
     },

@@ -53,7 +53,7 @@ def all_hub_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🔮 ORACOLO", "bot:oracolo")],
             [kb_btn("🔭 ASTRO", "bot:astro")],
-            [kb_btn("🌿 NATURA", "bot:geo")],
+            [kb_btn("🌍 TERRA", "bot:geo")],
             [kb_btn("🧰 STRUMENTI", "bot:tool")],
             [kb_btn("🧩 QUIZ", "bot:quiz")],
             [kb_btn("📚 Aiuto", "home:aiuto")],
@@ -83,8 +83,8 @@ def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
 def geo_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🌿 Flora", "world:flora")],
-            [kb_btn("🐾 Fauna", "world:fauna")],
+            [kb_btn("🌪️ Eventi", "world:flora")],
+            [kb_btn("🐾 Animali live", "world:fauna")],
             [kb_btn("💎 Pietre", "world:pietre")],
             nav_row(),
         ]
@@ -96,7 +96,7 @@ def world_flora_keyboard() -> InlineKeyboardMarkup:
         [
             [kb_btn("🌍 Eventi", "geo:world")],
             [kb_btn("📡 Live", "world:live")],
-            [kb_btn("📖 Esplora la natura", "world:natura")],
+            [kb_btn("📖 Esplora", "world:natura")],
             nav_row(),
         ]
     )
@@ -105,6 +105,7 @@ def world_flora_keyboard() -> InlineKeyboardMarkup:
 def world_fauna_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
+            [kb_btn("🔄 Aggiorna", "world:fauna")],
             nav_row(),
         ]
     )
@@ -119,7 +120,7 @@ def world_live_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔥 Incendi aperti", "geo:ev:wildfires"), kb_btn("🧊 Ghiaccio", "geo:ev:seaLakeIce")],
             [kb_btn("🌊 Alluvioni", "geo:ev:floods"), kb_btn("🪨 Frane", "geo:ev:landslides")],
             [kb_btn("🌵 Siccità", "geo:ev:drought"), kb_btn("📋 Tutti i fenomeni", "geo:events")],
-            [kb_btn("🌿 Flora", "world:flora")],
+            [kb_btn("🌪️ Eventi", "world:flora")],
             nav_row(),
         ]
     )
@@ -150,7 +151,7 @@ def natura_world_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🔄 Aggiorna", "geo:world")],
-            [kb_btn("🌿 Flora", "world:flora")],
+            [kb_btn("🌪️ Eventi", "world:flora")],
             nav_row(),
         ]
     )
@@ -225,7 +226,7 @@ def geo_after_keyboard(kind: str) -> InlineKeyboardMarkup:
         "ocean": ("🌊 Oceani", "world:ocean"),
         "sea": ("🌊 Mari", "world:sea"),
         "ice": ("🧊 Ghiacciai", "world:ice"),
-    }.get(kind, ("🌿 Flora", "world:flora"))
+    }.get(kind, ("🌪️ Eventi", "world:flora"))
     return InlineKeyboardMarkup([[kb_btn(back[0], back[1])], nav_row()])
 
 
@@ -534,7 +535,7 @@ def tool_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🧮 Calcolatrice", "calc:pad")],
             [kb_btn("🔄 Conversioni", "calc:conv")],
             [kb_btn("🧭 Bussola", "cmp:hub")],
-            [kb_btn("📅 Giorno giuliano", "tool:jd")],
+            [kb_btn("📅 Eventi di calendario", "tool:feste")],
             [kb_btn("🕐 Ora e calendario", "tool:clock")],
             nav_row(),
         ]
@@ -562,8 +563,23 @@ def clock_calendar_keyboard() -> InlineKeyboardMarkup:
                 kb_btn("◀ mese", "tool:cal:prev"),
                 kb_btn("mese ▶", "tool:cal:next"),
             ],
-            [kb_btn("📍 Cambia città", "loc:go:clock")],
-            [kb_btn("🔄 Aggiorna", "tool:clock")],
+            [kb_btn("🕐 Ora", "tool:clock")],
+            nav_row(),
+        ]
+    )
+
+
+def calendar_events_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("📅 Prossimi", "tool:feste"), kb_btn("🐣 Pasqua", "tool:feste:easter")],
+            [kb_btn("🎄 Natale", "tool:feste:xmas"), kb_btn("🇮🇹 Italia", "tool:feste:it")],
+            [kb_btn("🌍 Mondo", "tool:feste:world"), kb_btn("☀️ Stagioni", "tool:feste:season")],
+            [
+                kb_btn("◀ anno", "tool:feste:yprev"),
+                kb_btn("quest'anno", "tool:feste:ynow"),
+                kb_btn("anno ▶", "tool:feste:ynext"),
+            ],
             nav_row(),
         ]
     )

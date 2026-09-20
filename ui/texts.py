@@ -18,7 +18,7 @@ def all_hub_text() -> str:
         "Cinque bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
-        "🌿 <b>NATURA</b> — flora, fauna, pietre.\n"
+        "🌍 <b>TERRA</b> — eventi atmosferici e naturali, animali live, pietre.\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice, conversioni, bussola, tempo.\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
@@ -36,7 +36,7 @@ def oracolo_hub_text() -> str:
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
         "🃏 <b>CONSULTAZIONI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n"
         "🌌 <b>INTERROGA IL CIELO</b> — luna, stelle e pianeti sopra di te (città, default Cuneo)\n\n"
-        "Il cielo misurato sta in 🔭 ASTRO. La Terra e le pietre stanno in 🌿 NATURA.",
+        "Il cielo misurato sta in 🔭 ASTRO. Eventi e animali live stanno in 🌍 TERRA.",
     )
 
 
@@ -48,7 +48,7 @@ def astro_hub_text() -> str:
         "🌤️ <b>METEO</b> — Cuneo (o l'ultima città), oggi e domani; puoi cambiare giorni\n"
         "🔭 <b>OSSERVATORIO</b> — cielo di adesso (visibilità sulla carta), Horizons NASA, satelliti live\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n\n"
-        "La Terra e le pietre stanno in 🌿 NATURA."
+        "Eventi naturali e animali live stanno in 🌍 TERRA."
     )
 
 
@@ -250,8 +250,8 @@ def tool_hub_text() -> str:
         "🧮 <b>CALCOLATRICE</b> — scientifica: sen, log, radici, π\n"
         "🔄 <b>CONVERSIONI</b> — lunghezza, massa, temperatura, cielo…\n"
         "🧭 <b>BUSSOLA</b> — posizione, coordinate, nord, verso un luogo\n"
-        "📅 <b>GIORNO GIULIANO</b> — il contatore degli astronomi\n"
-        "🕐 <b>ORA E CALENDARIO</b> — ora locale e il mese",
+        "📅 <b>EVENTI DI CALENDARIO</b> — Pasqua, Natale, Italia, mondo, stagioni\n"
+        "🕐 <b>ORA E CALENDARIO</b> — ora italiana e il mese",
     )
 
 
@@ -389,44 +389,43 @@ def world_vita_text() -> str:
 
 def geo_hub_text() -> str:
     return _card(
-        "🌿 <b>NATURA</b>",
-        "Bot di BOTSQUAD per la Terra. Flora, fauna e pietre, allo stesso livello.",
-        "🌿 <b>FLORA</b> — eventi nel mondo, feed live, enciclopedia (mare, terra, vulcani, ghiaccio)\n"
-        "🐾 <b>FAUNA</b> — ancora vuota. Gli animali arrivano dopo.\n"
+        "🌍 <b>TERRA</b>",
+        "Bot di BOTSQUAD per fenomeni veri. Eventi atmosferici e naturali, animali live, pietre.",
+        "🌪️ <b>EVENTI</b> — terremoti, tempeste, eruzioni, ghiaccio: dati live\n"
+        "🐾 <b>ANIMALI LIVE</b> — avvistamenti recenti (iNaturalist)\n"
         "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione",
     )
 
 
 def world_flora_text() -> str:
     return _card(
-        "🌿 <b>FLORA</b>",
-        "Terra, acqua, fuoco e ghiaccio. Niente animali: quelli stanno in Fauna, quando ci saranno.",
-        "🌍 <b>EVENTI</b> — catastrofi e fenomeni importanti nel mondo, live\n"
-        "📡 <b>LIVE</b> — scosse, eruzioni aperte, tempeste: ogni evento ha un link\n"
-        "📖 <b>ESPLORA LA NATURA</b> — mari, oceani, terra, vulcani, placche, ghiacciai",
+        "🌪️ <b>EVENTI</b>",
+        "Dati atmosferici e naturali, adesso. Non è il meteo di Cuneo e non è lo zoo.",
+        "🌍 <b>EVENTI</b> — catastrofi e fenomeni importanti nel mondo\n"
+        "📡 <b>LIVE</b> — scosse, eruzioni, tempeste, incendi, ghiaccio: ogni evento ha un link\n"
+        "📖 <b>ESPLORA</b> — mari, oceani, terra, vulcani, placche, ghiacciai",
     )
 
 
 def world_fauna_text() -> str:
     return _card(
-        "🐾 <b>FAUNA</b>",
-        "Qui arriveranno gli animali. Per ora la stanza è vuota, di proposito.",
-        "Niente schede, niente elenchi, niente API. "
-        "Flora e Pietre sono le altre due porte di NATURA.",
+        "🐾 <b>ANIMALI LIVE</b>",
+        "Avvistamenti recenti da iNaturalist. Non è un catalogo da enciclopedia.",
+        "Apro gli ultimi animali fotografati nel mondo. Aggiorna per un altro giro.",
     )
 
 
 def world_natura_text() -> str:
     return _card(
-        "📖 <b>ESPLORA LA NATURA</b>",
-        "Enciclopedia Wikipedia / Wikidata. Mari, oceani, terra, vulcani, placche, ghiacciai. Niente animali.",
+        "📖 <b>ESPLORA</b>",
+        "Enciclopedia Wikipedia / Wikidata. Mari, oceani, terra, vulcani, placche, ghiacciai.",
         "🌍 Terra — crosta, mantello, nucleo, atmosfera, tettonica\n"
         "🌊 Oceani — i cinque oceani, fosse, correnti\n"
         "🌊 Mari — Mediterraneo e gli altri mari\n"
         "🔥 Vulcani — schede di edifici noti, non un bollettino eruttivo\n"
         "🧭 Placche — tettonica\n"
         "🧊 Ghiacciai — calotte, criosfera, ghiacciai con voce\n\n"
-        "Apro la voce, non la riscrivo. Pietre e Fauna stanno al piano di NATURA, non qui.",
+        "Apro la voce, non la riscrivo. Gli animali live stanno nella porta Animali.",
     )
 
 
@@ -517,7 +516,7 @@ def world_pietre_text() -> str:
 def pietre_hub_text() -> str:
     return _card(
         "💎 <b>PIETRE</b>",
-        "Mineralogia da catalogo, nel bot NATURA. Il folklore sta in ORACOLO, a parte.",
+        "Mineralogia da catalogo, nel bot TERRA. Il folklore sta in ORACOLO, a parte.",
         "Foto: pietra al centro, tavolo uniforme. Non è un'analisi.\n\n"
         "🧭 Esplora · 🔬 Laboratorio · 🎒 Collezione · 🧠 Giochi",
     )
@@ -537,7 +536,7 @@ def quiz_hub_text() -> str:
         "Un bot a parte. Scegli il mondo, poi l'argomento. Le domande restano nel recinto di quel bot.",
         "🔮 ORACOLO — segni, rune, Lenormand (niente letture)\n"
         "🔭 ASTRO — sistema solare, lune, enciclopedia live\n"
-        "🌿 NATURA — pietre, terra, vulcani, oceani\n"
+        "🌍 TERRA — eventi, animali live, pietre\n"
         "🧰 STRUMENTI — calcolatrice, conversioni, cardinali\n\n"
         "La classifica è solo tua. I mondi non si mescolano.",
     )
