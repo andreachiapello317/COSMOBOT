@@ -12,7 +12,6 @@ import astronomy
 from services.astronomy import visibility_stars
 from services.moon import moon_now, next_quarters
 from services.skycatalog import SkyFrame, constellation_name, constellation_segments, visible_stars
-from services.skychart import eye_level
 from services.weather import wmo_label
 
 PLANET_SCAN = (
@@ -69,36 +68,37 @@ def snapshot(lat: float, lon: float, when: datetime) -> dict[str, Any]:
     }
 
 
-# Fasce diverse: non le stesse 4 stelle luminose in tutti i gradi.
-_STAR_RULES = {
-    "easy": {"mag_lo": -2.0, "mag_hi": 1.55, "alt": 25.0, "cap": 4, "spread": False},
-    "eye": {"mag_lo": 1.45, "mag_hi": 3.45, "alt": 16.0, "cap": 8, "spread": True},
-    "bino": {"mag_lo": 3.40, "mag_hi": 5.25, "alt": 10.0, "cap": 8, "spread": True},
-    "full": {"mag_lo": -2.0, "mag_hi": 5.25, "alt": 0.0, "cap": 12, "spread": False},
+# Crescendo: Facile ⊂ Occhio nudo ⊂ Binocolo ⊂ Tutto.
+_STAR_STEPS = (
+    ("easy", 1.55, 25.0, 4),
+    ("eye", 3.45, 16.0, 8),
+    ("bino", 5.25, 10.0, 12),
+    ("full", 5.25, 0.0, 18),
+)
+_PLANET_STEPS = {
+    "easy": {"mag": 1.4, "alt": 18.0, "ice": False},
+    "eye": {"mag": 4.0, "alt": 12.0, "ice": False},
+    "bino": {"mag": 8.0, "alt": 5.0, "ice": True},
+    "full": {"mag": 99.0, "alt": -0.5, "ice": True},
 }
+_MOON_ALT = {"easy": 12.0, "eye": 12.0, "bino": 5.0, "full": -0.5}
 
 
-def _az_sep(a: float, b: float) -> float:
-    return abs(((float(a) - float(b) + 180.0) % 360.0) - 180.0)
-
-
-def _pick_stars(pool: list[dict[str, Any]], cap: int, *, spread: bool) -> list[dict[str, Any]]:
-    if not spread:
-        return pool[:cap]
+def _crescendo_stars(pool: list[dict[str, Any]], until: str) -> list[dict[str, Any]]:
     chosen: list[dict[str, Any]] = []
-    leftover: list[dict[str, Any]] = []
-    for star in pool:
-        if len(chosen) >= cap:
-            leftover.append(star)
-            continue
-        if not chosen or all(_az_sep(star["az"], item["az"]) >= 22 for item in chosen):
-            chosen.append(star)
-        else:
-            leftover.append(star)
-    for star in leftover:
-        if len(chosen) >= cap:
+    seen: set[str] = set()
+    for key, mag_hi, alt_min, cap in _STAR_STEPS:
+        for star in pool:
+            if len(chosen) >= cap:
+                break
+            name = str(star.get("name") or "").strip()
+            if not name or name in seen:
+                continue
+            if float(star["alt"]) > alt_min and float(star["mag"]) <= mag_hi:
+                chosen.append(star)
+                seen.add(name)
+        if key == until:
             break
-        chosen.append(star)
     return chosen
 
 
@@ -125,16 +125,13 @@ def tonight_picks(
             pts = max(1, pts - 1)
         return "⭐" * pts + "☆" * (5 - pts)
 
-    cfg = eye_level(eye)
     key = str(eye or "full")
-    rules = _STAR_RULES.get(key) or _STAR_RULES["full"]
-    is_full = key == "full"
-    min_alt = float(rules["alt"])
-    planet_floor = {"easy": 18.0, "eye": 12.0, "bino": 5.0, "full": -0.5}.get(key, 0.0)
-    planet_mag = 99.0 if is_full else float(cfg["planet"])
+    if key not in _PLANET_STEPS:
+        key = "full"
+    planet_cfg = _PLANET_STEPS[key]
     picks: list[dict[str, Any]] = []
     moon = snap["moon"]
-    moon_floor = 12.0 if key == "easy" else planet_floor
+    moon_floor = _MOON_ALT.get(key, -0.5)
     if moon["alt"] > moon_floor:
         illum = moon.get("illum")
         detail = str(moon.get("phase") or "Luna")
@@ -154,15 +151,13 @@ def tonight_picks(
             }
         )
     for row in snap["planets"]:
-        if row["alt"] <= planet_floor:
+        if row["alt"] <= float(planet_cfg["alt"]):
             continue
         mag = row.get("mag") if isinstance(row.get("mag"), (int, float)) else None
-        if mag is not None and mag > planet_mag:
+        if mag is not None and mag > float(planet_cfg["mag"]):
             continue
         bar = score(row["alt"], mag)
-        if row["name"] in {"Urano", "Nettuno"} and key in {"easy", "eye"}:
-            continue
-        if key == "easy" and (mag is None or mag > 1.4 or row["alt"] < 18):
+        if row["name"] in {"Urano", "Nettuno"} and not planet_cfg["ice"]:
             continue
         picks.append(
             {
@@ -181,14 +176,7 @@ def tonight_picks(
         pool = [star for star in visible_stars(frame) if str(star.get("name") or "").strip()]
     else:
         pool = [star for star in snap.get("stars") or [] if str(star.get("name") or "").strip()]
-    band: list[dict[str, Any]] = []
-    for star in pool:
-        mag = float(star["mag"])
-        alt = float(star["alt"])
-        if alt <= min_alt or mag < float(rules["mag_lo"]) or mag > float(rules["mag_hi"]):
-            continue
-        band.append(star)
-    for star in _pick_stars(band, int(rules["cap"]), spread=bool(rules["spread"])):
+    for star in _crescendo_stars(pool, key):
         mag = float(star["mag"])
         alt = float(star["alt"])
         con = str(star.get("con") or "")

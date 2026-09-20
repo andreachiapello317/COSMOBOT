@@ -291,15 +291,38 @@ def draw_tonight_chart(
         box = draw.textbbox((0, 0), text, font=title_font)
         draw.text((x - (box[2] - box[0]) / 2, y - (box[3] - box[1]) / 2), text, fill=(210, 220, 235), font=title_font)
 
-    wanted = {str(row.get("con") or "") for row in picks if row.get("kind") == "star" and row.get("con")}
-    if wanted:
-        for fig in constellation_segments(frame):
-            if fig["id"] not in wanted:
+    if str(eye or "") == "full":
+        named = {
+            str(row.get("title") or "")
+            for row in picks
+            if row.get("kind") == "star"
+        }
+        for star in visible_stars(frame):
+            alt, az = float(star["alt"]), float(star["az"])
+            if alt <= 0 or str(star.get("name") or "") in named:
                 continue
-            for seg in fig["segs"]:
-                pts = [pt for pt in (_clip(alt, az, cx, cy, radius) for alt, az in seg) if pt]
-                if len(pts) >= 2:
-                    draw.line(pts, fill=(70, 100, 150), width=2)
+            pos = _clip(alt, az, cx, cy, radius)
+            if not pos:
+                continue
+            mag = float(star["mag"])
+            rad = max(1.1, 4.2 - mag)
+            color = _star_color(star.get("bv"))
+            fill = (max(40, color[0] // 2), max(45, color[1] // 2), max(55, color[2] // 2))
+            draw.ellipse((pos[0] - rad, pos[1] - rad, pos[0] + rad, pos[1] + rad), fill=fill)
+
+    wanted = {str(row.get("con") or "") for row in picks if row.get("kind") == "star" and row.get("con")}
+    whole = str(eye or "") == "full"
+    for fig in constellation_segments(frame):
+        cid = str(fig.get("id") or "")
+        if not whole and cid not in wanted:
+            continue
+        highlight = cid in wanted
+        color = (70, 100, 150) if highlight else (32, 46, 72)
+        width = 2 if highlight else 1
+        for seg in fig["segs"]:
+            pts = [pt for pt in (_clip(alt, az, cx, cy, radius) for alt, az in seg) if pt]
+            if len(pts) >= 2:
+                draw.line(pts, fill=color, width=width)
 
     planet_color = {name: color for _body, name, color in PLANETS}
     for row in picks:
@@ -332,7 +355,11 @@ def draw_tonight_chart(
     draw.text((24, SIZE + 10), f"Stasera · {grade} · {place}", fill=(235, 238, 245), font=title_font)
     draw.text(
         (24, SIZE + 38),
-        f"{when.strftime('%d/%m/%Y %H:%M')} · solo gli oggetti dell'elenco · N in alto",
+        (
+            f"{when.strftime('%d/%m/%Y %H:%M')} · Tutto: elenco + cielo di sfondo · N in alto"
+            if str(eye or "") == "full"
+            else f"{when.strftime('%d/%m/%Y %H:%M')} · solo gli oggetti dell'elenco · N in alto"
+        ),
         fill=(150, 165, 190),
         font=tiny,
     )

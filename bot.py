@@ -8171,13 +8171,13 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
     picks, w_emoji, w_sky, clouds = tonight_picks(snap, weather=weather, eye=level, frame=frame)
     when_bit = "stasera 22:00" if projected else when.strftime("%H:%M")
     if level == "full":
-        grade_line = "🌌 Tutto — le più luminose con nome, senza fascia."
+        grade_line = "🌌 Tutto — Facile + nudo + binocolo, e il resto sopra l'orizzonte."
     elif level == "easy":
-        grade_line = "✨ Facile — solo le stelle ovvie (mag ≤ 1,6 e alte)."
+        grade_line = "✨ Facile — le più ovvie (alte e luminose). Stanno anche nei gradi dopo."
     elif level == "eye":
-        grade_line = "👁️ Occhio nudo — fascia media (mag 1,5–3,4), altre stelle."
+        grade_line = "👁️ Occhio nudo — Facile, più le altre a occhio nudo."
     else:
-        grade_line = "🔭 Binocolo — le più deboli del catalogo (mag 3,4–5,2)."
+        grade_line = "🔭 Binocolo — Occhio nudo, più le più deboli del catalogo."
     lines = [
         f"🔭 <b>COSA OSSERVARE STASERA — {e(name.upper())}</b>",
         f"📅 {e(format_day_it(when))} · {when_bit} · {e(eye_level_label(level))}",
@@ -8200,8 +8200,13 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
     lines.extend(
         [
             "",
-            "<i>Stelle: catalogo Hipparcos, solo nomi propri. Ogni grado pesca una fascia diversa. "
-            "Pianeti: Astronomy Engine. Nubi: Open-Meteo.</i>",
+            "<i>Stelle Hipparcos (nomi propri). Crescendo: Facile ⊂ Occhio nudo ⊂ Binocolo ⊂ Tutto. "
+            + (
+                "Tutto ha la sua mappa: elenco etichettato sul cielo di sfondo. "
+                if level == "full"
+                else "La mappa è solo questi oggetti. "
+            )
+            + "Pianeti: Astronomy Engine. Nubi: Open-Meteo.</i>",
         ]
     )
     caption = "\n".join(lines)
