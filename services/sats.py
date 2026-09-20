@@ -1,4 +1,4 @@
-"""Satelliti live: TLE pubblici + SGP4. Niente passaggi sulla città, niente Starlink."""
+"""Satelliti live: TLE pubblici + SGP4. Posizioni adesso, niente orari di passaggio inventati."""
 
 from __future__ import annotations
 
@@ -13,7 +13,12 @@ from sgp4.api import Satrec, jday
 
 TLE_URL = "https://tle.ivanstanojevic.me/api/tle/{norad}"
 WTIA_TLE_URL = "https://api.wheretheiss.at/v1/satellites/25544/tles"
+STARLINK_TLE_URLS = (
+    "https://raw.githubusercontent.com/satvisorcom/satvisor-data/master/celestrak/tle/starlink.tle",
+    "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=tle",
+)
 CACHE_TTL = 12 * 60
+STARLINK_CACHE_TTL = 90 * 60
 
 SATS: dict[str, dict[str, Any]] = {
     "iss": {
@@ -106,17 +111,24 @@ GROUPS: dict[str, dict[str, Any]] = {
         "it": "Osservazione Terra",
         "emoji": "🌍",
         "keys": ("terra", "aqua", "ld8", "ld9", "s2a"),
-        "blurb": "Satelliti che fotografano il suolo. Posizione adesso, non il prossimo passaggio.",
+        "blurb": "Satelliti che fotografano il suolo. Posizione adesso e, se arriva, l'immagine pubblica del giorno.",
     },
     "meteo": {
         "it": "Meteo sat",
         "emoji": "🌦️",
         "keys": ("n20", "n21", "g16"),
-        "blurb": "Satelliti meteo polari e GOES-16 geostazionario. Non è il meteo di Cuneo.",
+        "blurb": "Satelliti meteo polari e GOES-16 geostazionario. Fotografano nubi e oceani, non è il meteo di Cuneo.",
+    },
+    "sl": {
+        "it": "Starlink",
+        "emoji": "📡",
+        "keys": (),
+        "blurb": "Costellazione SpaceX. Posizioni da TLE + SGP4: quanti sono sopra di te adesso, non l'orario del prossimo treno.",
     },
 }
 
 _TLE_CACHE: dict[int, tuple[float, dict[str, Any]]] = {}
+_STARLINK_CACHE: tuple[float, list[tuple[str, str, str]]] | None = None
 
 
 class SatError(RuntimeError):
@@ -286,7 +298,7 @@ def format_sat_card(
             f"🕐 {when.strftime('%d/%m/%Y %H:%M')} (Europe/Rome)",
             "",
             "<i>TLE live (ivanstanojevic / CelesTrak). Posizione: SGP4, algoritmo reale. "
-            "Non è un passaggio sulla tua città. Non è Horizons. Non elenco Starlink.</i>",
+            "Non è un passaggio sulla tua città. Non è Horizons.</i>",
         ]
     )
     return "\n".join(lines)
@@ -329,5 +341,219 @@ def format_sat_group(
         lines.append("")
     lines.append(
         "<i>Posizioni da TLE live + SGP4. I passaggi sopra una città restano fuori.</i>"
+    )
+    return "\n".join(lines)
+
+
+def _parse_tle_triples(text: str) -> list[tuple[str, str, str]]:
+    lines = [ln.rstrip() for ln in str(text or "").splitlines() if ln.strip()]
+    out: list[tuple[str, str, str]] = []
+    idx = 0
+    while idx < len(lines):
+        if idx + 2 < len(lines) and lines[idx + 1].startswith("1 ") and lines[idx + 2].startswith("2 "):
+            out.append((lines[idx].strip(), lines[idx + 1], lines[idx + 2]))
+            idx += 3
+        else:
+            idx += 1
+    return out
+
+
+def _ecef_observer(lat: float, lon: float, alt_km: float = 0.05) -> tuple[float, float, float]:
+    a = 6378.137
+    e2 = 6.69437999014e-3
+    lat_r, lon_r = math.radians(lat), math.radians(lon)
+    n = a / math.sqrt(1 - e2 * math.sin(lat_r) ** 2)
+    x = (n + alt_km) * math.cos(lat_r) * math.cos(lon_r)
+    y = (n + alt_km) * math.cos(lat_r) * math.sin(lon_r)
+    z = (n * (1 - e2) + alt_km) * math.sin(lat_r)
+    return x, y, z
+
+
+def _look_angles(
+    obs_xyz: tuple[float, float, float],
+    obs_lat: float,
+    obs_lon: float,
+    sat_ecef: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    dx = sat_ecef[0] - obs_xyz[0]
+    dy = sat_ecef[1] - obs_xyz[1]
+    dz = sat_ecef[2] - obs_xyz[2]
+    lat_r, lon_r = math.radians(obs_lat), math.radians(obs_lon)
+    slat, clat = math.sin(lat_r), math.cos(lat_r)
+    slon, clon = math.sin(lon_r), math.cos(lon_r)
+    east = -slon * dx + clon * dy
+    north = -slat * clon * dx - slat * slon * dy + clat * dz
+    up = clat * clon * dx + clat * slon * dy + slat * dz
+    rng = math.sqrt(east * east + north * north + up * up)
+    if rng <= 0:
+        return -90.0, 0.0, 0.0
+    alt = math.degrees(math.asin(max(-1.0, min(1.0, up / rng))))
+    az = math.degrees(math.atan2(east, north)) % 360.0
+    return alt, az, rng
+
+
+def _sun_ecef_unit(when: datetime) -> tuple[float, float, float]:
+    import astronomy
+
+    utc = when.astimezone(timezone.utc)
+    moment = astronomy.Time.Make(
+        utc.year,
+        utc.month,
+        utc.day,
+        utc.hour,
+        utc.minute,
+        utc.second + utc.microsecond / 1_000_000,
+    )
+    vec = astronomy.GeoVector(astronomy.Body.Sun, moment, True)
+    th = _gmst_rad(float(moment.ut) + 2451545.0)
+    c, s = math.cos(th), math.sin(th)
+    x, y, z = float(vec.x), float(vec.y), float(vec.z)
+    ex, ey, ez = x * c + y * s, -x * s + y * c, z
+    norm = math.sqrt(ex * ex + ey * ey + ez * ez) or 1.0
+    return ex / norm, ey / norm, ez / norm
+
+
+def _in_sunlight(sat_ecef: tuple[float, float, float], sun_unit: tuple[float, float, float]) -> bool:
+    dot = sat_ecef[0] * sun_unit[0] + sat_ecef[1] * sun_unit[1] + sat_ecef[2] * sun_unit[2]
+    if dot > 0:
+        return True
+    r2 = sat_ecef[0] ** 2 + sat_ecef[1] ** 2 + sat_ecef[2] ** 2
+    perp2 = r2 - dot * dot
+    return perp2 > 6378.137 ** 2
+
+
+def cardinal_short(az: float) -> str:
+    names = ("N", "NE", "E", "SE", "S", "SO", "O", "NO")
+    return names[int(((float(az) + 22.5) % 360.0) // 45)]
+
+
+async def fetch_starlink_tles(client: httpx.AsyncClient) -> list[tuple[str, str, str]]:
+    global _STARLINK_CACHE
+    now = time.time()
+    if _STARLINK_CACHE and now - _STARLINK_CACHE[0] < STARLINK_CACHE_TTL:
+        return _STARLINK_CACHE[1]
+    last_error: Exception | None = None
+    for url in STARLINK_TLE_URLS:
+        try:
+            response = await client.get(url, timeout=40.0)
+            response.raise_for_status()
+            rows = _parse_tle_triples(response.text)
+            if len(rows) >= 100:
+                _STARLINK_CACHE = (now, rows)
+                return rows
+        except Exception as exc:
+            last_error = exc
+            continue
+    if last_error:
+        raise SatError(f"TLE Starlink non arrivati: {last_error}") from last_error
+    raise SatError("TLE Starlink non arrivati")
+
+
+def locate_starlink_overhead(
+    tles: list[tuple[str, str, str]],
+    *,
+    lat: float,
+    lon: float,
+    when: datetime,
+    min_alt: float = 10.0,
+) -> dict[str, Any]:
+    utc = when.astimezone(timezone.utc)
+    jd, fr = jday(
+        utc.year,
+        utc.month,
+        utc.day,
+        utc.hour,
+        utc.minute,
+        utc.second + utc.microsecond / 1_000_000,
+    )
+    th = _gmst_rad(jd + fr)
+    c, s = math.cos(th), math.sin(th)
+    obs = _ecef_observer(lat, lon)
+    sun = _sun_ecef_unit(utc)
+    overhead: list[dict[str, Any]] = []
+    for name, line1, line2 in tles:
+        try:
+            sat = Satrec.twoline2rv(line1, line2)
+            err, r, _v = sat.sgp4(jd, fr)
+        except Exception:
+            continue
+        if err != 0 or r is None:
+            continue
+        ecef = (float(r[0]) * c + float(r[1]) * s, -float(r[0]) * s + float(r[1]) * c, float(r[2]))
+        alt, az, rng = _look_angles(obs, lat, lon, ecef)
+        if alt < min_alt:
+            continue
+        slat, slon, salt = _ecef_to_llh(*ecef)
+        overhead.append(
+            {
+                "name": name.replace("STARLINK-", "SL-"),
+                "alt": alt,
+                "az": az,
+                "range_km": rng,
+                "lat": slat,
+                "lon": slon,
+                "alt_km": salt,
+                "sun": _in_sunlight(ecef, sun),
+            }
+        )
+    overhead.sort(key=lambda row: row["alt"], reverse=True)
+    lit = [row for row in overhead if row["sun"]]
+    return {
+        "total": len(tles),
+        "overhead": overhead,
+        "count": len(overhead),
+        "lit": len(lit),
+        "high_lit": sum(1 for row in lit if row["alt"] >= 20),
+    }
+
+
+def format_starlink_card(
+    *,
+    place: str,
+    when: datetime,
+    sun_alt: float,
+    data: dict[str, Any],
+) -> str:
+    night = sun_alt < -6
+    rows = list(data.get("overhead") or [])
+    lines = [
+        f"📡 <b>STARLINK — { _html.escape(place.upper()) }</b>",
+        "Posizioni adesso, da TLE + SGP4. Non è l'orario del prossimo treno di satelliti.",
+        f"🕐 {when.strftime('%d/%m/%Y %H:%M')} (Europe/Rome)",
+        "",
+        f"In catalogo: <b>{int(data.get('total') or 0)}</b> TLE.",
+        f"Sopra i 10° da qui: <b>{int(data.get('count') or 0)}</b>.",
+        f"Al sole (non nell'ombra della Terra): <b>{int(data.get('lit') or 0)}</b> · "
+        f"sopra i 20° e al sole: <b>{int(data.get('high_lit') or 0)}</b>.",
+        "",
+    ]
+    if night:
+        lines.append(
+            "Da qui è notte. Quelli alti e al sole possono apparire come punti che si muovono; "
+            "non invento l'ora esatta di un treno."
+        )
+    else:
+        lines.append("Da qui è ancora giorno: in cielo non li vedi, ma le posizioni restano vere.")
+    lines.append("")
+    if rows:
+        lines.append("I più alti adesso:")
+        for row in rows[:5]:
+            sun = " · al sole" if row.get("sun") else " · ombra"
+            lines.append(
+                f"📡 <b>{_html.escape(str(row['name']))}</b>  "
+                f"alt {row['alt']:.0f}° {cardinal_short(row['az'])}{sun}"
+            )
+            lines.append(
+                f"lat {row['lat']:.1f}° · lon {row['lon']:.1f}° · "
+                f"{row['alt_km']:.0f} km · {row['range_km']:.0f} km da te"
+            )
+    else:
+        lines.append("Nessuno sopra i 10° in questo istante.")
+    lines.extend(
+        [
+            "",
+            "<i>TLE: specchio CelesTrak (satvisor) o CelesTrak diretto. "
+            "Altezza e azimut: geometria dal tuo luogo. Non è un passaggio calcolato in lista.</i>",
+        ]
     )
     return "\n".join(lines)

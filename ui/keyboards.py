@@ -702,6 +702,7 @@ def watch_sats_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🏠 Stazioni", "watch:sats:sta")],
             [kb_btn("🌍 Osservazione Terra", "watch:sats:earth")],
             [kb_btn("🌦️ Meteo sat", "watch:sats:meteo")],
+            [kb_btn("📡 Starlink", "watch:sats:sl")],
             nav_row(),
         ]
     )

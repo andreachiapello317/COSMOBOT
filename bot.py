@@ -83,7 +83,16 @@ from services.eclipses import fetch_eclipses, kind_it, next_of, parse_peak
 from services.iss import fetch_iss_position, fetch_people_in_space, reverse_iss_place
 from services.tools import format_coord_card, format_julian_card, parse_coord_pair, parse_tool_date
 from services.sats import GROUPS as SAT_GROUPS
-from services.sats import SATS, format_sat_card, format_sat_group, locate_sat
+from services.sats import (
+    SATS,
+    fetch_starlink_tles,
+    format_sat_card,
+    format_sat_group,
+    format_starlink_card,
+    locate_sat,
+    locate_starlink_overhead,
+)
+from services.satimages import fetch_sat_view
 from services.neo import near_earth_asteroids
 from services.progress import (
     mission_done,
@@ -7966,6 +7975,9 @@ async def send_watch_sats(
     if asked == "crew":
         await send_orbit_crew(update, context)
         return
+    if asked in {"sl", "starlink"}:
+        await send_starlink(update, context)
+        return
     if asked in SAT_GROUPS:
         await send_sat_group(update, context, asked)
         return
@@ -7990,7 +8002,24 @@ async def send_sat_card(update: Update, context: ContextTypes.DEFAULT_TYPE, key:
         await reply_offline(update, context)
         return
     text = format_sat_card(key=key, when=now, pos=pos, over=str(geo.get("place") or ""))
-    await reply_html(update, context, text, reply_markup=watch_sats_card_keyboard(key))
+    markup = watch_sats_card_keyboard(key)
+    view = await fetch_sat_view(client, key, float(pos["lat"]), float(pos["lon"]))
+    image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
+    note = str(view.get("note") or "")
+    if note:
+        text = f"{text}\n\n🖼️ {e(note)}"
+    if image:
+        ok = await deliver_photo_bytes(
+            update,
+            context,
+            bytes(image),
+            text,
+            filename=str(view.get("filename") or f"{key}.jpg"),
+            reply_markup=markup,
+        )
+        if ok:
+            return
+    await reply_html(update, context, text, reply_markup=markup)
 
 
 async def send_sat_group(update: Update, context: ContextTypes.DEFAULT_TYPE, group: str) -> None:
@@ -8025,7 +8054,61 @@ async def send_sat_group(update: Update, context: ContextTypes.DEFAULT_TYPE, gro
         await reply_offline(update, context)
         return
     text = format_sat_group(group=group, when=now, rows=rows)
-    await reply_html(update, context, text, reply_markup=watch_sats_card_keyboard(group))
+    markup = watch_sats_card_keyboard(group)
+    _ensure_cielo_place(context)
+    place_name, plat, plon = _cielo_place(context)
+    image = None
+    filename = "sat.jpg"
+    if group == "earth":
+        view = await fetch_sat_view(_http_client(context), "terra", plat, plon)
+        image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
+        filename = str(view.get("filename") or "terra.jpg")
+        if view.get("note"):
+            text = (
+                f"{text}\n🖼️ Zona di <b>{e(place_name)}</b> oggi, vero colore MODIS Terra. "
+                f"{e(str(view['note']))}"
+            )
+    elif group == "meteo":
+        view = await fetch_sat_view(_http_client(context), "g16", plat, plon)
+        image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
+        filename = str(view.get("filename") or "goes16.jpg")
+        if view.get("note"):
+            text = (
+                f"{text}\n🖼️ Disco GOES-16 (Americhe): è il meteo visto dallo spazio, "
+                f"non la previsione di {e(place_name)}. {e(str(view['note']))}"
+            )
+    if image:
+        ok = await deliver_photo_bytes(
+            update,
+            context,
+            bytes(image),
+            text,
+            filename=filename,
+            reply_markup=markup,
+        )
+        if ok:
+            return
+    await reply_html(update, context, text, reply_markup=markup)
+
+
+async def send_starlink(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "watch:sats:sl")
+    _ensure_cielo_place(context)
+    name, lat, lon = _cielo_place(context)
+    await send_typing(update)
+    await deliver_text(update, context, f"📡 Propagazione TLE Starlink da {name}…")
+    client = _http_client(context)
+    now = datetime.now(DEFAULT_TZ)
+    try:
+        tles = await fetch_starlink_tles(client)
+        data = locate_starlink_overhead(tles, lat=lat, lon=lon, when=now)
+        sun_alt = float(snapshot(lat, lon, now)["sun_alt"])
+    except Exception:
+        logger.exception("Starlink")
+        await reply_offline(update, context)
+        return
+    text = format_starlink_card(place=name, when=now, sun_alt=sun_alt, data=data)
+    await reply_html(update, context, text, reply_markup=watch_sats_card_keyboard("sl"))
 
 
 async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -8043,18 +8126,18 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
     snap = snapshot(lat, lon, when)
     frame = SkyFrame(lat, lon, when)
     level = _eye_limit(context)
-    cfg = eye_level(level)
     context.user_data[WATCH_EYE_VIEW_KEY] = "tonight"
     nav_mark(context, "watch:tonight")
     picks, w_emoji, w_sky, clouds = tonight_picks(snap, weather=weather, eye=level, frame=frame)
     when_bit = "stasera 22:00" if projected else when.strftime("%H:%M")
     if level == "full":
-        grade_line = "🌌 Tutto — le stelle più luminose sopra, senza filtro stretto."
+        grade_line = "🌌 Tutto — le più luminose con nome, senza fascia."
+    elif level == "easy":
+        grade_line = "✨ Facile — solo le stelle ovvie (mag ≤ 1,6 e alte)."
+    elif level == "eye":
+        grade_line = "👁️ Occhio nudo — fascia media (mag 1,5–3,4), altre stelle."
     else:
-        grade_line = (
-            f"Stelle mag ≤ {cfg['star']:.1f} · pianeti mag ≤ {cfg['planet']:.1f} · "
-            f"alt ≥ {cfg['alt']:.0f}°"
-        )
+        grade_line = "🔭 Binocolo — le più deboli del catalogo (mag 3,4–5,2)."
     lines = [
         f"🔭 <b>COSA OSSERVARE STASERA — {e(name.upper())}</b>",
         f"📅 {e(format_day_it(when))} · {when_bit} · {e(eye_level_label(level))}",
@@ -8077,7 +8160,8 @@ async def send_watch_tonight(update: Update, context: ContextTypes.DEFAULT_TYPE)
     lines.extend(
         [
             "",
-            "<i>Mappa: solo questi oggetti. Stelle Hipparcos, pianeti Astronomy Engine, nubi Open-Meteo.</i>",
+            "<i>Stelle: catalogo Hipparcos, solo nomi propri. Ogni grado pesca una fascia diversa. "
+            "Pianeti: Astronomy Engine. Nubi: Open-Meteo.</i>",
         ]
     )
     caption = "\n".join(lines)

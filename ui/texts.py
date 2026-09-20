@@ -174,7 +174,7 @@ def world_watch_text(place: str = "") -> str:
         f"{where}\n"
         "🔭 Cielo di adesso — 6 carte con grado sulla cartina, e cosa osservare stasera\n"
         "📡 Horizons NASA — stelle, luna, pianeti, comete, calcoli, eventi\n"
-        "🛰️ Satelliti — ISS, equipaggio, Tiangong, Hubble, Terra, meteo\n\n"
+        "🛰️ Satelliti — ISS, equipaggio, Tiangong, Hubble, Terra, meteo, Starlink\n\n"
         "Horizons non è un catalogo di stelle. L'enciclopedia sta in Studia lo spazio.",
     )
 
@@ -327,10 +327,12 @@ def watch_sats_hub_text(place: str = "") -> str:
         "👥 <b>CHI È LASSÙ</b> — Open Notify\n"
         "🏠 <b>TIANGONG</b> · 🔭 <b>HUBBLE</b> — TLE live + SGP4\n"
         "🏠 <b>STAZIONI</b> — ISS e Tiangong insieme\n"
-        "🌍 <b>OSSERVAZIONE TERRA</b> — Terra, Aqua, Landsat, Sentinel-2A\n"
-        "🌦️ <b>METEO SAT</b> — NOAA-20, NOAA-21, GOES-16\n\n"
-        "La visibilità ISS «al sole / in ombra» è geometria del satellite, non un avvistamento da terra. "
-        "Non elenco Starlink.",
+        "🌍 <b>OSSERVAZIONE TERRA</b> — Terra, Aqua, Landsat, Sentinel: fotografano il suolo. "
+        "Posizione + immagine del giorno (NASA GIBS)\n"
+        "🌦️ <b>METEO SAT</b> — NOAA-20/21 e GOES-16: nubi e oceani, non il meteo di Cuneo. "
+        "Posizione + disco GOES / vero colore\n"
+        "📡 <b>STARLINK</b> — quanti sono sopra di te adesso (TLE + SGP4)\n\n"
+        "La visibilità ISS «al sole / in ombra» è geometria del satellite, non un avvistamento da terra.",
     )
 
 
