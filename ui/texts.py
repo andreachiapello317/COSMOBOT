@@ -267,7 +267,7 @@ def world_flora_text() -> str:
         "🌿 <b>FLORA</b>",
         "Terra, acqua, fuoco e ghiaccio. Niente animali: quelli stanno in Fauna, quando ci saranno.",
         "🌍 <b>EVENTI</b> — catastrofi e fenomeni importanti nel mondo, live\n"
-        "📡 <b>LIVE</b> — cartella di soli feed USGS e NASA EONET\n"
+        "📡 <b>LIVE</b> — scosse, eruzioni aperte, tempeste: ogni evento ha un link\n"
         "📖 <b>ESPLORA LA NATURA</b> — mari, oceani, terra, vulcani, placche, ghiacciai",
     )
 
@@ -298,9 +298,12 @@ def world_natura_text() -> str:
 def world_live_text() -> str:
     return _card(
         "📡 <b>LIVE</b>",
-        "Solo chiamate API. Feed USGS e NASA EONET, niente schede Wikipedia.",
-        "🌋 Terremoti: 24 ore, 7 giorni, significativi\n"
-        "🌪️ Eventi aperti, poi filtri: vulcani, tempeste, incendi, ghiaccio, alluvioni, frane, siccità\n\n"
+        "Cataloghi aperti adesso. Ogni evento ha una riga di senso e un link alla fonte. Niente Wikipedia.",
+        "📅 <b>Scosse</b> — USGS: ultime 24 ore, 7 giorni, o solo quelle importanti\n"
+        "🌋 <b>Eruzioni aperte</b> — vulcani che NASA sta ancora seguendo, non le schede di Esplora\n"
+        "🌀 <b>Cicloni e tempeste</b> — tifoni e uragani ancora aperti\n"
+        "🔥 Incendi · 🧊 Ghiaccio · 🌊 Alluvioni · 🪨 Frane · 🌵 Siccità\n"
+        "📋 Tutti i fenomeni — l'elenco misto, sempre con link\n\n"
         "Non è un'allerta della protezione civile.",
     )
 

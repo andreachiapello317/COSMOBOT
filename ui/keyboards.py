@@ -112,13 +112,13 @@ def world_fauna_keyboard() -> InlineKeyboardMarkup:
 def world_live_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("📅 Terremoti 24h", "geo:quake:day"), kb_btn("📆 Terremoti 7g", "geo:quake:week")],
-            [kb_btn("⚠️ Terremoti significativi", "geo:quake:sig")],
-            [kb_btn("🔄 Eventi aperti", "geo:events")],
-            [kb_btn("🔥 Vulcani live", "geo:ev:volcanoes"), kb_btn("🌪️ Tempeste", "geo:ev:severeStorms")],
-            [kb_btn("🔥 Incendi", "geo:ev:wildfires"), kb_btn("🧊 Ghiaccio", "geo:ev:seaLakeIce")],
+            [kb_btn("📅 Scosse 24 ore", "geo:quake:day"), kb_btn("📆 Scosse 7 giorni", "geo:quake:week")],
+            [kb_btn("⚠️ Scosse importanti", "geo:quake:sig")],
+            [kb_btn("🌋 Eruzioni aperte", "geo:ev:volcanoes"), kb_btn("🌀 Cicloni e tempeste", "geo:ev:severeStorms")],
+            [kb_btn("🔥 Incendi aperti", "geo:ev:wildfires"), kb_btn("🧊 Ghiaccio", "geo:ev:seaLakeIce")],
             [kb_btn("🌊 Alluvioni", "geo:ev:floods"), kb_btn("🪨 Frane", "geo:ev:landslides")],
-            [kb_btn("🌵 Siccità", "geo:ev:drought")],
+            [kb_btn("🌵 Siccità", "geo:ev:drought"), kb_btn("📋 Tutti i fenomeni", "geo:events")],
+            [kb_btn("🌿 Flora", "world:flora")],
             nav_row(),
         ]
     )

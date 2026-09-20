@@ -123,9 +123,9 @@ GEO_CATALOGS: dict[str, tuple[dict[str, str], ...]] = {
 }
 
 QUAKE_FEEDS = {
-    "day": ("4.5_day", "M ≥ 4,5 nelle ultime 24 ore"),
-    "week": ("2.5_week", "M ≥ 2,5 negli ultimi 7 giorni"),
-    "sig": ("significant_week", "Eventi significativi della settimana"),
+    "day": ("4.5_day", "scosse di magnitudo almeno 4,5 nelle ultime 24 ore"),
+    "week": ("2.5_week", "scosse di magnitudo almeno 2,5 negli ultimi 7 giorni"),
+    "sig": ("significant_week", "solo le scosse che USGS marca come importanti, questa settimana"),
 }
 
 EONET_CAT_IT = {
@@ -146,6 +146,61 @@ EONET_CAT_IT = {
 
 # Eventi nel mondo: niente elenco di incendi. Restano in 📡 Live se li cerchi.
 EONET_WORLD_SKIP = frozenset({"wildfires"})
+
+EONET_WHAT = {
+    "volcanoes": "Attività vulcanica che NASA sta ancora seguendo. Non è la scheda enciclopedia e non dice se erutterà.",
+    "severeStorms": "Ciclone, tifone o tempesta ancora seguito. La posizione è l'ultimo punto del tracciato.",
+    "wildfires": "Incendio ancora aperto nel catalogo NASA.",
+    "seaLakeIce": "Ghiaccio marino o lacustre ancora seguito.",
+    "floods": "Alluvione ancora aperta nel tracciatore.",
+    "landslides": "Frana segnalata come ancora aperta.",
+    "drought": "Siccità ancora aperta nel catalogo.",
+    "earthquakes": "Terremoto nel tracciatore NASA. Spesso c'è anche la scheda USGS.",
+    "dustHaze": "Polvere o caligine ancora aperta.",
+    "snow": "Neve o tempesta di neve ancora aperta.",
+    "tempExtremes": "Temperatura estrema ancora aperta.",
+    "manmade": "Evento di origine umana nel catalogo.",
+    "waterColor": "Anomalia del colore delle acque.",
+}
+
+EONET_HEAD = {
+    "volcanoes": (
+        "🌋 ERUZIONI APERTE",
+        "Vulcani che il tracciatore NASA segue in questo momento. "
+        "Non sono le schede di Esplora la natura: qui conta solo se l'evento è ancora aperto.",
+    ),
+    "severeStorms": (
+        "🌀 CICLONI E TEMPESTE",
+        "Tempeste tropicali, tifoni e uragani ancora aperti. Ogni scheda ha il bollettino della fonte.",
+    ),
+    "wildfires": (
+        "🔥 INCENDI APERTI",
+        "Incendi che NASA EONET sta ancora seguendo. Sono tanti: tocca il link per il singolo caso.",
+    ),
+    "seaLakeIce": (
+        "🧊 GHIACCIO",
+        "Ghiaccio marino o lacustre ancora seguito nel catalogo NASA.",
+    ),
+    "floods": ("🌊 ALLUVIONI APERTE", "Alluvioni ancora aperte nel tracciatore NASA."),
+    "landslides": ("🪨 FRANE APERTE", "Frane ancora aperte nel tracciatore NASA."),
+    "drought": ("🌵 SICCITÀ APERTE", "Siccità ancora aperte nel catalogo NASA."),
+}
+
+EONET_SOURCE_IT = {
+    "SIVolcano": "Smithsonian Institution",
+    "GDACS": "GDACS",
+    "JTWC": "Joint Typhoon Warning Center",
+    "InciWeb": "InciWeb",
+    "IRWIN": "IRWIN (USA)",
+    "EO": "NASA Earth Observatory",
+    "ReliefWeb": "ReliefWeb",
+    "NATICE": "US National Ice Center",
+    "NOAA_NHC": "NOAA Hurricane Center",
+    "CEMS": "Copernicus EMS",
+    "MBFire": "MBFire",
+    "CALFIRE": "Cal Fire",
+    "IDC": "International Disaster Charter",
+}
 
 
 def geo_item(kind: str, sid: str) -> dict[str, str] | None:
@@ -205,6 +260,50 @@ async def fetch_eonet(
     return data
 
 
+def _html_link(url: str | None, label: str) -> str:
+    raw = str(url or "").strip()
+    if not raw.startswith("http"):
+        return ""
+    return f'<a href="{html.escape(raw, quote=True)}">{html.escape(label, quote=False)}</a>'
+
+
+def _latlon_it(lat: float, lon: float) -> str:
+    ns = "N" if lat >= 0 else "S"
+    ew = "E" if lon >= 0 else "O"
+    return f"{abs(lat):.1f}° {ns}, {abs(lon):.1f}° {ew}"
+
+
+def _mag_word(mag: float) -> str:
+    if mag < 3:
+        return "scossa debole"
+    if mag < 4:
+        return "scossa leggera"
+    if mag < 5:
+        return "scossa moderata"
+    if mag < 6:
+        return "scossa forte"
+    if mag < 7:
+        return "scossa molto forte"
+    return "scossa maggiore"
+
+
+def _eonet_source(event: dict[str, Any]) -> tuple[str | None, str]:
+    sources = event.get("sources") if isinstance(event.get("sources"), list) else []
+    for src in sources:
+        if not isinstance(src, dict):
+            continue
+        url = str(src.get("url") or "").strip()
+        if not url.startswith("http"):
+            continue
+        sid = str(src.get("id") or "").strip()
+        name = EONET_SOURCE_IT.get(sid, sid or "fonte")
+        return url, f"Apri la scheda — {name}"
+    link = str(event.get("link") or "").strip()
+    if link.startswith("http"):
+        return link, "Apri la scheda NASA EONET"
+    return None, ""
+
+
 def format_quakes(data: dict[str, Any], *, feed: str) -> str:
     _slug, blurb = QUAKE_FEEDS.get(feed, QUAKE_FEEDS["day"])
     meta = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
@@ -212,10 +311,9 @@ def format_quakes(data: dict[str, Any], *, feed: str) -> str:
     count = meta.get("count")
     generated = meta.get("generated")
     lines = [
-        "🌋 <b>TERREMOTI</b>",
-        f"<i>USGS · {blurb}</i>",
-        f"Eventi nel feed: {count if count is not None else len(features)}",
-        f"Aggiornato: {_when_it(generated) if generated else '—'}",
+        "🌋 <b>SCOSSE — CATALOGO USGS</b>",
+        f"<i>{blurb.capitalize()}. Ogni riga è una scossa misurata, con link alla scheda USGS.</i>",
+        f"Nel feed: {count if count is not None else len(features)} · aggiornato {_when_it(generated) if generated else '—'}",
         "",
     ]
     if not features:
@@ -223,43 +321,37 @@ def format_quakes(data: dict[str, Any], *, feed: str) -> str:
         lines.append("")
         lines.append("<i>Catalogo USGS, non un allarme civile e non un oracolo.</i>")
         return "\n".join(lines)
-    for item in features[:12]:
+    shown = 0
+    for item in features:
         if not isinstance(item, dict):
             continue
-        props = item.get("properties") if isinstance(item.get("properties"), dict) else {}
-        geom = item.get("geometry") if isinstance(item.get("geometry"), dict) else {}
-        coords = geom.get("coordinates") if isinstance(geom.get("coordinates"), list) else []
-        mag = props.get("mag")
-        place = props.get("place") or "luogo non indicato"
-        depth = coords[2] if len(coords) > 2 else None
-        try:
-            mag_s = f"{float(mag):.1f}"
-        except (TypeError, ValueError):
-            mag_s = "—"
-        try:
-            depth_s = f"{float(depth):.0f} km" if depth is not None else "—"
-        except (TypeError, ValueError):
-            depth_s = "—"
-        lines.append(
-            f"• <b>M {mag_s}</b> — {html.escape(str(place), quote=False)}\n"
-            f"  {_when_it(props.get('time'))} · profondità {depth_s}"
-        )
-    lines.extend(
-        [
-            "",
-            "<i>United States Geological Survey, feed GeoJSON pubblico. "
-            "Non sostituisce le allerte della protezione civile.</i>",
-        ]
+        if shown >= 8:
+            break
+        shown += 1
+        lines.append(_quake_line(item, index=shown))
+        lines.append("")
+    leftover = max(0, len([f for f in features if isinstance(f, dict)]) - shown)
+    if leftover:
+        lines.append(f"<i>Altre {leftover} scosse nel feed: apri una scheda USGS qui sopra, o cambia filtro.</i>")
+        lines.append("")
+    lines.append(
+        "<i>United States Geological Survey. Non sostituisce le allerte della protezione civile.</i>"
     )
     return "\n".join(lines)
 
 
 def format_eonet(data: dict[str, Any], *, category: str | None = None) -> str:
     events = data.get("events") if isinstance(data.get("events"), list) else []
-    filt = EONET_CAT_IT.get(category or "", "tutte le categorie aperte")
+    title, blurb = EONET_HEAD.get(
+        category or "",
+        (
+            "📡 FENOMENI APERTI",
+            "Eventi che NASA EONET marca ancora aperti. Ogni scheda ha il link alla fonte, non un titolo nudo.",
+        ),
+    )
     lines = [
-        "🌪️ <b>EVENTI SULLA TERRA</b>",
-        f"<i>NASA EONET · {filt}</i>",
+        f"<b>{title}</b>",
+        f"<i>{blurb}</i>",
         "",
     ]
     if not events:
@@ -267,28 +359,20 @@ def format_eonet(data: dict[str, Any], *, category: str | None = None) -> str:
         lines.append("")
         lines.append("<i>Earth Observatory Natural Event Tracker. Non è un bollettino di allerta.</i>")
         return "\n".join(lines)
-    for event in events[:12]:
+    shown = 0
+    for event in events:
         if not isinstance(event, dict):
             continue
-        title = str(event.get("title") or "Evento")
-        cats = event.get("categories") if isinstance(event.get("categories"), list) else []
-        labels = []
-        for cat in cats:
-            if isinstance(cat, dict):
-                key = str(cat.get("id") or "")
-                labels.append(EONET_CAT_IT.get(key, str(cat.get("title") or key)))
-        geometries = event.get("geometry") if isinstance(event.get("geometry"), list) else []
-        when = ""
-        if geometries and isinstance(geometries[0], dict):
-            when = _iso_it(str(geometries[0].get("date") or ""))
-        cat_line = ", ".join(labels) if labels else "—"
-        lines.append(f"• <b>{html.escape(title, quote=False)}</b>\n  {html.escape(cat_line, quote=False)} · {when or '—'}")
-    lines.extend(
-        [
-            "",
-            "<i>NASA EONET v3, eventi aperti. Titoli del feed; non è una previsione.</i>",
-        ]
-    )
+        if shown >= 8:
+            break
+        shown += 1
+        lines.append(_eonet_line(event, index=shown))
+        lines.append("")
+    leftover = max(0, len([ev for ev in events if isinstance(ev, dict)]) - shown)
+    if leftover:
+        lines.append(f"<i>Altri {leftover} eventi aperti in questo filtro. Tocca un link qui sopra.</i>")
+        lines.append("")
+    lines.append("<i>NASA EONET v3. Titoli e link del feed; non è una previsione e non è un'allerta.</i>")
     return "\n".join(lines)
 
 
@@ -394,46 +478,76 @@ async def fetch_quakes_near(
     return data
 
 
-def _quake_line(item: dict[str, Any], *, dist_km: float | None = None) -> str:
+def _quake_line(item: dict[str, Any], *, dist_km: float | None = None, index: int | None = None) -> str:
     props = item.get("properties") if isinstance(item.get("properties"), dict) else {}
     geom = item.get("geometry") if isinstance(item.get("geometry"), dict) else {}
     coords = geom.get("coordinates") if isinstance(geom.get("coordinates"), list) else []
-    mag = props.get("mag")
     place = props.get("place") or "luogo non indicato"
     depth = coords[2] if len(coords) > 2 else None
     try:
-        mag_s = f"{float(mag):.1f}"
+        mag = float(props.get("mag"))
+        mag_s = f"{mag:.1f}"
+        mag_word = _mag_word(mag)
     except (TypeError, ValueError):
         mag_s = "—"
+        mag_word = "magnitudo non indicata"
     try:
-        depth_s = f"{float(depth):.0f} km" if depth is not None else "—"
+        depth_s = f"{float(depth):.0f} km sotto terra" if depth is not None else "profondità non indicata"
     except (TypeError, ValueError):
-        depth_s = "—"
-    extra = f" · {dist_km:.0f} km" if dist_km is not None else ""
-    return (
-        f"• <b>M {mag_s}</b> — {html.escape(str(place), quote=False)}\n"
-        f"  {_when_it(props.get('time'))} · profondità {depth_s}{extra}"
-    )
+        depth_s = "profondità non indicata"
+    prefix = f"{index}. " if index else ""
+    bits = [
+        f"<b>{prefix}M {mag_s} — {html.escape(str(place), quote=False)}</b>",
+        f"{mag_word} · {_when_it(props.get('time'))} (ora di Roma) · {depth_s}",
+    ]
+    if len(coords) >= 2:
+        try:
+            bits.append(f"Coordinate: {_latlon_it(float(coords[1]), float(coords[0]))}")
+        except (TypeError, ValueError):
+            pass
+    if dist_km is not None:
+        bits.append(f"Distanza in linea d'aria: {dist_km:.0f} km")
+    link = _html_link(str(props.get("url") or ""), "Apri la scheda USGS")
+    if link:
+        bits.append(link)
+    return "\n".join(bits)
 
 
-def _eonet_line(event: dict[str, Any], *, dist_km: float | None = None) -> str:
+def _eonet_line(event: dict[str, Any], *, dist_km: float | None = None, index: int | None = None) -> str:
     title = str(event.get("title") or "Evento")
     cats = event.get("categories") if isinstance(event.get("categories"), list) else []
-    labels = []
+    keys: list[str] = []
+    labels: list[str] = []
     for cat in cats:
         if isinstance(cat, dict):
             key = str(cat.get("id") or "")
+            if key:
+                keys.append(key)
             labels.append(EONET_CAT_IT.get(key, str(cat.get("title") or key)))
+    what = EONET_WHAT.get(keys[0] if keys else "", "Fenomeno ancora aperto nel tracciatore NASA.")
     geometries = event.get("geometry") if isinstance(event.get("geometry"), list) else []
-    when = ""
-    if geometries and isinstance(geometries[0], dict):
-        when = _iso_it(str(geometries[0].get("date") or ""))
-    cat_line = ", ".join(labels) if labels else "—"
-    extra = f" · {dist_km:.0f} km" if dist_km is not None else ""
-    return (
-        f"• <b>{html.escape(title, quote=False)}</b>\n"
-        f"  {html.escape(cat_line, quote=False)} · {when or '—'}{extra}"
-    )
+    latest = geometries[-1] if geometries and isinstance(geometries[-1], dict) else {}
+    when = _iso_it(str(latest.get("date") or "")) if latest else "—"
+    prefix = f"{index}. " if index else ""
+    bits = [
+        f"<b>{prefix}{html.escape(title, quote=False)}</b>",
+        html.escape(what, quote=False),
+        f"Tipo: {html.escape(', '.join(labels) if labels else '—', quote=False)} · ultimo aggiornamento {when or '—'}",
+    ]
+    mag_v, mag_u = latest.get("magnitudeValue"), latest.get("magnitudeUnit")
+    if mag_v not in {None, ""} and mag_u:
+        bits.append(f"Misura nel feed: {html.escape(str(mag_v), quote=False)} {html.escape(str(mag_u), quote=False)}")
+    pairs = _coord_pairs(latest.get("coordinates")) if latest else []
+    if pairs:
+        ev_lat, ev_lon = pairs[-1]
+        bits.append(f"Ultima posizione: {_latlon_it(ev_lat, ev_lon)}")
+    if dist_km is not None:
+        bits.append(f"Distanza in linea d'aria: {dist_km:.0f} km")
+    url, label = _eonet_source(event)
+    link = _html_link(url, label)
+    if link:
+        bits.append(link)
+    return "\n".join(bits)
 
 
 def format_nearby_events(
@@ -550,16 +664,20 @@ def format_world_events(
     events = filter_eonet_world(raw_events)
     if features:
         lines.append("⚠️ <b>Terremoti significativi</b> <i>(USGS, settimana)</i>")
-        for item in features[:10]:
+        idx = 0
+        for item in features[:6]:
             if isinstance(item, dict):
-                lines.append(_quake_line(item))
-        lines.append("")
+                idx += 1
+                lines.append(_quake_line(item, index=idx))
+                lines.append("")
     if events:
         lines.append("🌪️ <b>Fenomeni aperti</b> <i>(NASA EONET, senza incendi)</i>")
-        for event in events[:12]:
+        idx = 0
+        for event in events[:6]:
             if isinstance(event, dict):
-                lines.append(_eonet_line(event))
-        lines.append("")
+                idx += 1
+                lines.append(_eonet_line(event, index=idx))
+                lines.append("")
     if not features and not events:
         lines.append("In questo momento i feed non segnalano eventi aperti.")
         lines.append("Non invento catastrofi.")

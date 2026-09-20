@@ -23,7 +23,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🔭 ASTRO → In orbita | Solo posizioni live: ISS e chi è in orbita | WTIA, Open Notify |
 | 🧮 CALC | Calcolatrice a pulsanti | calcolo locale |
 | 🌿 NATURA → Flora → Eventi | Catastrofi e fenomeni importanti nel mondo (senza il mare di incendi) | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) |
-| 🌿 NATURA → Flora → Live | Cartella di feed: terremoti 24h/7g/sig, filtri EONET (incendi qui) | USGS + NASA EONET |
+| 🌿 NATURA → Flora → Live | Scosse USGS e fenomeni NASA aperti; ogni evento ha cosa/dove e un link alla fonte | USGS + NASA EONET |
 | 🌿 NATURA → Flora → Esplora | Enciclopedia: terra, oceani, mari, vulcani, placche, ghiacciai | Wikipedia / Wikidata |
 | 🌿 NATURA → Fauna | Vuota, di proposito. Gli animali arrivano dopo | — |
 | 🌿 NATURA → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |
