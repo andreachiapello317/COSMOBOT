@@ -2026,7 +2026,7 @@ def help_text() -> str:
         "🔭 ASTRO = cielo, mondi, vita, missioni. "
         "Qui i comandi che usi davvero.\n\n"
         f"/oroscopo — senza segno uso {default_emoji} {default_it}\n"
-        "/tema — natale guidato · /compatibilita — sinastria\n"
+        "/tema — natale guidato · /compatibilita — due segni\n"
         "/oracoli — tarocchi, I Ching, rune, Lenormand, mazzi\n"
         "/pietre — laboratorio e catalogo · /pietra — oracolo\n"
         "/cielo — cosa vedi adesso · /osserva — da una città\n"
@@ -9438,7 +9438,7 @@ async def post_init(application: Application) -> None:
                 BotCommand("pietre", "Laboratorio e catalogo"),
                 BotCommand("cielo", "Cosa vedi adesso"),
                 BotCommand("mondi", "Esopianeti e sistemi"),
-                BotCommand("compatibilita", "Sinastria"),
+                BotCommand("compatibilita", "Due segni"),
                 BotCommand("cosmico", "Un pezzo da ogni mondo"),
                 BotCommand("random", "Sorprendimi"),
                 BotCommand("aiuto", "Manuale breve"),

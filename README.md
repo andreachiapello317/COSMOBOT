@@ -75,7 +75,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 `/tema` (o `/natale`) chiede data, ora e città una alla volta, geocodifica con CosmyDay e calcola Sole, Luna, Ascendente, pianeti, case e aspetti. Puoi salvare il tema e poi vedere i transiti di oggi rispetto alla carta.
 
-`/compatibilita` (o `/compat`, `/sinastria`) sta in 🔮 **Te stesso**. Non solo i Soli: Lune, Ascendenti, Mercurio, Venere e Marte, elementi, Big Three. Se hai un tema salvato, la sinastria calcola la seconda carta su CosmyDay (aspetti + overlay delle case). È astrologia tradizionale, non astronomia. Niente percentuali.
+`/compatibilita` (o `/compat`, `/sinastria`) sta in 🔮 **ORACOLO / Te stesso**. Prima i due segni (Soli). Poi, se vuoi, Lune, ascendenti, Venere e Marte, Big Three; con il tema salvato anche la sinastria. È astrologia tradizionale, non astronomia. Niente percentuali.
 
 `/tarocchi` (o `/tarot`) è una lettura guidata: scegli lo spread, (se serve) scrivi la domanda, poi **PESCA LE CARTE**. L’API decide quali carte escono; dritta/rovesciata è casuale; i testi sono i significati ufficiali, tradotti e letti insieme. Lo storico resta sul server (su Render free può azzerarsi al riavvio).
 
