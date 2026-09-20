@@ -29,6 +29,14 @@ BOTS: tuple[dict[str, Any], ...] = (
         "ready": True,
         "worlds": ("terra", "pietre", "quake", "volc", "water", "plates"),
     },
+    {
+        "id": "calc",
+        "emoji": "🧮",
+        "name": "CALC",
+        "tag": "Calcolatrice a pulsanti",
+        "ready": True,
+        "worlds": (),
+    },
 )
 
 # Vecchi token: COSMO → ORACOLO, slot vuoto → ASTRO.
@@ -103,4 +111,6 @@ def parent_bot_token(token: str) -> str:
     )
     if any(raw == key or raw.startswith(key) for key in geo):
         return "bot:geo"
+    if raw.startswith("calc:"):
+        return "bot:calc"
     return "bot:astro"

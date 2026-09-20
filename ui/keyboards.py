@@ -54,6 +54,7 @@ def all_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔮 ORACOLO", "bot:oracolo")],
             [kb_btn("🔭 ASTRO", "bot:astro")],
             [kb_btn("🌍 GEO", "bot:geo")],
+            [kb_btn("🧮 CALC", "bot:calc")],
             [kb_btn("📚 Aiuto", "home:aiuto")],
         ]
     )
@@ -295,9 +296,43 @@ def oracoli_mazzi_keyboard() -> InlineKeyboardMarkup:
 def world_sky_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🌙 Luna", "loc:go:luna"), kb_btn("⭐ Stelle", "home:stelle")],
-            [kb_btn("🌅 Alba", "loc:go:sole"), kb_btn("✨ Costellazioni", "home:costellazioni")],
-            [kb_btn("🌠 Eventi", "home:eventi")],
+            [kb_btn("🌙 Luna", "sky:luna"), kb_btn("⭐ Stelle", "sky:stelle")],
+            [kb_btn("🌅 Alba", "sky:alba"), kb_btn("🌇 Tramonto", "sky:tramonto")],
+            [kb_btn("🌠 Eventi", "sky:eventi"), kb_btn("✨ Costellazioni", "sky:costell")],
+            [kb_btn("📍 Cambia città", "sky:city")],
+            nav_row(),
+        ]
+    )
+
+
+def sky_result_keyboard(*extra: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
+    rows = [list(row) for row in extra if row]
+    rows.append([kb_btn("🔭 Cielo", "world:sky"), kb_btn("📍 Cambia città", "sky:city")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
+
+
+def calc_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("7", "calc:7"), kb_btn("8", "calc:8"), kb_btn("9", "calc:9"), kb_btn("÷", "calc:div")],
+            [kb_btn("4", "calc:4"), kb_btn("5", "calc:5"), kb_btn("6", "calc:6"), kb_btn("×", "calc:mul")],
+            [kb_btn("1", "calc:1"), kb_btn("2", "calc:2"), kb_btn("3", "calc:3"), kb_btn("−", "calc:sub")],
+            [kb_btn("0", "calc:0"), kb_btn(".", "calc:dot"), kb_btn("=", "calc:eq"), kb_btn("+", "calc:add")],
+            [kb_btn("C", "calc:c"), kb_btn("⌫", "calc:bs"), kb_btn("(", "calc:lp"), kb_btn(")", "calc:rp")],
+            nav_row(),
+        ]
+    )
+
+
+def meteo_span_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("Oggi e domani", "wx:d:2")],
+            [kb_btn("3 giorni", "wx:d:3"), kb_btn("7 giorni", "wx:d:7")],
+            [kb_btn("14 giorni", "wx:d:14")],
+            [kb_btn("✍️ Scrivi i giorni", "wx:ask")],
+            [kb_btn("📍 Cambia città", "loc:go:meteo")],
             nav_row(),
         ]
     )
@@ -511,20 +546,15 @@ def cosmico_keyboard() -> InlineKeyboardMarkup:
 
 
 def sole_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("📍 Cambia città", "loc:go:sole")],
-            [kb_btn("🔄 Aggiorna", "home:sole")],
-            nav_row(),
-        ]
-    )
+    return sky_result_keyboard([kb_btn("🔄 Aggiorna", "sky:alba")])
 
 
 def meteo_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("📍 Cambia città", "loc:go:meteo")],
-            [kb_btn("🔄 Aggiorna", "wx:refresh")],
+            [kb_btn("Oggi e domani", "wx:d:2"), kb_btn("3 giorni", "wx:d:3")],
+            [kb_btn("7 giorni", "wx:d:7"), kb_btn("14 giorni", "wx:d:14")],
+            [kb_btn("✍️ Altri giorni", "wx:ask"), kb_btn("📍 Cambia città", "loc:go:meteo")],
             nav_row(),
         ]
     )

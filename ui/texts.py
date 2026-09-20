@@ -1,5 +1,7 @@
 """Testi di interfaccia: BOTSQUAD, ORACOLO e ASTRO. I mondi non si mescolano."""
 
+import html as _html
+
 
 def _card(title: str, intro: str, body: str = "") -> str:
     """Scheda: titolo + presentazione minima + eventuale corpo."""
@@ -13,10 +15,11 @@ def _card(title: str, intro: str, body: str = "") -> str:
 def all_hub_text() -> str:
     return _card(
         "🪐 <b>BOTSQUAD</b>",
-        "Tre bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
+        "Quattro bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
-        "🌍 <b>GEO</b> — la Terra: pietre, terremoti, vulcani, oceani.\n\n"
+        "🌍 <b>GEO</b> — la Terra: pietre, terremoti, vulcani, oceani.\n"
+        "🧮 <b>CALC</b> — calcolatrice a pulsanti.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
 
@@ -40,8 +43,8 @@ def astro_hub_text() -> str:
     return _card(
         "🔭 <b>ASTRO</b>",
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
-        "🔭 <b>CIELO</b> — luna, stelle, alba, eventi, costellazioni\n"
-        "🌤️ <b>METEO</b> — previsioni Open-Meteo di qualsiasi città del mondo\n"
+        "🔭 <b>CIELO</b> — prima la città, poi luna, stelle, alba, tramonto, eventi, costellazioni\n"
+        "🌤️ <b>METEO</b> — scegli città e giorni (se non dici nulla: oggi e domani)\n"
         "🪐 <b>MONDI</b> — esopianeti, pianeti, vita, missioni\n\n"
         "Le pietre e i dati sulla Terra stanno in 🌍 GEO."
     )
@@ -142,13 +145,38 @@ def world_asksky_text() -> str:
     )
 
 
-def world_sky_text() -> str:
+def world_sky_text(place: str = "") -> str:
+    where = (
+        f"Città salvata: <b>{_html.escape(place)}</b>."
+        if place
+        else "Appena entri, chiedo la città e la tengo."
+    )
     return _card(
         "🔭 <b>CIELO</b>",
-        "Osservatorio: luna, stelle, alba, eventi, costellazioni. Numeri live, niente oracoli.",
-        "🌙 Luna e 🌅 alba chiedono la città.\n"
-        "⭐ Stelle · ✨ Costellazioni · 🌠 Eventi\n\n"
+        "Osservatorio: luna, stelle, alba, tramonto, eventi, costellazioni. Numeri live, niente oracoli.",
+        f"{where}\n"
+        "Ogni pulsante usa quella città. In fondo: 📍 Cambia città.\n\n"
         "Il meteo ha la sua sezione. Pianeti, vita e missioni stanno in 🪐 Mondi.",
+    )
+
+
+def meteo_span_text(place: str) -> str:
+    return _card(
+        f"🌤️ <b>METEO — {_html.escape(place)}</b>",
+        "Quanti giorni, o quali. Se non dici nulla: oggi e domani.",
+        "Tocca una finestra, oppure scrivi: <code>3 giorni</code>, "
+        "<code>lunedì</code>, <code>da venerdì a domenica</code>.",
+    )
+
+
+def calc_hub_text(expr: str = "", error: str = "") -> str:
+    shown = expr.strip() if expr and expr.strip() else "0"
+    extra = f"\n\n⚠️ {_html.escape(error)}" if error else ""
+    return (
+        "🧮 <b>CALC</b>\n"
+        "<i>Calcolatrice a pulsanti. Solo numeri, niente cielo e niente oracoli.</i>\n\n"
+        f"<code>{_html.escape(shown)}</code>"
+        f"{extra}"
     )
 
 
