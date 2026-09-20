@@ -113,7 +113,7 @@ from services.sats import (
     locate_sat,
     locate_starlink_overhead,
 )
-from services.satimages import fetch_sat_view
+from services.satimages import DEFAULT_LAYER, LAYER_KEYS, SPAN_IT, SPAN_STEPS, fetch_sat_view
 from services.neo import near_earth_asteroids
 from services.progress import (
     mission_done,
@@ -552,6 +552,7 @@ WATCH_EYE_VIEW_KEY = "watch_eye_view"
 NATURA_LAST_KEY = "natura_last"
 EARTH_OBS_KEY = "earth_obs_place"
 EARTH_OBS_LAYER_KEY = "earth_obs_layer"
+EARTH_OBS_SPAN_KEY = "earth_obs_span"
 BUSSOLA_LAST_KEY = "bussola_last"
 MATH_ASK_KEY = "math_ask"
 TOOL_CAL_KEY = "tool_cal_shift"
@@ -7748,11 +7749,27 @@ def _remember_earth_obs_place(context: ContextTypes.DEFAULT_TYPE, name: str, lat
 
 
 def _earth_obs_layer(context: ContextTypes.DEFAULT_TYPE, choose: str | None = None) -> str:
-    if choose in {"terra", "aqua"}:
+    if choose == "aqua":
+        choose = DEFAULT_LAYER
+    if choose in LAYER_KEYS:
         context.user_data[EARTH_OBS_LAYER_KEY] = choose
         return choose
-    current = str(context.user_data.get(EARTH_OBS_LAYER_KEY) or "terra")
-    return current if current in {"terra", "aqua"} else "terra"
+    current = str(context.user_data.get(EARTH_OBS_LAYER_KEY) or DEFAULT_LAYER)
+    if current == "aqua":
+        current = DEFAULT_LAYER
+    return current if current in LAYER_KEYS else DEFAULT_LAYER
+
+
+def _earth_obs_span(context: ContextTypes.DEFAULT_TYPE, asked: str | None = None) -> tuple[float, str]:
+    raw = context.user_data.get(EARTH_OBS_SPAN_KEY)
+    idx = 1 if raw is None else int(raw)
+    idx = max(0, min(idx, len(SPAN_STEPS) - 1))
+    if asked == "zin":
+        idx = max(idx - 1, 0)
+    elif asked == "zout":
+        idx = min(idx + 1, len(SPAN_STEPS) - 1)
+    context.user_data[EARTH_OBS_SPAN_KEY] = idx
+    return SPAN_STEPS[idx], SPAN_IT[idx]
 
 
 def _remember_natura_place(context: ContextTypes.DEFAULT_TYPE, name: str, lat: float, lon: float) -> None:
@@ -7912,8 +7929,11 @@ async def on_watch_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await send_horizons_list(update, context, kind="comet")
         return
     if action == "sats":
-        if extra == "earth" and extra2 in {"terra", "aqua"}:
-            _earth_obs_layer(context, extra2)
+        if extra == "earth":
+            if extra2 in {*LAYER_KEYS, "aqua"}:
+                _earth_obs_layer(context, extra2)
+            elif extra2 in {"zin", "zout"}:
+                _earth_obs_span(context, extra2)
         await send_watch_sats(update, context, view=extra or "hub")
         return
     if action == "tonight":
@@ -8419,22 +8439,25 @@ async def send_earth_obs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     nav_mark(context, "watch:sats:earth")
     name, lat, lon = _earth_obs_place(context)
     layer = _earth_obs_layer(context)
-    markup = watch_earth_keyboard(layer)
+    span, span_it = _earth_obs_span(context)
+    markup = watch_earth_keyboard(layer, span_it)
     await send_typing(update)
-    await deliver_text(update, context, f"🌍 Foto di {name}…")
-    sat_it = "Terra" if layer == "terra" else "Aqua"
+    await deliver_text(update, context, f"🌍 Worldview: {name}…")
     try:
-        view = await fetch_sat_view(_http_client(context), layer, lat, lon, place=name)
+        view = await fetch_sat_view(
+            _http_client(context), layer, lat, lon, place=name, span=span
+        )
     except Exception:
         logger.exception("GIBS %s", name)
         view = {}
     image = view.get("bytes") if isinstance(view.get("bytes"), (bytes, bytearray)) else None
     day = str(view.get("day") or "")
     when_bit = day[8:10] + "/" + day[5:7] + "/" + day[:4] if len(day) == 10 else "oggi"
+    note = str(view.get("note") or "NASA Worldview / GIBS")
     text = (
         f"🌍 <b>OSSERVAZIONE TERRA</b>\n"
         f"📍 <b>{e(name)}</b>\n"
-        f"NASA GIBS · MODIS {e(sat_it)} · {when_bit}\n"
+        f"{e(note)} · {when_bit} · {e(span_it)}\n"
         "<i>Solo questa cartella. Non è Cielo né Starlink.</i>"
     )
     if image:
@@ -8458,7 +8481,7 @@ async def send_earth_obs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await reply_html(
         update,
         context,
-        f"{text}\n\nNiente foto per questo punto (GIBS). Prova Aqua o un altro luogo.",
+        f"{text}\n\nNiente foto per questo punto (GIBS). Prova un altro strato o un altro luogo.",
         reply_markup=markup,
     )
 

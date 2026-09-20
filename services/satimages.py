@@ -1,4 +1,4 @@
-"""Immagini pubbliche del suolo da NASA GIBS. Niente chiave."""
+"""Immagini NASA Worldview / GIBS. Snapshot pubblico, niente chiave."""
 
 from __future__ import annotations
 
@@ -11,15 +11,57 @@ from PIL import Image, ImageDraw, ImageFont
 
 GIBS_SNAPSHOT = "https://wvs.earthdata.nasa.gov/api/v1/snapshot"
 
-GIBS_LAYER: dict[str, str] = {
-    "terra": "MODIS_Terra_CorrectedReflectance_TrueColor",
-    "aqua": "MODIS_Aqua_CorrectedReflectance_TrueColor",
+# Strati Worldview. Niente WRAP=DAY: GIBS risponde XML.
+GIBS: dict[str, dict[str, Any]] = {
+    "vii": {
+        "layers": "VIIRS_SNPP_CorrectedReflectance_TrueColor",
+        "it": "VIIRS colore vero",
+        "btn": "VIIRS",
+        "emoji": "✨",
+        "look": 4,
+    },
+    "terra": {
+        "layers": "MODIS_Terra_CorrectedReflectance_TrueColor",
+        "it": "MODIS Terra",
+        "btn": "Terra",
+        "emoji": "🌍",
+        "look": 4,
+    },
+    "false": {
+        "layers": "MODIS_Terra_CorrectedReflectance_Bands721",
+        "it": "Falso colore 7-2-1",
+        "btn": "Falso",
+        "emoji": "🎨",
+        "look": 4,
+    },
+    "night": {
+        "layers": "VIIRS_SNPP_DayNightBand_ENCC",
+        "it": "Luci notturne",
+        "btn": "Notti",
+        "emoji": "🌃",
+        "look": 7,
+    },
+    "fire": {
+        "layers": "MODIS_Terra_CorrectedReflectance_TrueColor,MODIS_Combined_Thermal_Anomalies_All",
+        "it": "Incendi (anomalie termiche)",
+        "btn": "Fuochi",
+        "emoji": "🔥",
+        "look": 4,
+    },
 }
 
-LAYER_IT = {"terra": "MODIS Terra", "aqua": "MODIS Aqua"}
+GIBS_LAYER = {key: str(row["layers"]) for key, row in GIBS.items()}
+LAYER_IT = {key: str(row["it"]) for key, row in GIBS.items()}
+LAYER_KEYS = tuple(GIBS)
+DEFAULT_LAYER = "vii"
 
-# Inquadratura stretta: con 7.5° Cuneo e Berlino si sovrapponevano.
-CITY_SPAN = 2.2
+SPAN_STEPS = (1.0, 2.2, 5.2)
+SPAN_IT = ("città", "zona", "regione")
+CITY_SPAN = SPAN_STEPS[1]
+
+
+def layer_meta(key: str) -> dict[str, Any]:
+    return GIBS.get(key) or GIBS[DEFAULT_LAYER]
 
 
 def _bbox(lat: float, lon: float, span: float = CITY_SPAN) -> str:
@@ -56,6 +98,10 @@ def stamp_place_photo(data: bytes, place: str, when: str) -> bytes:
     return out.getvalue()
 
 
+def _is_jpeg(data: bytes) -> bool:
+    return data[:3] == b"\xff\xd8\xff" and len(data) > 8000 and not data.lstrip().startswith(b"<")
+
+
 async def fetch_gibs_true_color(
     client: httpx.AsyncClient,
     layer: str,
@@ -63,9 +109,10 @@ async def fetch_gibs_true_color(
     lon: float,
     *,
     span: float = CITY_SPAN,
+    look: int = 4,
 ) -> tuple[bytes | None, str]:
     today = datetime.now(timezone.utc).date()
-    for back in range(0, 4):
+    for back in range(0, max(2, int(look) + 1)):
         day = today - timedelta(days=back)
         try:
             response = await client.get(
@@ -83,7 +130,7 @@ async def fetch_gibs_true_color(
             )
             response.raise_for_status()
             data = response.content
-            if data[:3] == b"\xff\xd8\xff" and len(data) > 8000:
+            if _is_jpeg(data):
                 return data, day.isoformat()
         except Exception:
             continue
@@ -97,18 +144,28 @@ async def fetch_sat_view(
     lon: float,
     *,
     place: str = "",
+    span: float = CITY_SPAN,
 ) -> dict[str, Any]:
-    layer = GIBS_LAYER.get(key) or GIBS_LAYER["terra"]
-    used = key if key in GIBS_LAYER else "terra"
-    data, day = await fetch_gibs_true_color(client, layer, lat, lon)
+    if key == "aqua":
+        key = DEFAULT_LAYER
+    meta = layer_meta(key)
+    used = key if key in GIBS else DEFAULT_LAYER
+    data, day = await fetch_gibs_true_color(
+        client,
+        str(meta["layers"]),
+        lat,
+        lon,
+        span=span,
+        look=int(meta.get("look") or 4),
+    )
     if data and place:
         label = day.replace("-", "/") if day else ""
-        data = stamp_place_photo(data, place, f"{LAYER_IT[used]} · {label}" if label else LAYER_IT[used])
-    slug = f"{used}_{lat:.2f}_{lon:.2f}_{day or 'x'}".replace("-", "m").replace(".", "p")
+        data = stamp_place_photo(data, place, f"{meta['it']} · {label}" if label else str(meta["it"]))
+    slug = f"{used}_{lat:.2f}_{lon:.2f}_{span:.1f}_{day or 'x'}".replace("-", "m").replace(".", "p")
     return {
         "bytes": data,
         "day": day,
         "layer": used,
         "filename": f"{slug}.jpg",
-        "note": f"NASA GIBS · {LAYER_IT[used]}" + (f" · {day}" if day else ""),
+        "note": f"NASA Worldview / GIBS · {meta['it']}" + (f" · {day}" if day else ""),
     }

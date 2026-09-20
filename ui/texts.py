@@ -328,8 +328,8 @@ def watch_sats_hub_text(place: str = "") -> str:
         "Tre porte. L'enciclopedia Wikipedia sta in Studia lo spazio.",
         "📍 <b>POSIZIONE SATELLITI</b> — ISS, Tiangong, Hubble, stazioni, Starlink. Dove sono adesso.\n"
         "👥 <b>CHI È LASSÙ</b> — chi è in orbita, Open Notify.\n"
-        "🌍 <b>OSSERVAZIONE TERRA</b> — foto del suolo sul luogo che scegli lì. "
-        "Quel luogo vale solo per questa cartella.\n\n"
+        "🌍 <b>OSSERVAZIONE TERRA</b> — NASA Worldview / GIBS: colore vero, falso, notti, fuochi. "
+        "Luogo e zoom solo in questa cartella.\n\n"
         "I passaggi sopra una città non li calcolo.",
     )
 

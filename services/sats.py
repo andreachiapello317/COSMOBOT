@@ -111,7 +111,7 @@ GROUPS: dict[str, dict[str, Any]] = {
         "it": "Osservazione Terra",
         "emoji": "🌍",
         "keys": ("terra", "aqua", "ld8", "ld9", "s2a"),
-        "blurb": "Foto del suolo sul luogo scelto in questa cartella.",
+        "blurb": "NASA Worldview / GIBS: colore vero, falso, notti, fuochi. Luogo e zoom solo qui.",
     },
     "sl": {
         "it": "Starlink",

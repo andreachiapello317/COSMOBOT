@@ -828,15 +828,24 @@ def watch_sats_pos_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def watch_earth_keyboard(layer: str = "terra") -> InlineKeyboardMarkup:
-    def mark(key: str, label: str) -> InlineKeyboardButton:
+def watch_earth_keyboard(layer: str = "vii", span_label: str = "zona") -> InlineKeyboardMarkup:
+    from services.satimages import GIBS
+
+    def mark(key: str) -> InlineKeyboardButton:
+        meta = GIBS[key]
         prefix = "· " if key == layer else ""
-        return kb_btn(f"{prefix}{label}", f"watch:sats:earth:{key}")
+        return kb_btn(f"{prefix}{meta['emoji']} {meta['btn']}", f"watch:sats:earth:{key}")
 
     return InlineKeyboardMarkup(
         [
             [kb_btn("📍 Cambia luogo", "loc:go:terra")],
-            [mark("terra", "🌍 Terra"), mark("aqua", "💧 Aqua")],
+            [mark("vii"), mark("terra"), mark("false")],
+            [mark("night"), mark("fire")],
+            [
+                kb_btn("🔍 −", "watch:sats:earth:zout"),
+                kb_btn(span_label, "watch:sats:earth"),
+                kb_btn("🔍 +", "watch:sats:earth:zin"),
+            ],
             [kb_btn("🔄 Aggiorna", "watch:sats:earth")],
             nav_row(),
         ]
