@@ -465,6 +465,7 @@ NAV_SKIP_EXACT = frozenset(
         "oq:wait",
         "md:save",
         "home:menu",
+        "loc:here",
     }
 )
 NAV_SKIP_PREFIXES = (
@@ -2212,8 +2213,8 @@ def help_text() -> str:
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
-        "pianeti sopra la tua città: niente carte).\n"
-        "🔭 <b>ASTRO</b> — Cielo (prima la città), Meteo, Esplora lo spazio "
+        "pianeti sopra di te: città o la tua posizione, niente carte).\n"
+        "🔭 <b>ASTRO</b> — Cielo (città o GPS), Meteo, Esplora lo spazio "
         "(enciclopedia), In orbita (ISS e dati live). Niente divinazione.\n"
         "🌿 <b>NATURA</b> — Flora (eventi nel mondo, live, enciclopedia), "
         "Fauna (vuota), Pietre.\n"
@@ -4803,6 +4804,7 @@ def osserva_picker_keyboard() -> InlineKeyboardMarkup:
             pair = []
     if pair:
         rows.append(pair)
+    rows.append([_tarot_btn("📍 La tua posizione", "loc:here")])
     rows.append([_tarot_btn("✍️ Altra città", "osserva:ask")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
@@ -5243,9 +5245,12 @@ async def show_osserva_picker(update: Update, context: ContextTypes.DEFAULT_TYPE
     state = _osserva_state(context)
     state.clear()
     state["step"] = "pick"
+    context.user_data[LOC_PURPOSE_KEY] = "osserva"
+    context.user_data[LOC_ASK_KEY] = True
     text = (
         "🔭 <b>COSA POSSO VEDERE STASERA?</b>\n\n"
-        "Scegli una città. Uso posizione, data e ora per Luna, pianeti "
+        "Scegli una città, oppure tocca <b>La tua posizione</b> e manda il GPS. "
+        "Uso posizione, data e ora per Luna, pianeti "
         "e costellazioni sopra l'orizzonte.\n\n"
         "Oppure scrivi un'altra città in un messaggio."
     )
@@ -5255,13 +5260,18 @@ async def show_osserva_picker(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def show_osserva_ask_city(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = _osserva_state(context)
     state["step"] = "ask"
+    context.user_data[LOC_PURPOSE_KEY] = "osserva"
+    context.user_data[LOC_ASK_KEY] = True
     await reply_html(
         update,
         context,
         "🔭 <b>Da dove guardi?</b>\n\n"
         "Scrivi città e paese.\n"
-        "Esempio: <code>Bologna, Italia</code>",
-        reply_markup=InlineKeyboardMarkup([nav_row()]),
+        "Esempio: <code>Bologna, Italia</code>\n\n"
+        "Oppure tocca <b>La tua posizione</b> e manda il GPS.",
+        reply_markup=InlineKeyboardMarkup(
+            [[_tarot_btn("📍 La tua posizione", "loc:here")], nav_row()]
+        ),
     )
 
 
@@ -5893,10 +5903,14 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
             return
         if action == "ask":
             context.user_data["cielo_ask"] = True
+            context.user_data[LOC_PURPOSE_KEY] = "cielo"
+            context.user_data[LOC_ASK_KEY] = True
             await reply_html(
                 update,
                 context,
-                "📍 <b>Da dove guardi?</b>\n\nScrivi città e paese.\nEsempio: <code>Bologna, Italia</code>",
+                "📍 <b>Da dove guardi?</b>\n\n"
+                "Scrivi città e paese.\nEsempio: <code>Bologna, Italia</code>\n\n"
+                "Oppure tocca <b>La tua posizione</b> e manda il GPS.",
                 reply_markup=cielo_picker_keyboard(),
             )
             return
@@ -7151,7 +7165,8 @@ async def show_place_picker(
         text = (
             f"📍 <b>DOVE TI TROVI?</b>\n\n"
             f"{e(prompt)}\n\n"
-            "Italia, una città del mondo, oppure scrivila: vale qualsiasi luogo."
+            "📍 <b>La tua posizione</b> (GPS di Telegram), Italia, una città del mondo, "
+            "oppure scrivila: vale qualsiasi luogo."
         )
         markup = place_hub_keyboard()
     await reply_html(update, context, text, reply_markup=markup)
@@ -7163,6 +7178,10 @@ async def apply_place(
     name: str,
     lat: float,
     lon: float,
+    *,
+    accuracy_m: float | None = None,
+    heading: float | None = None,
+    source: str = "città",
 ) -> None:
     context.user_data[LOC_ASK_KEY] = False
     context.user_data["cielo_ask"] = False
@@ -7172,7 +7191,17 @@ async def apply_place(
         await send_natura_here(update, context)
         return
     if purpose in {"gps", "compass", "brfrom", "brto"}:
-        await apply_bussola_place(update, context, name, lat, lon, purpose)
+        await apply_bussola_place(
+            update,
+            context,
+            name,
+            lat,
+            lon,
+            purpose,
+            accuracy_m=accuracy_m,
+            heading=heading,
+            source=source,
+        )
         return
     _remember_cielo_place(context, name, lat, lon)
     if purpose == "cielo":
@@ -7273,6 +7302,10 @@ async def on_loc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await query.answer()
         await show_place_picker(update, context, _loc_purpose(context), step=action)
         return
+    if action == "here":
+        await query.answer()
+        await ask_telegram_location(update, context)
+        return
     if action == "ask":
         await query.answer()
         context.user_data[LOC_ASK_KEY] = True
@@ -7281,7 +7314,8 @@ async def on_loc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             context,
             "📍 <b>Scrivi la città</b>\n\n"
             "Città e paese. Esempio: <code>Lisbona, Portogallo</code>, "
-            "<code>Buenos Aires</code>, <code>Osaka, Giappone</code>.",
+            "<code>Buenos Aires</code>, <code>Osaka, Giappone</code>.\n\n"
+            "Oppure tocca <b>La tua posizione</b> e manda il GPS, senza scrivere nulla.",
             reply_markup=place_hub_keyboard(),
         )
         return
@@ -7655,6 +7689,7 @@ def cielo_picker_keyboard() -> InlineKeyboardMarkup:
             pair = []
     if pair:
         rows.append(pair)
+    rows.append([_tarot_btn("📍 La tua posizione", "loc:here")])
     rows.append([_tarot_btn("✍️ Altra città", "cielo:ask")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
@@ -8115,12 +8150,15 @@ async def on_cielo_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.answer()
         _osserva_reset(context)
         context.user_data["cielo_ask"] = True
+        context.user_data[LOC_PURPOSE_KEY] = "cielo"
+        context.user_data[LOC_ASK_KEY] = True
         await reply_html(
             update,
             context,
             "📍 <b>Da dove guardi?</b>\n\n"
             "Scrivi città e paese.\n"
-            "Esempio: <code>Bologna, Italia</code>",
+            "Esempio: <code>Bologna, Italia</code>\n\n"
+            "Oppure tocca <b>La tua posizione</b> e manda il GPS.",
             reply_markup=cielo_picker_keyboard(),
         )
         return
@@ -11586,24 +11624,30 @@ async def send_bussola_bearing(
     await reply_html(update, context, text, reply_markup=compass_result_keyboard(), preview=True)
 
 
-async def ask_telegram_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def ask_telegram_location(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    purpose: str | None = None,
+) -> None:
     chat = update.effective_chat
     if chat is None:
         return
+    if purpose:
+        context.user_data[LOC_PURPOSE_KEY] = purpose
     context.user_data[COMPASS_SHARE_KEY] = True
-    context.user_data[LOC_PURPOSE_KEY] = "gps"
     context.user_data[LOC_ASK_KEY] = True
     markup = ReplyKeyboardMarkup(
-        [[KeyboardButton("📍 Invia la posizione", request_location=True)]],
+        [[KeyboardButton("📍 La tua posizione", request_location=True)]],
         resize_keyboard=True,
         one_time_keyboard=True,
     )
     await context.bot.send_message(
         chat_id=chat.id,
         text=(
-            "📍 <b>POSIZIONE TELEGRAM</b>\n\n"
-            "Tocca <b>Invia la posizione</b> qui sotto, oppure la graffetta → Posizione. "
-            "Puoi anche scrivere una città."
+            "📍 <b>LA TUA POSIZIONE</b>\n\n"
+            "Tocca <b>La tua posizione</b> qui sotto, oppure la graffetta → Posizione. "
+            "Telegram manda il GPS: non serve scrivere la città."
         ),
         parse_mode=ParseMode.HTML,
         reply_markup=markup,
@@ -11638,7 +11682,7 @@ async def dispatch_compass(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         await show_place_picker(update, context, "gps")
         return
     if action == "share":
-        await ask_telegram_location(update, context)
+        await ask_telegram_location(update, context, purpose="gps")
         return
     await show_bussola_hub(update, context)
 
@@ -11656,19 +11700,19 @@ async def on_user_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     message = update.effective_message
     if message is None or message.location is None:
         return
+    if not (context.user_data.get(LOC_ASK_KEY) or context.user_data.get(COMPASS_SHARE_KEY)):
+        return
     loc = message.location
     client = _http_client(context)
     try:
         name = await reverse_place(client, float(loc.latitude), float(loc.longitude))
     except Exception:
         name = "La tua posizione"
-    purpose = _loc_purpose(context)
-    if purpose not in {"gps", "compass", "brfrom", "brto"}:
-        purpose = "gps"
     accuracy = float(loc.horizontal_accuracy) if loc.horizontal_accuracy is not None else None
     heading = float(loc.heading) if getattr(loc, "heading", None) is not None else None
     context.user_data[COMPASS_SHARE_KEY] = False
     context.user_data[LOC_ASK_KEY] = False
+    context.user_data["cielo_ask"] = False
     chat = update.effective_chat
     if chat is not None:
         try:
@@ -11680,13 +11724,12 @@ async def on_user_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         except TelegramError:
             pass
     await delete_user_command(update)
-    await apply_bussola_place(
+    await apply_place(
         update,
         context,
         name,
         float(loc.latitude),
         float(loc.longitude),
-        purpose,
         accuracy_m=accuracy,
         heading=heading,
         source="Telegram",

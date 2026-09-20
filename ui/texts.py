@@ -36,7 +36,7 @@ def oracolo_hub_text() -> str:
         "Bot di BOTSQUAD per guardarsi dentro. Simboli, non telescopio.",
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
         "🃏 <b>CONSULTAZIONI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n"
-        "🌌 <b>INTERROGA IL CIELO</b> — luna, stelle e pianeti sopra la tua città\n\n"
+        "🌌 <b>INTERROGA IL CIELO</b> — luna, stelle e pianeti sopra di te (città o GPS)\n\n"
         "Il cielo misurato sta in 🔭 ASTRO. La Terra e le pietre stanno in 🌿 NATURA.",
     )
 
@@ -45,8 +45,8 @@ def astro_hub_text() -> str:
     return _card(
         "🔭 <b>ASTRO</b>",
         "Osservatorio stellare di BOTSQUAD. Numeri live, cataloghi, niente divinazione.",
-        "🔭 <b>CIELO</b> — prima la città, poi luna, stelle, alba, tramonto, eventi\n"
-        "🌤️ <b>METEO</b> — scegli città e giorni (se non dici nulla: oggi e domani)\n"
+        "🔭 <b>CIELO</b> — prima il luogo (città o la tua posizione), poi luna, stelle, alba, tramonto, eventi\n"
+        "🌤️ <b>METEO</b> — luogo e giorni (se non dici nulla: oggi e domani)\n"
         "🚀 <b>ESPLORA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n"
         "🛰️ <b>IN ORBITA</b> — solo posizioni live: ISS e chi è lassù\n\n"
         "La Terra e le pietre stanno in 🌿 NATURA."
@@ -143,7 +143,7 @@ def world_div_text() -> str:
 def world_asksky_text() -> str:
     return _card(
         "🌌 <b>INTERROGA IL CIELO</b>",
-        "Prima la città. Poi il cielo sopra di te: luna, stelle, pianeti. Niente carte.",
+        "Prima il luogo (città o la tua posizione). Poi il cielo sopra di te: luna, stelle, pianeti. Niente carte.",
         "Altezza e orari sono astronomia. La lettura è mistica, non un effetto dimostrato.",
     )
 
@@ -152,7 +152,7 @@ def world_sky_text(place: str = "") -> str:
     where = (
         f"Città salvata: <b>{_html.escape(place)}</b>."
         if place
-        else "Appena entri, chiedo la città e la tengo."
+        else "Appena entri, chiedo la città o la tua posizione e la tengo."
     )
     return _card(
         "🔭 <b>CIELO</b>",
@@ -224,7 +224,7 @@ def compass_hub_text() -> str:
         "📍 <b>POSIZIONE GPS</b> — coordinate, quota del terreno, declinazione, mappa\n"
         "🧭 <b>BUSSOLA</b> — nord geografico e nord magnetico in quel punto\n"
         "🎯 <b>VERSO UN LUOGO</b> — distanza in linea d'aria e azimut\n\n"
-        "Puoi scrivere una città o mandare la posizione da Telegram.",
+        "Puoi scrivere una città o toccare 📍 La tua posizione e mandare il GPS.",
     )
 
 

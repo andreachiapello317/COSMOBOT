@@ -16,9 +16,9 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | --- | --- | --- |
 | 🔮 ORACOLO → Te stesso | Oroscopo (giorno / settimana / mese; senza segno usa **Bilancia**), tema natale guidato, specchio, compatibilità due segni | [freehoroscopeapi.com](https://freehoroscopeapi.com), [CosmyDay](https://cosmyday.com/api-docs) |
 | 🔮 ORACOLO → Consultazioni | Tarocchi, I Ching, rune, Lenormand, sì/no, pietra del giorno. «Fai scegliere all'oracolo» pesca uno strumento e dà subito la lettura | tarot API, Wilhelm 1924, dataset locali |
-| 🔮 ORACOLO → Interroga il cielo | Chiede la città, poi legge luna, stelle e pianeti sopra di te. Niente carte | skymap + sunrisesunset; il testo è folklore |
-| 🔭 ASTRO → Cielo | Città all'ingresso; luna, stelle, alba, tramonto, eventi. Eventi = solo osservabile da quella città | skymap.sh, Skytime |
-| 🔭 ASTRO → Meteo | Città, poi quanti o quali giorni. Se non dici nulla: oggi e domani | [Open-Meteo](https://open-meteo.com) |
+| 🔮 ORACOLO → Interroga il cielo | Chiede la città o la tua posizione, poi legge luna, stelle e pianeti sopra di te. Niente carte | skymap + sunrisesunset; il testo è folklore |
+| 🔭 ASTRO → Cielo | Città o GPS all'ingresso; luna, stelle, alba, tramonto, eventi. Eventi = solo osservabile da quel luogo | skymap.sh, Skytime |
+| 🔭 ASTRO → Meteo | Città o GPS, poi quanti o quali giorni. Se non dici nulla: oggi e domani | [Open-Meteo](https://open-meteo.com) |
 | 🔭 ASTRO → Esplora lo spazio | Enciclopedia Wikipedia: sistema solare, stelle, galassie, satelliti, sonde, missioni. Niente salvati né casuale | Wikipedia / Wikidata / NASA TAP |
 | 🔭 ASTRO → In orbita | Solo posizioni live: ISS e chi è in orbita | WTIA, Open Notify |
 | 🧮 MATEMATICA → Calcolatrice | Tastierino aritmetico | calcolo locale |
@@ -48,7 +48,7 @@ Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trat
 
 **Pietre in Consultazioni**: una sola scheda, la **pietra del giorno**. Si può chiedere quante volte si vuole: fino a mezzanotte (Roma) è sempre la stessa. Formula, proprietà, curiosità, link Wikipedia e un oracolo folklorico (se «porta bene o male»). Non è mineralogia.
 
-**Cielo** in ASTRO chiede la città appena entri. **Eventi** elenca solo ciò che la mappa dice osservabile da quella città; se non lo è, non lo mostra. **Esplora lo spazio** è l'enciclopedia, anche satelliti e sonde. **In orbita** è solo posizioni live (ISS e equipaggio). **Meteo** chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **MATEMATICA** ha la calcolatrice come una funzione, più percentuali e conversioni. **BUSSOLA** chiede una città o la posizione Telegram e dà GPS, nord e direzione. **QUIZ** è il sesto bot: una porta per ogni mondo, domande nel recinto di quel bot. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Non si mescolano.
+**Cielo** in ASTRO chiede la città o **📍 La tua posizione** appena entri. **Eventi** elenca solo ciò che la mappa dice osservabile da quel luogo; se non lo è, non lo mostra. **Esplora lo spazio** è l'enciclopedia, anche satelliti e sonde. **In orbita** è solo posizioni live (ISS e equipaggio). **Meteo** chiede per quanti o quali giorni; se non dici nulla fa oggi e domani. **MATEMATICA** ha la calcolatrice come una funzione, più percentuali e conversioni. **BUSSOLA** chiede una città o la posizione Telegram e dà GPS, nord e direzione. **QUIZ** è il sesto bot: una porta per ogni mondo, domande nel recinto di quel bot. **Interroga il cielo** in ORACOLO usa la mappa come specchio mistico. **Consultazioni** è carte e strumenti. **🌿 NATURA** ha Flora, Fauna (vuota) e Pietre allo stesso livello. Dove il bot chiede un luogo (cielo, meteo, interroga, natura live, bussola) c'è sempre **📍 La tua posizione**: Telegram manda il GPS, senza scrivere la città. Non si mescolano.
 
 Nel laboratorio pietre (pietra al centro, tavolo uniforme) il bot legge il colore, confronta le miniature Wikipedia e, se c’è `HF_TOKEN`, prova CLIP. Cinque ipotesi, non un’analisi mineralogica. Niente prezzi inventati.
 
