@@ -37,8 +37,6 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputMediaPhoto,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
 )
@@ -5268,7 +5266,8 @@ async def show_osserva_picker(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data[LOC_ASK_KEY] = True
     text = (
         "🔭 <b>COSA POSSO VEDERE STASERA?</b>\n\n"
-        "Scegli una città, oppure tocca <b>La tua posizione</b> e manda il GPS. "
+        "Scegli una città, oppure tocca <b>La tua posizione</b> e manda il GPS "
+        "dalla graffetta 📎. "
         "Uso posizione, data e ora per Luna, pianeti "
         "e costellazioni sopra l'orizzonte.\n\n"
         "Oppure scrivi un'altra città in un messaggio."
@@ -5287,7 +5286,7 @@ async def show_osserva_ask_city(update: Update, context: ContextTypes.DEFAULT_TY
         "🔭 <b>Da dove guardi?</b>\n\n"
         "Scrivi città e paese.\n"
         "Esempio: <code>Bologna, Italia</code>\n\n"
-        "Oppure tocca <b>La tua posizione</b> e manda il GPS.",
+        "Oppure tocca <b>La tua posizione</b> e manda il GPS dalla graffetta 📎.",
         reply_markup=InlineKeyboardMarkup(
             [[_tarot_btn("📍 La tua posizione", "loc:here")], nav_row()]
         ),
@@ -5932,7 +5931,7 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
                 context,
                 "📍 <b>Da dove guardi?</b>\n\n"
                 "Scrivi città e paese.\nEsempio: <code>Bologna, Italia</code>\n\n"
-                "Oppure tocca <b>La tua posizione</b> e manda il GPS.",
+                "Oppure tocca <b>La tua posizione</b> e manda il GPS dalla graffetta 📎.",
                 reply_markup=cielo_picker_keyboard(),
             )
             return
@@ -7389,8 +7388,9 @@ async def show_place_picker(
         text = (
             f"📍 <b>DOVE TI TROVI?</b>\n\n"
             f"{e(prompt)}\n\n"
-            "📍 <b>La tua posizione</b> (GPS di Telegram), Italia, una città del mondo, "
-            "oppure scrivila: vale qualsiasi luogo."
+            "📍 <b>La tua posizione</b> — poi 📎 graffetta → <b>Posizione</b> "
+            "(su computer il tasto GPS di Telegram è spento).\n"
+            "Oppure Italia, una città del mondo, o scrivila: vale qualsiasi luogo."
         )
         markup = place_hub_keyboard()
     await reply_html(update, context, text, reply_markup=markup)
@@ -7530,7 +7530,7 @@ async def on_loc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await show_place_picker(update, context, _loc_purpose(context), step=action)
         return
     if action == "here":
-        await query.answer()
+        await query.answer("📎 Graffetta → Posizione")
         await ask_telegram_location(update, context)
         return
     if action == "ask":
@@ -7542,7 +7542,8 @@ async def on_loc_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             "📍 <b>Scrivi la città</b>\n\n"
             "Città e paese. Esempio: <code>Lisbona, Portogallo</code>, "
             "<code>Buenos Aires</code>, <code>Osaka, Giappone</code>.\n\n"
-            "Oppure tocca <b>La tua posizione</b> e manda il GPS, senza scrivere nulla.",
+            "Oppure tocca <b>La tua posizione</b> e manda il GPS dalla graffetta 📎, "
+            "senza scrivere nulla.",
             reply_markup=place_hub_keyboard(),
         )
         return
@@ -8420,7 +8421,7 @@ async def on_cielo_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "📍 <b>Da dove guardi?</b>\n\n"
             "Scrivi città e paese.\n"
             "Esempio: <code>Bologna, Italia</code>\n\n"
-            "Oppure tocca <b>La tua posizione</b> e manda il GPS.",
+            "Oppure tocca <b>La tua posizione</b> e manda il GPS dalla graffetta 📎.",
             reply_markup=cielo_picker_keyboard(),
         )
         return
@@ -11886,33 +11887,44 @@ async def send_bussola_bearing(
     await reply_html(update, context, text, reply_markup=compass_result_keyboard(), preview=True)
 
 
+async def _drop_reply_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Toglie una eventuale tastiera GPS rimasta da un deploy vecchio."""
+    chat = update.effective_chat
+    if chat is None:
+        return
+    try:
+        cleanup = await context.bot.send_message(
+            chat_id=chat.id,
+            text="\u200b",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        await context.bot.delete_message(chat_id=chat.id, message_id=cleanup.message_id)
+    except TelegramError:
+        pass
+
+
 async def ask_telegram_location(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     *,
     purpose: str | None = None,
 ) -> None:
-    chat = update.effective_chat
-    if chat is None:
-        return
     if purpose:
         context.user_data[LOC_PURPOSE_KEY] = purpose
     context.user_data[COMPASS_SHARE_KEY] = True
     context.user_data[LOC_ASK_KEY] = True
-    markup = ReplyKeyboardMarkup(
-        [[KeyboardButton("📍 La tua posizione", request_location=True)]],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
-    await context.bot.send_message(
-        chat_id=chat.id,
-        text=(
-            "📍 <b>LA TUA POSIZIONE</b>\n\n"
-            "Tocca <b>La tua posizione</b> qui sotto, oppure la graffetta → Posizione. "
-            "Telegram manda il GPS: non serve scrivere la città."
-        ),
-        parse_mode=ParseMode.HTML,
-        reply_markup=markup,
+    await _drop_reply_keyboard(update, context)
+    await reply_html(
+        update,
+        context,
+        "📍 <b>LA TUA POSIZIONE</b>\n\n"
+        "Telegram non manda il GPS da un tasto sotto il messaggio: "
+        "su computer quel tasto risulta <b>non disponibile</b>.\n\n"
+        "📎 Tocca la <b>graffetta</b> in basso → <b>Posizione</b> → "
+        "<b>Invia la mia posizione attuale</b>.\n"
+        "Vale da telefono e da computer. Non serve scrivere la città.\n\n"
+        "Oppure Italia, una città del mondo, o scrivila qui sotto.",
+        reply_markup=place_hub_keyboard(),
     )
 
 
@@ -11954,37 +11966,52 @@ async def on_cmp_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if query is None or not query.data:
         return
     _remember_from_callback(update, context)
-    await query.answer()
+    if query.data == "cmp:share":
+        await query.answer("📎 Graffetta → Posizione")
+    else:
+        await query.answer()
     await dispatch_compass(update, context, query.data)
+
+
+def _message_geo(message: Any) -> tuple[Any, str | None] | None:
+    venue = getattr(message, "venue", None)
+    if venue is not None and getattr(venue, "location", None) is not None:
+        title = str(venue.title or venue.address or "").strip() or None
+        return venue.location, title
+    loc = getattr(message, "location", None)
+    if loc is not None:
+        return loc, None
+    return None
 
 
 async def on_user_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
-    if message is None or message.location is None:
+    if message is None:
         return
-    if not (context.user_data.get(LOC_ASK_KEY) or context.user_data.get(COMPASS_SHARE_KEY)):
+    geo = _message_geo(message)
+    if geo is None:
         return
-    loc = message.location
+    loc, venue_name = geo
+    waiting = bool(
+        context.user_data.get(LOC_ASK_KEY)
+        or context.user_data.get(COMPASS_SHARE_KEY)
+        or context.user_data.get(LOC_PURPOSE_KEY)
+    )
+    if not waiting:
+        return
     client = _http_client(context)
-    try:
-        name = await reverse_place(client, float(loc.latitude), float(loc.longitude))
-    except Exception:
-        name = "La tua posizione"
+    name = venue_name
+    if not name:
+        try:
+            name = await reverse_place(client, float(loc.latitude), float(loc.longitude))
+        except Exception:
+            name = "La tua posizione"
     accuracy = float(loc.horizontal_accuracy) if loc.horizontal_accuracy is not None else None
     heading = float(loc.heading) if getattr(loc, "heading", None) is not None else None
     context.user_data[COMPASS_SHARE_KEY] = False
     context.user_data[LOC_ASK_KEY] = False
     context.user_data["cielo_ask"] = False
-    chat = update.effective_chat
-    if chat is not None:
-        try:
-            await context.bot.send_message(
-                chat_id=chat.id,
-                text="📍 Posizione ricevuta.",
-                reply_markup=ReplyKeyboardRemove(),
-            )
-        except TelegramError:
-            pass
+    await _drop_reply_keyboard(update, context)
     await delete_user_command(update)
     await apply_place(
         update,
@@ -12216,7 +12243,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_pt_action, pattern=r"^pt:"))
     application.add_handler(CallbackQueryHandler(on_cp_action, pattern=r"^cp:"))
     application.add_handler(MessageHandler(filters.PHOTO, on_pietre_photo))
-    application.add_handler(MessageHandler(filters.LOCATION, on_user_location))
+    application.add_handler(MessageHandler(filters.LOCATION | filters.VENUE, on_user_location))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_plain_text))
     application.add_handler(MessageHandler(filters.COMMAND, on_unknown_command))
     application.add_error_handler(on_error)

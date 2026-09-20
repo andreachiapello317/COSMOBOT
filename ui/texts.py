@@ -240,7 +240,8 @@ def compass_hub_text() -> str:
         "📍 <b>POSIZIONE GPS</b> — coordinate, quota del terreno, declinazione, mappa\n"
         "🧭 <b>BUSSOLA</b> — nord geografico e nord magnetico in quel punto\n"
         "🎯 <b>VERSO UN LUOGO</b> — distanza in linea d'aria e azimut\n\n"
-        "Puoi scrivere una città o toccare 📍 La tua posizione e mandare il GPS.",
+        "Puoi scrivere una città o toccare 📍 La tua posizione e mandare il GPS "
+        "dalla graffetta 📎 (su computer il tasto GPS di Telegram è spento).",
     )
 
 
