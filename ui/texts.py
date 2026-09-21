@@ -21,7 +21,7 @@ def all_hub_text() -> str:
         "🌍 <b>TERRA</b> — eventi atmosferici e naturali, animali live, pietre.\n"
         "📡 <b>OGGI</b> — mercati live e notizie dai feed.\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice, conversioni, bussola, tempo.\n"
-        "🧩 <b>QUIZ</b> — una prova per ogni bot.\n\n"
+        "🎲 <b>GIOCHI</b> — quiz dei bot, dadi, moneta, morra.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
     )
 
@@ -578,10 +578,31 @@ def world_miss_text() -> str:
     )
 
 
+def giochi_hub_text() -> str:
+    return _card(
+        "🎲 <b>GIOCHI</b>",
+        "Bot di BOTSQUAD per giocare. Prove sui cataloghi, oppure dadi sul tavolo. Non è un oracolo e non si vince soldi.",
+        "🧩 <b>QUIZ</b> — una prova per ogni bot, nel suo recinto\n"
+        "🎲 <b>TAVOLO</b> — dadi, moneta, morra, indovina, alto o basso",
+    )
+
+
+def giochi_tavolo_text() -> str:
+    return _card(
+        "🎲 <b>TAVOLO</b>",
+        "Lanci a caso, qui e ora. Non predicono niente e non c'è una posta.",
+        "🎲 Dadi — 1d6, 2d6, 3d6, d20\n"
+        "🪙 Moneta — testa o croce (non è il sì/no di ORACOLO)\n"
+        "✊ Morra — sasso, carta, forbici\n"
+        "🎯 Indovina — un numero da 1 a 20, sei tentativi\n"
+        "↕️ Alto o basso — due d20 di fila",
+    )
+
+
 def quiz_hub_text() -> str:
     return _card(
         "🧩 <b>QUIZ</b>",
-        "Un bot a parte. Scegli il mondo, poi l'argomento. Le domande restano nel recinto di quel bot.",
+        "Una prova per ogni bot. Scegli il mondo, poi l'argomento. Le domande restano nel recinto di quel bot.",
         "🔮 ORACOLO — segni, rune, Lenormand (niente letture)\n"
         "🔭 ASTRO — sistema solare, lune, enciclopedia live\n"
         "🌍 TERRA — eventi, animali live, pietre\n"

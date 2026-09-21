@@ -190,6 +190,23 @@ from services.calc import (
     format_number as calc_format_number,
 )
 from services.squadquiz import pick_local_question, topic_label, worlds as quiz_worlds
+from services.games import (
+    apply_guess,
+    apply_highlow,
+    flip_coin,
+    format_coin,
+    format_dice,
+    format_guess_result,
+    format_guess_start,
+    format_highlow_result,
+    format_highlow_start,
+    format_rps,
+    new_guess,
+    new_highlow,
+    roll_dice,
+    rps_outcome,
+    rps_pick,
+)
 from services.compass import (
     fetch_declination,
     fetch_elevation,
@@ -426,6 +443,13 @@ from ui.keyboards import (
     compass_hub_keyboard,
     compass_result_keyboard,
     quiz_hub_keyboard,
+    giochi_coin_keyboard,
+    giochi_dice_keyboard,
+    giochi_guess_keyboard,
+    giochi_highlow_keyboard,
+    giochi_hub_keyboard,
+    giochi_rps_keyboard,
+    giochi_tavolo_keyboard,
     quiz_squad_after_keyboard,
     quiz_squad_options_keyboard,
     quiz_world_keyboard,
@@ -564,6 +588,8 @@ from ui.texts import (
     calc_hub_text,
     compass_hub_text,
     quiz_hub_text,
+    giochi_hub_text,
+    giochi_tavolo_text,
     quiz_world_text,
     math_convert_text,
     math_hub_text,
@@ -629,6 +655,7 @@ FAUNA_LAST_KEY = "fauna_place"
 FAUNA_STATE_KEY = "fauna_state"
 FAUNA_ASK_KEY = "fauna_ask"
 OGGI_ASK_KEY = "oggi_ask"
+GAMES_STATE_KEY = "giochi_state"
 BUSSOLA_LAST_KEY = "bussola_last"
 MATH_ASK_KEY = "math_ask"
 TOOL_CAL_KEY = "tool_cal_shift"
@@ -1763,7 +1790,7 @@ def nav_pop(context: ContextTypes.DEFAULT_TYPE) -> str | None:
 
 def _cmd_begin(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     _flows_reset(context)
-    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:oggi", "bot:calc", "bot:bussola", "bot:tool", "bot:quiz", "bot:cosmo", "bot:next"}:
+    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:oggi", "bot:calc", "bot:bussola", "bot:tool", "bot:quiz", "bot:giochi", "bot:cosmo", "bot:next"}:
         here = context.user_data.get(NAV_HERE_KEY)
         if here in {None, "home:menu"}:
             context.user_data[NAV_STACK_KEY] = ["home:menu"]
@@ -2617,7 +2644,7 @@ def help_text() -> str:
         "📡 <b>OGGI</b> — mercati (valute BCE, crypto, indici, materie) e notizie (ANSA, Google News IT).\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
         "calendario (ora, eventi, compleanni).\n"
-        "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, terra, oggi, strumenti.\n\n"
+        "🎲 <b>GIOCHI</b> — quiz per ogni bot, più un tavolo (dadi, moneta, morra, indovina).\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
         "nome del segno in chat.\n\n"
@@ -3365,7 +3392,7 @@ async def on_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if action in {"calc", "bussola", "tool"}:
         await show_tool_hub(update, context)
         return
-    if action == "quiz":
+    if action in {"quiz", "giochi"}:
         await show_quiz_bot_hub(update, context)
         return
     await show_all_hub(update, context)
@@ -6739,13 +6766,16 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         if action in {"calc", "bussola", "tool"}:
             await show_tool_hub(update, context)
             return
-        if action == "quiz":
+        if action in {"quiz", "giochi"}:
             await show_quiz_bot_hub(update, context)
             return
         await show_all_hub(update, context)
         return
     if prefix == "sq":
         await dispatch_squad_quiz(update, context, token)
+        return
+    if prefix == "gm":
+        await dispatch_giochi(update, context, token)
         return
     if prefix == "cmp":
         await dispatch_compass(update, context, token)
@@ -10943,7 +10973,138 @@ def _squad_quiz_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
 async def show_quiz_bot_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     nav_mark(context, "bot:quiz")
     context.user_data.pop(SQUAD_QUIZ_KEY, None)
+    await reply_html(update, context, giochi_hub_text(), reply_markup=giochi_hub_keyboard())
+
+
+async def show_quiz_door(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "sq:quiz")
     await reply_html(update, context, quiz_hub_text(), reply_markup=quiz_hub_keyboard())
+
+
+def _games_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    state = context.user_data.get(GAMES_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {}
+        context.user_data[GAMES_STATE_KEY] = state
+    return state
+
+
+async def show_giochi_tavolo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "gm:hub")
+    await reply_html(update, context, giochi_tavolo_text(), reply_markup=giochi_tavolo_keyboard())
+
+
+async def send_giochi_dice(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    spec = {"6": (1, 6), "2": (2, 6), "3": (3, 6), "20": (1, 20)}.get(kind)
+    if spec is None:
+        await show_giochi_tavolo(update, context)
+        return
+    n, sides = spec
+    text = format_dice(roll_dice(n, sides), sides=sides)
+    await reply_html(update, context, text, reply_markup=giochi_dice_keyboard(kind))
+
+
+async def send_giochi_coin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await reply_html(update, context, format_coin(flip_coin()), reply_markup=giochi_coin_keyboard())
+
+
+async def send_giochi_rps(update: Update, context: ContextTypes.DEFAULT_TYPE, pick: str | None = None) -> None:
+    if pick not in {"r", "p", "s"}:
+        await reply_html(
+            update,
+            context,
+            "✊ <b>MORRA CINESE</b>\n<i>Scegli. Niente posta, niente oracolo.</i>",
+            reply_markup=giochi_rps_keyboard(),
+        )
+        return
+    bot = rps_pick()
+    outcome = rps_outcome(pick, bot)
+    score = _games_state(context).setdefault("rps", {"w": 0, "l": 0, "d": 0})
+    if not isinstance(score, dict):
+        score = {"w": 0, "l": 0, "d": 0}
+        _games_state(context)["rps"] = score
+    if outcome == "win":
+        score["w"] = int(score.get("w") or 0) + 1
+    elif outcome == "lose":
+        score["l"] = int(score.get("l") or 0) + 1
+    else:
+        score["d"] = int(score.get("d") or 0) + 1
+    await reply_html(update, context, format_rps(pick, bot, outcome, score), reply_markup=giochi_rps_keyboard())
+
+
+async def send_giochi_guess(update: Update, context: ContextTypes.DEFAULT_TYPE, value: int | None = None) -> None:
+    state = _games_state(context)
+    game = state.get("guess") if isinstance(state.get("guess"), dict) else None
+    if value is None or game is None:
+        game = new_guess()
+        state["guess"] = game
+        await reply_html(update, context, format_guess_start(), reply_markup=giochi_guess_keyboard())
+        return
+    result = apply_guess(game, value)
+    state["guess"] = result["state"]
+    guessed = list(result["state"].get("guessed") or [])
+    if result["kind"] in {"ok", "over"}:
+        state.pop("guess", None)
+        await reply_html(
+            update,
+            context,
+            format_guess_result(result),
+            reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔄 Nuovo numero", "gm:guess")], nav_row()]),
+        )
+        return
+    await reply_html(
+        update,
+        context,
+        format_guess_result(result),
+        reply_markup=giochi_guess_keyboard(guessed),
+    )
+
+
+async def send_giochi_highlow(update: Update, context: ContextTypes.DEFAULT_TYPE, direction: str | None = None) -> None:
+    state = _games_state(context)
+    game = state.get("hl") if isinstance(state.get("hl"), dict) else None
+    if direction not in {"up", "dn"} or game is None:
+        game = new_highlow()
+        state["hl"] = game
+        await reply_html(update, context, format_highlow_start(int(game["shown"])), reply_markup=giochi_highlow_keyboard())
+        return
+    result = apply_highlow(game, direction)
+    state["hl"] = result["state"]
+    await reply_html(update, context, format_highlow_result(result), reply_markup=giochi_highlow_keyboard())
+
+
+async def dispatch_giochi(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    parts = token.split(":")
+    action = parts[1] if len(parts) > 1 else "hub"
+    extra = parts[2] if len(parts) > 2 else ""
+    if action in {"hub", ""}:
+        await show_giochi_tavolo(update, context)
+        return
+    if action == "d" and extra:
+        await send_giochi_dice(update, context, extra)
+        return
+    if action == "coin":
+        await send_giochi_coin(update, context)
+        return
+    if action == "rps":
+        await send_giochi_rps(update, context)
+        return
+    if action == "r" and extra:
+        await send_giochi_rps(update, context, extra)
+        return
+    if action == "guess":
+        await send_giochi_guess(update, context)
+        return
+    if action == "g" and extra.isdigit():
+        await send_giochi_guess(update, context, int(extra))
+        return
+    if action == "hl":
+        await send_giochi_highlow(update, context)
+        return
+    if action == "h" and extra:
+        await send_giochi_highlow(update, context, extra)
+        return
+    await show_giochi_tavolo(update, context)
 
 
 async def show_quiz_world(update: Update, context: ContextTypes.DEFAULT_TYPE, wid: str) -> None:
@@ -11023,6 +11184,9 @@ async def dispatch_squad_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE
     if action in {"hub", ""}:
         await show_quiz_bot_hub(update, context)
         return
+    if action == "quiz":
+        await show_quiz_door(update, context)
+        return
     if action == "w" and extra:
         await show_quiz_world(update, context, extra)
         return
@@ -11060,6 +11224,15 @@ async def dispatch_squad_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE
         await reply_html(update, context, text, reply_markup=quiz_squad_after_keyboard(wid, tid))
         return
     await show_quiz_bot_hub(update, context)
+
+
+async def on_gm_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    await query.answer()
+    await dispatch_giochi(update, context, query.data)
 
 
 async def on_sq_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -13412,7 +13585,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale.\n"
         "Scrivi un segno (es. <i>vergine</i>) per l'oroscopo, "
-        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 📡 OGGI, 🧰 STRUMENTI o 🧩 QUIZ.",
+        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 📡 OGGI, 🧰 STRUMENTI o 🎲 GIOCHI.",
         reply_markup=all_hub_keyboard(),
     )
 
@@ -13422,7 +13595,7 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update,
         context,
         "I comandi scritti non ci sono più: qui si va a pulsanti.\n"
-        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 📡 OGGI, 🧰 STRUMENTI o 🧩 QUIZ, oppure 📚 Aiuto.",
+        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 📡 OGGI, 🧰 STRUMENTI o 🎲 GIOCHI, oppure 📚 Aiuto.",
         reply_markup=all_hub_keyboard(),
     )
     await delete_user_command(update)
@@ -14427,6 +14600,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_tool_action, pattern=r"^tool:"))
     application.add_handler(CallbackQueryHandler(on_cmp_action, pattern=r"^cmp:"))
     application.add_handler(CallbackQueryHandler(on_sq_action, pattern=r"^sq:"))
+    application.add_handler(CallbackQueryHandler(on_gm_action, pattern=r"^gm:"))
     application.add_handler(CallbackQueryHandler(on_sky_action, pattern=r"^sky:"))
     application.add_handler(CallbackQueryHandler(on_watch_action, pattern=r"^watch:"))
     application.add_handler(CallbackQueryHandler(on_orb_action, pattern=r"^orb:"))

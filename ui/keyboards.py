@@ -56,7 +56,7 @@ def all_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🌍 TERRA", "bot:geo")],
             [kb_btn("📡 OGGI", "bot:oggi")],
             [kb_btn("🧰 STRUMENTI", "bot:tool")],
-            [kb_btn("🧩 QUIZ", "bot:quiz")],
+            [kb_btn("🎲 GIOCHI", "bot:quiz")],
             [kb_btn("📚 Aiuto", "home:aiuto")],
         ]
     )
@@ -859,6 +859,15 @@ def compass_hub_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def giochi_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🧩 Quiz", "sq:quiz"), kb_btn("🎲 Tavolo", "gm:hub")],
+            nav_row(),
+        ]
+    )
+
+
 def quiz_hub_keyboard() -> InlineKeyboardMarkup:
     from services.squadquiz import worlds
 
@@ -866,6 +875,75 @@ def quiz_hub_keyboard() -> InlineKeyboardMarkup:
     rows.append([kb_btn("🏆 La mia classifica", "sq:board")])
     rows.append(nav_row())
     return InlineKeyboardMarkup(rows)
+
+
+def giochi_tavolo_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🎲 Un dado", "gm:d:6"), kb_btn("🎲 Due dadi", "gm:d:2")],
+            [kb_btn("🎲 Tre dadi", "gm:d:3"), kb_btn("🎲 d20", "gm:d:20")],
+            [kb_btn("🪙 Moneta", "gm:coin"), kb_btn("✊ Morra", "gm:rps")],
+            [kb_btn("🎯 Indovina", "gm:guess"), kb_btn("↕️ Alto o basso", "gm:hl")],
+            nav_row(),
+        ]
+    )
+
+
+def giochi_dice_keyboard(kind: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔄 Ancora", f"gm:d:{kind}")],
+            nav_row(),
+        ]
+    )
+
+
+def giochi_coin_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🔄 Gira di nuovo", "gm:coin")],
+            nav_row(),
+        ]
+    )
+
+
+def giochi_rps_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("✊ Sasso", "gm:r:r"), kb_btn("✋ Carta", "gm:r:p"), kb_btn("✌️ Forbici", "gm:r:s")],
+            nav_row(),
+        ]
+    )
+
+
+def giochi_guess_keyboard(guessed: list[int] | None = None) -> InlineKeyboardMarkup:
+    done = set(guessed or [])
+    buttons = []
+    for n in range(1, 21):
+        label = "·" if n in done else str(n)
+        buttons.append(kb_btn(label, f"gm:g:{n}"))
+    grid = []
+    pair: list = []
+    for btn in buttons:
+        pair.append(btn)
+        if len(pair) == 5:
+            grid.append(pair)
+            pair = []
+    if pair:
+        grid.append(pair)
+    grid.append([kb_btn("🔄 Nuovo numero", "gm:guess")])
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
+
+
+def giochi_highlow_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("⬆️ Alto", "gm:h:up"), kb_btn("⬇️ Basso", "gm:h:dn")],
+            [kb_btn("🔄 Nuova serie", "gm:hl")],
+            nav_row(),
+        ]
+    )
 
 
 def quiz_world_keyboard(wid: str) -> InlineKeyboardMarkup:

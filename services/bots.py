@@ -47,16 +47,16 @@ BOTS: tuple[dict[str, Any], ...] = (
     },
     {
         "id": "quiz",
-        "emoji": "🧩",
-        "name": "QUIZ",
-        "tag": "Una prova per ogni bot",
+        "emoji": "🎲",
+        "name": "GIOCHI",
+        "tag": "Quiz e tavolo",
         "ready": True,
         "worlds": (),
     },
 )
 
 # Vecchi token: COSMO → ORACOLO, slot vuoto → ASTRO.
-ALIASES = {"cosmo": "oracolo", "next": "astro", "calc": "tool", "bussola": "tool"}
+ALIASES = {"cosmo": "oracolo", "next": "astro", "calc": "tool", "bussola": "tool", "giochi": "quiz"}
 
 
 def canonical_bot_id(sid: str) -> str:
@@ -145,7 +145,7 @@ def parent_bot_token(token: str) -> str:
         return "bot:geo"
     if raw.startswith(("calc:", "cmp:", "tool:")):
         return "bot:tool"
-    if raw.startswith("sq:"):
+    if raw.startswith(("sq:", "gm:")):
         return "bot:quiz"
     if raw.startswith("og:"):
         return "bot:oggi"
