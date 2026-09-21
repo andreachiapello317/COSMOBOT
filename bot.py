@@ -278,7 +278,6 @@ from services.wildlife import (
     WildlifeError,
     dump_items as dump_fauna_items,
     fauna_meta,
-    fetch_live_positions,
     fetch_recent_observed,
     format_animals_card,
     format_fauna_detail,
@@ -286,7 +285,6 @@ from services.wildlife import (
     format_fauna_list,
     recent_animals,
     stored_items as stored_fauna_items,
-    LIVE_DAYS,
 )
 from services.oggi import (
     NEWS_FEEDS,
@@ -2639,7 +2637,7 @@ def help_text() -> str:
         "(cielo di adesso con grado sulla carta, Horizons NASA, satelliti live), Studia lo spazio (enciclopedia). "
         "Niente divinazione.\n"
         "🌍 <b>TERRA</b> — Eventi (atmosferici e naturali, live), "
-        "Fauna (osservati recenti; posizioni live OCEARCH), "
+        "Fauna (osservati recenti intorno al luogo; fauna nel mondo).\n"
         "Pietre (catalogo, laboratorio, geologia del luogo).\n"
         "📡 <b>OGGI</b> — mercati (valute BCE, crypto, indici, materie) e notizie (ANSA, Google News IT).\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
@@ -2822,9 +2820,8 @@ async def send_fauna_list(
     page: int | None = None,
     query: str | None = None,
 ) -> None:
-    if view not in {"obs", "live", "world"}:
-        await send_fauna_hub(update, context)
-        return
+    if view not in {"obs", "world"}:
+        view = "obs"
     nav_mark(context, f"fn:{view}")
     _ensure_fauna_place(context)
     name, lat, lon = _fauna_place(context)
@@ -2840,10 +2837,6 @@ async def send_fauna_list(
         try:
             if view == "world":
                 items = await recent_animals(client, limit=FAUNA_PAGE * 2)
-            elif view == "live":
-                items = await fetch_live_positions(client, days=LIVE_DAYS)
-                if not items:
-                    extra = f"Nessun ping satellitare OCEARCH negli ultimi {LIVE_DAYS} giorni."
             else:
                 items, extra = await fetch_recent_observed(client, lat, lon)
         except WildlifeError as exc:
@@ -2928,15 +2921,15 @@ async def dispatch_fauna(update: Update, context: ContextTypes.DEFAULT_TYPE, tok
     if action in {"map", "sm"}:
         await send_fauna_hub(update, context)
         return
-    if action in {"bird", "trk", "q", "find"}:
+    if action in {"bird", "trk", "q", "find", "live"}:
         await send_fauna_list(update, context, "obs")
         return
-    if action in {"obs", "live", "world"}:
+    if action in {"obs", "world"}:
         await send_fauna_list(update, context, action)
         return
     if action == "pg" and extra.isdigit():
         view = str(_fauna_state(context).get("view") or "obs")
-        if view not in {"obs", "live", "world"}:
+        if view not in {"obs", "world"}:
             view = "obs"
         await send_fauna_list(update, context, view, page=int(extra))
         return
@@ -9165,7 +9158,7 @@ async def show_place_picker(
         "coord": "Punto preciso: via e numero, oppure le coordinate decimali o in gradi.",
         "watch": "Da dove punta l'osservatorio? La salvo per stelle, eventi e Horizons.",
         "terra": "Quale pezzo di Terra vuoi vedere dal satellite? Vale solo per Osservazione Terra, non per il resto.",
-        "fauna": "Da quale città cerco osservati recenti e live? Vale solo per Fauna.",
+        "fauna": "Da quale città cerco osservati recenti? Vale solo per Fauna.",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
     if step == "it":

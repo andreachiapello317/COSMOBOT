@@ -229,7 +229,7 @@ def fauna_hub_keyboard(place: str = "Cuneo") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn(f"📍 {label}", "fn:city")],
-            [kb_btn("🐾 Osservati recenti", "fn:obs"), kb_btn("📡 Posizioni live", "fn:live")],
+            [kb_btn("🐾 Osservati recenti", "fn:obs")],
             [kb_btn("🌍 Fauna nel mondo", "fn:world")],
             nav_row(),
         ]

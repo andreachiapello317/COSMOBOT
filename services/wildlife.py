@@ -1,10 +1,9 @@
-"""Fauna: osservati (GBIF / eBird / iNaturalist) vs posizioni live (collari/tag satellitari). Niente zoo inventato."""
+"""Fauna: osservati recenti (iNaturalist, GBIF, eBird). Niente zoo inventato e niente tag satellitari."""
 
 from __future__ import annotations
 
 import html as _html
 import os
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -19,26 +18,17 @@ GBIF_SPECIES = "https://api.gbif.org/v1/species/search"
 GBIF_VERN = "https://api.gbif.org/v1/species/{key}/vernacularNames"
 GBIF_MATCH = "https://api.gbif.org/v1/species/match"
 EBIRD_GEO = "https://api.ebird.org/v2/data/obs/geo/recent"
-OCEARCH_GEOJSON = "https://www.mapotic.com/api/v1/maps/3413/pois.geojson/"
-OCEARCH_TRACKER = "https://www.ocearch.org/tracker/"
-OCEARCH_SHIP = 8500
-OCEARCH_CAT_IT = {
-    8494: "Squali",
-    8495: "Balene",
-    8496: "Tartarughe",
-    8497: "Alligatori",
-    8498: "Foche",
-    8642: "Delfini",
-    19578: "Pesci spada",
-}
 
 ANIMALIA = 1
 AVES = 212
-NEAR_KM = 50.0
+NEAR_KM = 100.0
 PAGE_SIZE = 5
-MAX_ITEMS = 16
-LIVE_DAYS = 7
+MAX_ITEMS = 18
+INAT_DAYS = 21
+INAT_POOL = 40
 RECENT_DAYS = 45
+BIRD_CAP = 5
+_PARK_TOKENS = ("parc", "parco", "park", "riserva", "national", "mercantour")
 MOVEBANK_ORG = "143650ce-d186-4a3f-b6e5-c45572dcc0a8"
 INAT_HEADERS = {"User-Agent": "StelleBot/1.0 (Telegram; educational; iNaturalist observations)"}
 
@@ -51,12 +41,7 @@ FAUNA_VIEWS = {
     "obs": {
         "it": "Osservati recenti",
         "emoji": "🐾",
-        "blurb": "Avvistamenti GBIF, eBird e iNaturalist intorno al luogo. Non è la posizione GPS dell'animale.",
-    },
-    "live": {
-        "it": "Posizioni live",
-        "emoji": "📡",
-        "blurb": "Ultimo ping dei tag satellitari OCEARCH. Lo squalo o la tartaruga ha il tag, non è un umano che l'ha visto.",
+        "blurb": "Avvistamenti iNaturalist, GBIF e eBird intorno al luogo — anche i parchi vicini. Qualcuno li ha visti: non è il GPS dell'animale.",
     },
     "trk": {
         "it": "Animali tracciati",
@@ -108,7 +93,7 @@ def _compact_inat(
     *,
     origin_lat: float | None = None,
     origin_lon: float | None = None,
-    kind: str = "live",
+    kind: str = "obs",
 ) -> dict[str, Any] | None:
     taxon = item.get("taxon") if isinstance(item.get("taxon"), dict) else {}
     rank = str(taxon.get("rank") or "").lower()
@@ -145,6 +130,7 @@ def _compact_inat(
         "url": str(item.get("uri") or ""),
         "photo": photo,
         "src": "iNaturalist",
+        "iconic": str(taxon.get("iconic_taxon_name") or ""),
     }
 
 
@@ -156,16 +142,18 @@ async def fetch_inat_obs(
     radius_km: float = NEAR_KM,
     days: int | None = None,
     limit: int = MAX_ITEMS,
-    kind: str = "live",
+    kind: str = "obs",
+    iconic: str = "Animalia",
 ) -> list[dict[str, Any]]:
     params: dict[str, Any] = {
-        "iconic_taxa": "Animalia",
+        "iconic_taxa": iconic,
         "lrank": "species",
         "order": "desc",
         "order_by": "observed_on",
-        "per_page": str(max(limit * 3, 24)),
+        "per_page": str(max(limit * 3, 30)),
         "photos": "true",
         "locale": "it",
+        "captive": "false",
     }
     if lat is not None and lon is not None:
         params["lat"] = f"{lat:.4f}"
@@ -197,8 +185,6 @@ async def fetch_inat_obs(
         out.append(packed)
         if len(out) >= limit:
             break
-    if lat is not None:
-        out.sort(key=lambda row: row.get("when") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     return out
 
 
@@ -465,6 +451,39 @@ def _sci_key(item: dict[str, Any]) -> str:
     return str(item.get("sci") or item.get("title") or "").strip().casefold()
 
 
+def _when_sort(item: dict[str, Any]) -> float:
+    when = item.get("when")
+    if isinstance(when, datetime):
+        return when.timestamp()
+    if isinstance(when, str):
+        parsed = _parse_when(when)
+        return parsed.timestamp() if parsed else 0.0
+    return 0.0
+
+
+def _parkish(item: dict[str, Any]) -> bool:
+    place = str(item.get("place") or "").casefold()
+    return any(token in place for token in _PARK_TOKENS)
+
+
+def _is_bird(item: dict[str, Any]) -> bool:
+    if str(item.get("kind") or "") == "bird":
+        return True
+    return str(item.get("iconic") or "").casefold() == "aves"
+
+
+def _rank_near(item: dict[str, Any]) -> float:
+    dist = float(item.get("dist_km") or 9999)
+    when = _when_sort(item)
+    age_days = 40.0
+    if when:
+        age_days = max(0.0, (datetime.now(timezone.utc).timestamp() - when) / 86400.0)
+    score = dist + age_days * 2.0
+    if _parkish(item):
+        score -= 22.0
+    return score
+
+
 def _merge_recent(*batches: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: dict[str, dict[str, Any]] = {}
     order: list[str] = []
@@ -479,16 +498,29 @@ def _merge_recent(*batches: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 order.append(key)
                 continue
             cand = dict(item)
-            prev_d = float(prev.get("dist_km") or 99999)
-            cand_d = float(cand.get("dist_km") or 99999)
-            keep = dict(cand if cand_d < prev_d else prev)
-            if prev.get("kind") == "trk" or cand.get("kind") == "trk":
-                keep["kind"] = "trk"
-                keep["src"] = cand.get("src") if cand.get("kind") == "trk" else prev.get("src")
+            prev_when = _when_sort(prev)
+            cand_when = _when_sort(cand)
+            if cand_when > prev_when:
+                keep = cand
+            elif cand_when < prev_when:
+                keep = prev
+            else:
+                prev_d = float(prev.get("dist_km") or 99999)
+                cand_d = float(cand.get("dist_km") or 99999)
+                keep = dict(cand if cand_d < prev_d else prev)
+            if not keep.get("place"):
+                keep["place"] = prev.get("place") or cand.get("place")
+            if not keep.get("photo"):
+                keep["photo"] = prev.get("photo") or cand.get("photo")
             seen[key] = keep
     items = [seen[key] for key in order]
-    items.sort(key=lambda row: float(row.get("dist_km") or 0))
-    return items[:MAX_ITEMS]
+    birds = [row for row in items if _is_bird(row)]
+    others = [row for row in items if not _is_bird(row)]
+    birds.sort(key=_rank_near)
+    others.sort(key=_rank_near)
+    mixed = others + birds[:BIRD_CAP]
+    mixed.sort(key=_rank_near)
+    return mixed[:MAX_ITEMS]
 
 
 async def fetch_recent_observed(
@@ -496,120 +528,46 @@ async def fetch_recent_observed(
     lat: float,
     lon: float,
 ) -> tuple[list[dict[str, Any]], str]:
-    observed = await fetch_gbif_near(client, lat, lon, taxon_key=ANIMALIA, kind="obs")
-    aves = await fetch_gbif_near(client, lat, lon, taxon_key=AVES, kind="bird")
-    birds = await fetch_ebird_near(client, lat, lon, radius_km=NEAR_KM)
-    try:
-        tracked, _note = await fetch_tracked(client, lat, lon)
-    except Exception:
-        tracked = []
-    near_trk = [
-        row
-        for row in tracked
-        if isinstance(row.get("dist_km"), (int, float)) and float(row["dist_km"]) <= 300.0
-    ]
     try:
         inat = await fetch_inat_obs(
-            client, lat=lat, lon=lon, radius_km=NEAR_KM, days=LIVE_DAYS, kind="obs"
+            client, lat=lat, lon=lon, radius_km=NEAR_KM, days=INAT_DAYS, limit=INAT_POOL, kind="obs"
         )
     except WildlifeError:
         inat = []
+    try:
+        mammals = await fetch_inat_obs(
+            client,
+            lat=lat,
+            lon=lon,
+            radius_km=NEAR_KM,
+            days=INAT_DAYS,
+            limit=12,
+            kind="obs",
+            iconic="Mammalia",
+        )
+    except WildlifeError:
+        mammals = []
+    try:
+        observed = await fetch_gbif_near(client, lat, lon, taxon_key=ANIMALIA, kind="obs")
+    except Exception:
+        observed = []
+    aves = []
+    try:
+        aves = await fetch_gbif_near(client, lat, lon, taxon_key=AVES, kind="bird")
+    except Exception:
+        aves = []
+    birds = await fetch_ebird_near(client, lat, lon, radius_km=min(50.0, NEAR_KM))
     extras: list[str] = []
+    if inat or mammals:
+        extras.append(f"iNaturalist {INAT_DAYS} giorni, raggio {NEAR_KM:.0f} km.")
     if birds:
         extras.append("Uccelli anche da eBird.")
     elif aves:
-        extras.append("Uccelli da GBIF (Aves).")
-    if inat:
-        extras.append(f"{len(inat)} da iNaturalist (ultimi {LIVE_DAYS} giorni).")
-    if near_trk:
-        extras.append(f"{len(near_trk)} tracciati pubblici nel raggio largo.")
-    items = _merge_recent(observed, aves, birds or [], inat, near_trk)
+        extras.append("Qualche uccello da GBIF.")
+    items = _merge_recent(mammals, inat, observed, birds or [], aves)
+    if not items:
+        extras.append("Nessun avvistamento in questo giro. Non invento animali.")
     return items, " ".join(extras)
-
-
-_OCEARCH_CACHE: tuple[float, list[dict[str, Any]]] | None = None
-OCEARCH_CACHE_SEC = 600.0
-
-
-def _ocearch_cat(props: dict[str, Any]) -> str:
-    cat = props.get("category")
-    if cat in OCEARCH_CAT_IT:
-        return OCEARCH_CAT_IT[cat]
-    names = props.get("category_name")
-    if isinstance(names, dict):
-        return str(names.get("en") or names.get("it") or "Animale")
-    return "Animale"
-
-
-async def fetch_live_positions(
-    client: httpx.AsyncClient,
-    *,
-    days: int = LIVE_DAYS,
-) -> list[dict[str, Any]]:
-    global _OCEARCH_CACHE
-    now_m = time.monotonic()
-    if _OCEARCH_CACHE and now_m - _OCEARCH_CACHE[0] < OCEARCH_CACHE_SEC:
-        raw = _OCEARCH_CACHE[1]
-    else:
-        try:
-            response = await client.get(
-                OCEARCH_GEOJSON,
-                headers={"User-Agent": "StelleBot/1.0 (Telegram; educational; OCEARCH public tracker)"},
-            )
-            response.raise_for_status()
-            payload = response.json()
-        except Exception as exc:
-            raise WildlifeError("OCEARCH non ha risposto") from exc
-        feats = payload.get("features") if isinstance(payload, dict) else None
-        if not isinstance(feats, list):
-            raise WildlifeError("OCEARCH vuoto")
-        raw = [feat for feat in feats if isinstance(feat, dict)]
-        _OCEARCH_CACHE = (now_m, raw)
-    items: list[dict[str, Any]] = []
-    for feat in raw:
-        props = feat.get("properties") if isinstance(feat.get("properties"), dict) else {}
-        if int(props.get("category") or 0) == OCEARCH_SHIP:
-            continue
-        if props.get("is_published") is False:
-            continue
-        when = _parse_when(props.get("last_move_datetime"))
-        if when is None:
-            continue
-        age = datetime.now(timezone.utc) - when.astimezone(timezone.utc)
-        if age < timedelta(0) or age > timedelta(days=days):
-            continue
-        geom = feat.get("geometry") if isinstance(feat.get("geometry"), dict) else {}
-        coords = geom.get("coordinates") if isinstance(geom.get("coordinates"), list) else []
-        if len(coords) < 2:
-            continue
-        try:
-            lon, lat = float(coords[0]), float(coords[1])
-        except (TypeError, ValueError):
-            continue
-        name = str(props.get("name") or "").strip()
-        if not name:
-            continue
-        sci = str(props.get("species") or "").strip()
-        cat = _ocearch_cat(props)
-        place = str(props.get("tag_location") or cat)
-        photo = str(props.get("image") or "")
-        items.append(
-            {
-                "kind": "live",
-                "title": name,
-                "sci": sci,
-                "place": place,
-                "when": when,
-                "lat": lat,
-                "lon": lon,
-                "url": OCEARCH_TRACKER,
-                "photo": photo if photo.startswith("http") else "",
-                "src": "OCEARCH",
-                "dataset": cat,
-            }
-        )
-    items.sort(key=lambda row: row.get("when") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-    return items[:MAX_ITEMS]
 
 
 async def search_species(client: httpx.AsyncClient, query: str) -> dict[str, Any] | None:
@@ -698,17 +656,26 @@ def _when_bit(item: dict[str, Any]) -> str:
     return "—"
 
 
+_ICONIC_EMOJI = {
+    "mammalia": "🦌",
+    "aves": "🐦",
+    "reptilia": "🦎",
+    "amphibia": "🐸",
+    "insecta": "🐛",
+    "arachnida": "🕷️",
+    "mollusca": "🐌",
+    "actinopterygii": "🐟",
+}
+
+
 def item_emoji(item: dict[str, Any]) -> str:
+    iconic = str(item.get("iconic") or "").casefold()
     kind = str(item.get("kind") or "obs")
-    if kind == "trk":
-        return "🛰️"
-    if kind == "bird":
+    if kind == "bird" or iconic == "aves":
         return "🐦"
-    if kind == "live":
-        return "📡"
     if kind == "world":
         return "🌍"
-    return "🐾"
+    return _ICONIC_EMOJI.get(iconic, "🐾")
 
 
 def format_fauna_hub(*, place: str) -> str:
@@ -718,8 +685,7 @@ def format_fauna_hub(*, place: str) -> str:
             "🐾 <b>FAUNA</b>",
             f"📍 <b>{where.upper()}</b>",
             "",
-            "🐾 <b>Osservati recenti</b> — GBIF, eBird e iNaturalist intorno al luogo. Qualcuno li ha visti, non è il GPS dell'animale.",
-            "📡 <b>Posizioni live</b> — ultimo ping dei tag satellitari OCEARCH (squali, tartarughe…). Il mondo, non Cuneo.",
+            "🐾 <b>Osservati recenti</b> — iNaturalist, GBIF e eBird intorno al luogo. Un umano li ha visti (anche al parco accanto).",
             "🌍 <b>Fauna nel mondo</b> — avvistamenti iNaturalist appena pubblicati.",
             "",
             "<i>Non è uno zoo e non è un allarme. Se il feed è vuoto, non invento avvistamenti.</i>",
@@ -742,9 +708,7 @@ def format_fauna_list(
         (
             "🌍 Ultime osservazioni pubblicate"
             if view == "world"
-            else f"📡 Ultimo ping satellite · {LIVE_DAYS} giorni · OCEARCH"
-            if view == "live"
-            else f"📍 {where} · raggio {NEAR_KM:.0f} km"
+            else f"📍 {where} · raggio {NEAR_KM:.0f} km · {INAT_DAYS} giorni"
         ),
         f"<i>{_html.escape(meta['blurb'], quote=False)}</i>",
     ]
@@ -755,10 +719,7 @@ def format_fauna_list(
         lines.append("Nessun avvistamento in questo filtro.")
         lines.append("Non invento animali.")
         lines.append("")
-        if view == "live":
-            lines.append("<i>Nessun ping OCEARCH in questa finestra. Non invento posizioni.</i>")
-        else:
-            lines.append("<i>GBIF / eBird / iNaturalist. Osservazione ≠ posizione GPS dell'animale.</i>")
+        lines.append("<i>iNaturalist / GBIF / eBird. Osservazione ≠ posizione GPS dell'animale.</i>")
         return "\n".join(lines)
     start = page * PAGE_SIZE
     chunk = items[start : start + PAGE_SIZE]
@@ -768,13 +729,8 @@ def format_fauna_list(
         dist_s = f"{float(dist):.1f} km" if isinstance(dist, (int, float)) else "—"
         lines.append(f"{idx}. {item_emoji(item)} <b>{title}</b>")
         bits = [f"🕐 {_when_bit(item)}"]
-        if view not in {"world", "live"} and isinstance(dist, (int, float)):
+        if view != "world" and isinstance(dist, (int, float)):
             bits.insert(0, f"📏 {dist_s}")
-        if view == "live":
-            try:
-                bits.insert(0, f"📍 {_latlon_it(float(item['lat']), float(item['lon']))}")
-            except (TypeError, ValueError, KeyError):
-                pass
         place_bit = str(item.get("place") or "")
         if place_bit:
             bits.append(_html.escape(place_bit, quote=False))
@@ -787,13 +743,9 @@ def format_fauna_list(
     if leftover:
         lines.append(f"<i>Altri {leftover} in pagine successive.</i>")
         lines.append("")
-    src = str((chunk[0] if chunk else {}).get("src") or "GBIF")
-    if view == "live":
-        lines.append("<i>OCEARCH · tag satellitare. Ping quando l'animale è in superficie.</i>")
-    else:
-        lines.append(
-            f"<i>{_html.escape(src, quote=False)}. Osservazione di un umano, non la posizione live dell'animale.</i>"
-        )
+    lines.append(
+        "<i>iNaturalist / GBIF / eBird. Osservazione di un umano, non la posizione live dell'animale.</i>"
+    )
     return "\n".join(lines)
 
 
@@ -809,16 +761,12 @@ def format_fauna_detail(*, place: str, item: dict[str, Any], view: str = "") -> 
         coord = "—"
     kind = str(item.get("kind") or "obs")
     worldish = view == "world" or kind == "world"
-    if kind == "trk":
-        live = "Punto di uno studio pubblicato, non un radar LIVE."
-    elif kind == "live":
-        live = "Ultimo ping del tag satellitare OCEARCH. È la posizione dell'animale, non un avvistamento."
-    elif worldish:
+    if worldish:
         live = "Avvistamento iNaturalist nel mondo. Il posto è dove è stato visto."
     else:
         live = "Osservazione recente di un umano. Non è la posizione GPS dell'animale."
     dist_line = ""
-    if not worldish and kind != "live" and isinstance(dist, (int, float)):
+    if not worldish and isinstance(dist, (int, float)):
         dist_line = f"📏 {float(dist):.1f} km da {where}"
     found_line = _html.escape(found, quote=False)
     lines = [
@@ -854,8 +802,10 @@ def item_button_label(item: dict[str, Any], index: int, *, world: bool = False) 
     if world or kind == "world":
         if found:
             title = f"{title} · {found}"
-    elif kind == "live":
-        title = f"{title} · {_when_bit(item)}"
-    elif isinstance(dist, (int, float)):
-        title = f"{title} · {float(dist):.0f} km"
+    else:
+        park = found.split(",")[0].strip() if found else ""
+        if park and _parkish({"place": found}):
+            title = f"{title} · {park}"
+        elif isinstance(dist, (int, float)):
+            title = f"{title} · {float(dist):.0f} km"
     return f"{index} {item_emoji(item)} {title}"[:34]
