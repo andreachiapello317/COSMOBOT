@@ -43,7 +43,7 @@ FAUNA_VIEWS = {
     "obs": {
         "it": "Osservati recenti",
         "emoji": "🐾",
-        "blurb": "Avvistamenti GBIF delle ultime settimane intorno al luogo. Non è un feed LIVE.",
+        "blurb": "Uccelli, altri animali e tracciati pubblici se ci sono. GBIF, eBird se c'è la chiave. Non è un feed LIVE.",
     },
     "live": {
         "it": "Osservati live",
@@ -470,6 +470,64 @@ async def fetch_tracked(
     return items[:MAX_ITEMS], note
 
 
+def _sci_key(item: dict[str, Any]) -> str:
+    return str(item.get("sci") or item.get("title") or "").strip().casefold()
+
+
+def _merge_recent(*batches: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for batch in batches:
+        for item in batch:
+            key = _sci_key(item)
+            if not key:
+                continue
+            prev = seen.get(key)
+            if prev is None:
+                seen[key] = dict(item)
+                order.append(key)
+                continue
+            cand = dict(item)
+            prev_d = float(prev.get("dist_km") or 99999)
+            cand_d = float(cand.get("dist_km") or 99999)
+            keep = dict(cand if cand_d < prev_d else prev)
+            if prev.get("kind") == "trk" or cand.get("kind") == "trk":
+                keep["kind"] = "trk"
+                keep["src"] = cand.get("src") if cand.get("kind") == "trk" else prev.get("src")
+            seen[key] = keep
+    items = [seen[key] for key in order]
+    items.sort(key=lambda row: float(row.get("dist_km") or 0))
+    return items[:MAX_ITEMS]
+
+
+async def fetch_recent_observed(
+    client: httpx.AsyncClient,
+    lat: float,
+    lon: float,
+) -> tuple[list[dict[str, Any]], str]:
+    observed = await fetch_gbif_near(client, lat, lon, taxon_key=ANIMALIA, kind="obs")
+    aves = await fetch_gbif_near(client, lat, lon, taxon_key=AVES, kind="bird")
+    birds = await fetch_ebird_near(client, lat, lon, radius_km=NEAR_KM)
+    try:
+        tracked, _note = await fetch_tracked(client, lat, lon)
+    except Exception:
+        tracked = []
+    near_trk = [
+        row
+        for row in tracked
+        if isinstance(row.get("dist_km"), (int, float)) and float(row["dist_km"]) <= 300.0
+    ]
+    extras: list[str] = []
+    if birds:
+        extras.append("Uccelli anche da eBird.")
+    elif aves:
+        extras.append("Uccelli da GBIF (Aves).")
+    if near_trk:
+        extras.append(f"{len(near_trk)} tracciati pubblici nel raggio largo.")
+    items = _merge_recent(observed, aves, birds or [], near_trk)
+    return items, " ".join(extras)
+
+
 async def search_species(client: httpx.AsyncClient, query: str) -> dict[str, Any] | None:
     q = str(query or "").strip()
     if len(q) < 2:
@@ -529,6 +587,7 @@ async def fetch_fauna_map(
     place: str,
     taxon_key: int = ANIMALIA,
     zoom: int = 8,
+    pin: bool = False,
 ) -> bytes | None:
     n = 2**zoom
     xf = (lon + 180.0) / 360.0 * n
@@ -578,9 +637,16 @@ async def fetch_fauna_map(
     canvas.paste(pieces[3], (w, h))
     rgb = canvas.convert("RGB")
     draw = ImageDraw.Draw(rgb)
+    if pin:
+        mark_x = (xf - x1) * w
+        mark_y = (yf - y1) * h
+        r = 11
+        draw.ellipse((mark_x - r, mark_y - r, mark_x + r, mark_y + r), outline=(255, 210, 60), width=3)
+        draw.ellipse((mark_x - 3, mark_y - 3, mark_x + 3, mark_y + 3), fill=(255, 210, 60))
     draw.rectangle((0, rgb.height - 44, rgb.width, rgb.height), fill=(8, 12, 20))
     draw.text((12, rgb.height - 36), str(place or "fauna")[:42], fill=(235, 238, 245), font=_font(20))
-    draw.text((12, rgb.height - 18), "GBIF Maps · osservazioni, non collari LIVE", fill=(160, 175, 195), font=_font(13))
+    footer = "GBIF Maps · zona dell'osservazione" if pin else "GBIF Maps · zona scelta, non collari LIVE"
+    draw.text((12, rgb.height - 18), footer, fill=(160, 175, 195), font=_font(13))
     out = io.BytesIO()
     rgb.save(out, format="JPEG", quality=86, optimize=True)
     return out.getvalue()
@@ -621,6 +687,17 @@ def _when_bit(item: dict[str, Any]) -> str:
     return "—"
 
 
+def item_emoji(item: dict[str, Any]) -> str:
+    kind = str(item.get("kind") or "obs")
+    if kind == "trk":
+        return "🛰️"
+    if kind == "bird":
+        return "🐦"
+    if kind == "live":
+        return "📡"
+    return "🐾"
+
+
 def format_fauna_hub(*, place: str) -> str:
     where = _html.escape(place, quote=False)
     return "\n".join(
@@ -628,12 +705,10 @@ def format_fauna_hub(*, place: str) -> str:
             "🐾 <b>FAUNA</b>",
             f"📍 <b>{where.upper()}</b>",
             "",
-            "Due sezioni di osservati, due fonti:",
-            "🐾 <b>Osservati recenti</b> — GBIF, ultime settimane intorno al luogo.",
+            "🐾 <b>Osservati recenti</b> — uccelli e altri animali GBIF (eBird se c'è la chiave). I tracciati pubblici entrano qui, se ci sono.",
             "📡 <b>Osservati live</b> — iNaturalist, ultimi 7 giorni. Non è un collare GPS.",
-            "🐦 <b>Uccelli</b> — eBird se c'è la chiave, altrimenti GBIF (Aves).",
-            "🛰️ <b>Tracciati</b> — solo studi con GPS/sensore già pubblici.",
-            "🗺️ <b>Mappa</b> — densità GBIF delle osservazioni, non i collari.",
+            "🗺️ <b>Mappa della zona</b> — sulla città scelta. Dalla scheda animale, la mappa è la sua zona.",
+            "🌍 <b>Fauna nel mondo</b> — avvistamenti iNaturalist appena pubblicati.",
             "",
             "<i>Non è uno zoo e non è un allarme. Se il feed è vuoto, non invento avvistamenti.</i>",
         ]
@@ -673,7 +748,7 @@ def format_fauna_list(
         title = _html.escape(str(item.get("title") or "animale"), quote=False)
         dist = item.get("dist_km")
         dist_s = f"{float(dist):.1f} km" if isinstance(dist, (int, float)) else "—"
-        lines.append(f"{idx}. {meta['emoji']} <b>{title}</b>")
+        lines.append(f"{idx}. {item_emoji(item)} <b>{title}</b>")
         bits = [f"🕐 {_when_bit(item)}"]
         if view != "world" and isinstance(dist, (int, float)):
             bits.insert(0, f"📏 {dist_s}")
@@ -690,7 +765,9 @@ def format_fauna_list(
         lines.append(f"<i>Altri {leftover} in pagine successive.</i>")
         lines.append("")
     src = str((chunk[0] if chunk else {}).get("src") or "GBIF")
-    lines.append(f"<i>{_html.escape(src, quote=False)}. Osservazione ≠ collare GPS, salvo 🛰️ Tracciati.</i>")
+    lines.append(
+        f"<i>{_html.escape(src, quote=False)}. 🛰️ = studio con collare/sensore pubblicato. Altrimenti è un'osservazione.</i>"
+    )
     return "\n".join(lines)
 
 
@@ -741,7 +818,7 @@ def format_fauna_caption(*, place: str, note: str) -> str:
         f"🗺️ <b>MAPPA FAUNA</b>\n"
         f"📍 {_html.escape(place, quote=False)}\n"
         f"{_html.escape(note or 'GBIF Maps', quote=False)}\n"
-        "<i>Densità di osservazioni. Non è il GPS di un animale.</i>"
+        "<i>Densità di osservazioni sulla zona. Non è il GPS di un animale.</i>"
     )
 
 
@@ -750,4 +827,4 @@ def item_button_label(item: dict[str, Any], index: int) -> str:
     dist = item.get("dist_km")
     if isinstance(dist, (int, float)):
         title = f"{title} · {float(dist):.0f} km"
-    return f"{index} {title}"[:34]
+    return f"{index} {item_emoji(item)} {title}"[:34]

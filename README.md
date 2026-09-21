@@ -29,7 +29,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🌍 TERRA → Eventi | Sulla città: solo i tasti delle categorie con eventi (500 km, 7 giorni). Mondo + cataloghi restano. Foto Worldview/GIBS | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) + [FIRMS](https://firms.modaps.eosdis.nasa.gov) + [GIBS](https://wvs.earthdata.nasa.gov) |
 | 🌍 TERRA → Eventi → categorie | Terremoti USGS; incendi FIRMS+EONET; tempeste, vulcani, alluvioni, frane, polvere EONET (compaiono solo se ci sono); satellite GIBS | USGS + EONET + FIRMS + GIBS |
 | 🌍 TERRA → Eventi → Cataloghi | Feed lunghi aperti (USGS / EONET) | USGS + EONET |
-| 🌍 TERRA → Fauna | Osservati recenti (GBIF), osservati live (iNaturalist 7 giorni), uccelli, mappa, tracciati se pubblici | [GBIF](https://www.gbif.org) + [eBird](https://ebird.org) (se `EBIRD_API_KEY`) + [iNaturalist](https://www.inaturalist.org) |
+| 🌍 TERRA → Fauna | Osservati recenti (GBIF + uccelli + tracciati se ci sono), live iNaturalist, mappa sulla zona dell'animale, fauna nel mondo | [GBIF](https://www.gbif.org) + [eBird](https://ebird.org) (se `EBIRD_API_KEY`) + [iNaturalist](https://www.inaturalist.org) |
 | 🌍 TERRA → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |
 
 Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come oroscopo.
@@ -105,7 +105,7 @@ Opzionale per gli incendi: una `MAP_KEY` FIRMS (gratis). Senza, il bot usa i CSV
 FIRMS_MAP_KEY=
 ```
 
-Opzionale per gli uccelli vicini: chiave eBird. Senza, Fauna usa GBIF (classe Aves).
+Opzionale: chiave eBird. Senza, gli uccelli restano dentro Osservati recenti via GBIF.
 
 ```env
 EBIRD_API_KEY=

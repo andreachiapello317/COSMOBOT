@@ -251,21 +251,17 @@ from services.wildlife import (
     WildlifeError,
     dump_items as dump_fauna_items,
     fauna_meta,
-    fetch_ebird_near,
     fetch_fauna_map,
-    fetch_gbif_near,
     fetch_inat_obs,
-    fetch_tracked,
+    fetch_recent_observed,
     format_animals_card,
     format_fauna_caption,
     format_fauna_detail,
     format_fauna_hub,
     format_fauna_list,
     recent_animals,
-    search_species,
     stored_items as stored_fauna_items,
     ANIMALIA,
-    AVES,
     LIVE_DAYS,
     NEAR_KM,
 )
@@ -2582,7 +2578,7 @@ def help_text() -> str:
         "(cielo di adesso con grado sulla carta, Horizons NASA, satelliti live), Studia lo spazio (enciclopedia). "
         "Niente divinazione.\n"
         "🌍 <b>TERRA</b> — Eventi (atmosferici e naturali, live), "
-        "Fauna (osservati recenti GBIF, osservati live iNaturalist, tracciati se pubblici), Pietre.\n"
+        "Fauna (osservati recenti e live; mappa sulla zona dell'animale), Pietre.\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
         "calendario (ora, eventi, compleanni).\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, terra, strumenti.\n\n"
@@ -2645,7 +2641,7 @@ async def send_fauna_list(
     page: int | None = None,
     query: str | None = None,
 ) -> None:
-    if view not in {"bird", "obs", "live", "trk", "world", "find"}:
+    if view not in {"obs", "live", "world"}:
         await send_fauna_hub(update, context)
         return
     nav_mark(context, f"fn:{view}")
@@ -2663,35 +2659,14 @@ async def send_fauna_list(
         try:
             if view == "world":
                 items = await recent_animals(client, limit=FAUNA_PAGE * 2)
-            elif view == "bird":
-                items = await fetch_ebird_near(client, lat, lon, radius_km=NEAR_KM)
-                if items is None:
-                    items = await fetch_gbif_near(client, lat, lon, taxon_key=AVES, kind="bird")
-                    extra = "eBird richiede una chiave. Mostro gli uccelli di GBIF (include eBird e iNaturalist)."
-                elif not items:
-                    extra = "eBird è vuoto in questo raggio."
             elif view == "live":
                 items = await fetch_inat_obs(
                     client, lat=lat, lon=lon, radius_km=NEAR_KM, days=LIVE_DAYS, kind="live"
                 )
                 if not items:
                     extra = f"Nessun avvistamento iNaturalist negli ultimi {LIVE_DAYS} giorni in questo raggio."
-            elif view == "trk":
-                items, extra = await fetch_tracked(client, lat, lon)
-            elif view == "find":
-                found = await search_species(client, query or str(state.get("query") or ""))
-                if found is None:
-                    items = []
-                    extra = "Nessuna specie animale con quel nome in GBIF."
-                else:
-                    extra = f"{found['sci']} · taxon {found['key']}"
-                    items = await fetch_gbif_near(
-                        client, lat, lon, taxon_key=int(found["key"]), days=365, kind="obs"
-                    )
-                    if not items:
-                        extra += ". Nessuna osservazione vicina negli ultimi mesi."
             else:
-                items = await fetch_gbif_near(client, lat, lon, taxon_key=ANIMALIA, kind="obs")
+                items, extra = await fetch_recent_observed(client, lat, lon)
         except WildlifeError as exc:
             await reply_html(
                 update,
@@ -2767,20 +2742,36 @@ async def send_fauna_map(
     *,
     taxon_key: int = ANIMALIA,
     title_place: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    pin: bool = False,
+    note: str | None = None,
 ) -> None:
     nav_mark(context, "fn:map")
     _ensure_fauna_place(context)
-    name, lat, lon = _fauna_place(context)
+    name, city_lat, city_lon = _fauna_place(context)
+    use_lat = float(lat) if lat is not None else city_lat
+    use_lon = float(lon) if lon is not None else city_lon
+    label = title_place or name
     await send_typing(update)
     await deliver_text(update, context, "🗺️ Compongo la mappa GBIF…")
     try:
         image = await fetch_fauna_map(
-            _http_client(context), lat, lon, place=title_place or name, taxon_key=taxon_key
+            _http_client(context),
+            use_lat,
+            use_lon,
+            place=label,
+            taxon_key=taxon_key,
+            zoom=9 if pin else 8,
+            pin=pin,
         )
     except Exception:
         logger.exception("Mappa fauna")
         image = None
-    text = format_fauna_caption(place=title_place or name, note="GBIF Maps · osservazioni Animalia")
+    caption_note = note or (
+        f"Zona di {label}" if pin else f"Zona di {name} · osservazioni Animalia"
+    )
+    text = format_fauna_caption(place=label, note=caption_note)
     if image:
         ok = await deliver_photo_bytes(
             update,
@@ -2800,25 +2791,6 @@ async def send_fauna_map(
     )
 
 
-async def send_fauna_search_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    nav_mark(context, "fn:q")
-    context.user_data[FAUNA_ASK_KEY] = True
-    await reply_html(
-        update,
-        context,
-        "🔎 <b>CERCA SPECIE</b>\n\n"
-        "Scrivi il nome italiano o scientifico (volpe, capriolo, <i>Buteo buteo</i>).\n"
-        "Cerco le osservazioni vicine. Non è un riconoscimento da foto.",
-        reply_markup=fauna_hub_keyboard(_fauna_place(context)[0]),
-    )
-
-
-async def receive_fauna_search(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
-    context.user_data[FAUNA_ASK_KEY] = False
-    await delete_user_command(update)
-    await send_fauna_list(update, context, "find", query=text)
-
-
 async def dispatch_fauna(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     parts = token.split(":")
     action = parts[1] if len(parts) > 1 else "hub"
@@ -2832,14 +2804,16 @@ async def dispatch_fauna(update: Update, context: ContextTypes.DEFAULT_TYPE, tok
     if action == "map":
         await send_fauna_map(update, context)
         return
-    if action == "q":
-        await send_fauna_search_ask(update, context)
+    if action in {"bird", "trk", "q", "find"}:
+        await send_fauna_list(update, context, "obs")
         return
-    if action in {"bird", "obs", "live", "trk", "world"}:
+    if action in {"obs", "live", "world"}:
         await send_fauna_list(update, context, action)
         return
     if action == "pg" and extra.isdigit():
         view = str(_fauna_state(context).get("view") or "obs")
+        if view not in {"obs", "live", "world"}:
+            view = "obs"
         await send_fauna_list(update, context, view, page=int(extra))
         return
     if action == "i" and extra.isdigit():
@@ -2851,14 +2825,32 @@ async def dispatch_fauna(update: Update, context: ContextTypes.DEFAULT_TYPE, tok
         item = items[idx] if 0 <= idx < len(items) else {}
         taxon = item.get("taxon")
         try:
-            key = int(taxon) if taxon not in {None, ""} else AVES
+            key = int(taxon) if taxon not in {None, ""} else ANIMALIA
         except (TypeError, ValueError):
-            key = AVES
+            key = ANIMALIA
+        try:
+            alat = float(item["lat"])
+            alon = float(item["lon"])
+        except (TypeError, ValueError, KeyError):
+            await reply_html(
+                update,
+                context,
+                "🗺️ Questa osservazione non ha coordinate. Non centro la mappa a caso.",
+                reply_markup=fauna_detail_keyboard(idx),
+            )
+            return
+        title = str(item.get("title") or "animale")
+        zone = str(item.get("place") or "").strip()
+        label = " · ".join(part for part in (zone, title) if part)
         await send_fauna_map(
             update,
             context,
             taxon_key=key,
-            title_place=str(item.get("title") or _fauna_place(context)[0]),
+            title_place=label,
+            lat=alat,
+            lon=alon,
+            pin=True,
+            note=f"Zona di {title}" + (f" · {zone}" if zone else ""),
         )
         return
     await send_fauna_hub(update, context)
@@ -13233,8 +13225,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     text = message.text.strip()
     stone = context.user_data.get(STONE_STATE_KEY)
     if context.user_data.get(FAUNA_ASK_KEY):
-        await receive_fauna_search(update, context, text)
-        return
+        context.user_data[FAUNA_ASK_KEY] = False
     if context.user_data.get(LOC_ASK_KEY):
         if _loc_purpose(context) == "meteo" and looks_like_forecast_span(text):
             context.user_data[LOC_ASK_KEY] = False
