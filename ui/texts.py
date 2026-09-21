@@ -402,7 +402,7 @@ def geo_hub_text() -> str:
         "🌍 <b>TERRA</b>",
         "Bot di BOTSQUAD per fenomeni veri. Eventi atmosferici e naturali, animali live, pietre.",
         "🌋 <b>EVENTI</b> — terremoti, incendi, tempeste, vulcani: dati + satellite\n"
-        "🐾 <b>FAUNA</b> — osservati recenti (anche uccelli e tracciati se ci sono) e live\n"
+        "🐾 <b>FAUNA</b> — osservati recenti e posizioni live (tag satellitari)\n"
         "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione",
     )
 
@@ -419,10 +419,9 @@ def world_flora_text() -> str:
 def world_fauna_text() -> str:
     return _card(
         "🐾 <b>FAUNA</b>",
-        "Pochi tasti. Recenti e live sono due fonti. La mappa dalla scheda è la zona dell'animale.",
-        "🐾 Osservati recenti — GBIF + uccelli; tracciati pubblici se ci sono\n"
-        "📡 Osservati live — iNaturalist, ultimi 7 giorni\n"
-        "🗺️ Mappa della zona — città scelta, o la zona dell'animale dalla scheda\n"
+        "Osservati = qualcuno li ha visti. Posizioni live = tag satellitare sull'animale.",
+        "🐾 Osservati recenti — GBIF, eBird, iNaturalist intorno al luogo\n"
+        "📡 Posizioni live — ultimo ping OCEARCH (squali, tartarughe…)\n"
         "🌍 Fauna nel mondo — iNaturalist appena pubblicati",
     )
 

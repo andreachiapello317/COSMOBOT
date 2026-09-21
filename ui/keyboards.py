@@ -177,8 +177,8 @@ def fauna_hub_keyboard(place: str = "Cuneo") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn(f"📍 {label}", "fn:city")],
-            [kb_btn("🐾 Osservati recenti", "fn:obs"), kb_btn("📡 Osservati live", "fn:live")],
-            [kb_btn("🗺️ Mappa della zona", "fn:map"), kb_btn("🌍 Fauna nel mondo", "fn:world")],
+            [kb_btn("🐾 Osservati recenti", "fn:obs"), kb_btn("📡 Posizioni live", "fn:live")],
+            [kb_btn("🌍 Fauna nel mondo", "fn:world")],
             nav_row(),
         ]
     )
@@ -209,15 +209,6 @@ def fauna_list_keyboard(items: list[dict], *, page: int = 0, page_size: int = 5)
 
 
 def fauna_detail_keyboard(index: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [kb_btn("🗺️ Mappa specie", f"fn:sm:{index}")],
-            nav_row(),
-        ]
-    )
-
-
-def fauna_map_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([nav_row()])
 
 

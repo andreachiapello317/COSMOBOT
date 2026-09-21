@@ -29,7 +29,7 @@ Tutto è a **pulsanti**. Nel menu Telegram restano solo `/start` (BOTSQUAD) e `/
 | 🌍 TERRA → Eventi | Sulla città: solo i tasti delle categorie con eventi (500 km, 7 giorni). Mondo + cataloghi restano. Foto Worldview/GIBS | [USGS](https://earthquake.usgs.gov) + [NASA EONET](https://eonet.gsfc.nasa.gov) + [FIRMS](https://firms.modaps.eosdis.nasa.gov) + [GIBS](https://wvs.earthdata.nasa.gov) |
 | 🌍 TERRA → Eventi → categorie | Terremoti USGS; incendi FIRMS+EONET; tempeste, vulcani, alluvioni, frane, polvere EONET (compaiono solo se ci sono); satellite GIBS | USGS + EONET + FIRMS + GIBS |
 | 🌍 TERRA → Eventi → Cataloghi | Feed lunghi aperti (USGS / EONET) | USGS + EONET |
-| 🌍 TERRA → Fauna | Osservati recenti (GBIF + uccelli + tracciati se ci sono), live iNaturalist, mappa sulla zona dell'animale, fauna nel mondo | [GBIF](https://www.gbif.org) + [eBird](https://ebird.org) (se `EBIRD_API_KEY`) + [iNaturalist](https://www.inaturalist.org) |
+| 🌍 TERRA → Fauna | Osservati recenti (GBIF/eBird/iNat), posizioni live OCEARCH, fauna nel mondo | [GBIF](https://www.gbif.org) + [eBird](https://ebird.org) (se `EBIRD_API_KEY`) + [iNaturalist](https://www.inaturalist.org) + [OCEARCH](https://www.ocearch.org/tracker/) |
 | 🌍 TERRA → Pietre | Enciclopedia, laboratorio (foto), collezione, museo | catalogo locale + Wikipedia; CLIP se `HF_TOKEN` |
 
 Se scrivi solo il nome di un segno (`vergine`, `Leo`, `scorpione`…) viene trattato come oroscopo.
@@ -245,7 +245,7 @@ services/bots.py       # registro BOTSQUAD (cinque bot)
 services/tools.py      # coordinate, ora e calendario civile di STRUMENTI
 services/calevents.py  # Pasqua, Natale, feste civili, stagioni
 services/birthdays.py  # compleanni nel calendario + avviso del giorno
-services/wildlife.py   # Fauna: GBIF / eBird / iNaturalist + mappa; tracciati solo se pubblici
+services/wildlife.py   # Fauna: osservati GBIF/eBird/iNat; posizioni live OCEARCH
 services/calamity.py   # Eventi & calamità: USGS + EONET + FIRMS + GIBS
 ui/keyboards.py        # BOTSQUAD + ORACOLO + ASTRO + STRUMENTI
 ui/texts.py            # testi BOTSQUAD / ORACOLO / ASTRO / STRUMENTI
