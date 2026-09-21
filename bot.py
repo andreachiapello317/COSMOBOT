@@ -271,6 +271,21 @@ from services.wildlife import (
     stored_items as stored_fauna_items,
     LIVE_DAYS,
 )
+from services.oggi import (
+    NEWS_FEEDS,
+    fetch_crypto,
+    fetch_fx,
+    fetch_indices,
+    fetch_metals,
+    fetch_news,
+    format_crypto,
+    format_fx,
+    format_indices,
+    format_metals,
+    format_news,
+    news_page_count,
+    resolve_search,
+)
 from services.earth import (
     fetch_eonet,
     fetch_geo_map_here,
@@ -370,6 +385,10 @@ from ui.keyboards import (
     geo_after_keyboard,
     geo_events_keyboard,
     geo_hub_keyboard,
+    oggi_hub_keyboard,
+    oggi_markets_keyboard,
+    oggi_news_hub_keyboard,
+    oggi_news_list_keyboard,
     geo_quakes_keyboard,
     natura_here_keyboard,
     natura_world_keyboard,
@@ -498,6 +517,9 @@ from ui.texts import (
     all_hub_text,
     astro_hub_text,
     geo_hub_text,
+    oggi_hub_text,
+    oggi_markets_text,
+    oggi_news_text,
     cosmo_hub_text,
     domanda_text,
     esplora_text,
@@ -606,6 +628,7 @@ GEO_CALAM_KEY = "geo_calam"
 FAUNA_LAST_KEY = "fauna_place"
 FAUNA_STATE_KEY = "fauna_state"
 FAUNA_ASK_KEY = "fauna_ask"
+OGGI_ASK_KEY = "oggi_ask"
 BUSSOLA_LAST_KEY = "bussola_last"
 MATH_ASK_KEY = "math_ask"
 TOOL_CAL_KEY = "tool_cal_shift"
@@ -1692,6 +1715,7 @@ def _flows_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data[METEO_ASK_KEY] = False
     context.user_data[MATH_ASK_KEY] = None
     context.user_data[FAUNA_ASK_KEY] = False
+    context.user_data[OGGI_ASK_KEY] = False
     context.user_data[COMPASS_SHARE_KEY] = False
 
 
@@ -1739,7 +1763,7 @@ def nav_pop(context: ContextTypes.DEFAULT_TYPE) -> str | None:
 
 def _cmd_begin(context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
     _flows_reset(context)
-    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:calc", "bot:bussola", "bot:tool", "bot:quiz", "bot:cosmo", "bot:next"}:
+    if token not in {"home:menu", "bot:oracolo", "bot:astro", "bot:geo", "bot:oggi", "bot:calc", "bot:bussola", "bot:tool", "bot:quiz", "bot:cosmo", "bot:next"}:
         here = context.user_data.get(NAV_HERE_KEY)
         if here in {None, "home:menu"}:
             context.user_data[NAV_STACK_KEY] = ["home:menu"]
@@ -2579,7 +2603,7 @@ def help_text() -> str:
     default_it, default_emoji, _ = ZODIAC[DEFAULT_SIGN]
     return (
         "🪐 <b>BOTSQUAD</b>\n"
-        "<i>Cinque bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
+        "<i>Sei bot, un Telegram. Si naviga a pulsanti. Nel menu restano /start e /aiuto.</i>\n\n"
         "🔮 <b>ORACOLO</b> — Te stesso (oroscopo, tema natale, specchio, "
         "compatibilità), Consultazioni (tarocchi, I Ching, rune, Lenormand, "
         "sì/no, pietra del giorno) e Interroga il cielo (luna, stelle e "
@@ -2590,9 +2614,10 @@ def help_text() -> str:
         "🌍 <b>TERRA</b> — Eventi (atmosferici e naturali, live), "
         "Fauna (osservati recenti; posizioni live OCEARCH), "
         "Pietre (catalogo, laboratorio, geologia del luogo).\n"
+        "📡 <b>OGGI</b> — mercati (valute BCE, crypto, indici, materie) e notizie (ANSA, Google News IT).\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
         "calendario (ora, eventi, compleanni).\n"
-        "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, terra, strumenti.\n\n"
+        "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, terra, oggi, strumenti.\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
         "nome del segno in chat.\n\n"
@@ -2625,6 +2650,124 @@ async def show_astro_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def show_geo_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     nav_mark(context, "bot:geo")
     await reply_html(update, context, geo_hub_text(), reply_markup=geo_hub_keyboard())
+
+
+async def show_oggi_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "bot:oggi")
+    context.user_data[OGGI_ASK_KEY] = False
+    await reply_html(update, context, oggi_hub_text(), reply_markup=oggi_hub_keyboard())
+
+
+async def show_oggi_markets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "og:mkt")
+    context.user_data[OGGI_ASK_KEY] = False
+    await reply_html(update, context, oggi_markets_text(), reply_markup=oggi_markets_keyboard())
+
+
+async def show_oggi_news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "og:nw")
+    context.user_data[OGGI_ASK_KEY] = False
+    await reply_html(update, context, oggi_news_text(), reply_markup=oggi_news_hub_keyboard())
+
+
+async def send_oggi_board(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    await send_typing(update)
+    client = _http_client(context)
+    try:
+        if kind == "fx":
+            text = format_fx(await fetch_fx(client))
+        elif kind == "cr":
+            text = format_crypto(await fetch_crypto(client))
+        elif kind == "ix":
+            text = format_indices(await fetch_indices(client))
+        elif kind == "mt":
+            text = format_metals(await fetch_metals(client))
+        else:
+            await show_oggi_markets(update, context)
+            return
+    except Exception:
+        await reply_html(
+            update,
+            context,
+            "💹 <b>MERCATI</b>\n\nIl feed non risponde. Non invento i prezzi.",
+            reply_markup=oggi_markets_keyboard(),
+        )
+        return
+    await reply_html(update, context, text, reply_markup=oggi_markets_keyboard())
+
+
+async def send_oggi_news(update: Update, context: ContextTypes.DEFAULT_TYPE, key: str, page: int = 0) -> None:
+    if key not in NEWS_FEEDS:
+        await show_oggi_news(update, context)
+        return
+    await send_typing(update)
+    try:
+        rows = await fetch_news(_http_client(context), key)
+    except Exception:
+        rows = []
+    pages = news_page_count(rows)
+    page = max(0, min(page, pages - 1))
+    await reply_html(
+        update,
+        context,
+        format_news(key, rows, page=page),
+        reply_markup=oggi_news_list_keyboard(rows, key, page, pages),
+    )
+
+
+async def dispatch_oggi(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    parts = token.split(":")
+    action = parts[1] if len(parts) > 1 else "hub"
+    extra = parts[2] if len(parts) > 2 else ""
+    extra2 = parts[3] if len(parts) > 3 else ""
+    if action != "find":
+        context.user_data[OGGI_ASK_KEY] = False
+    if action in {"hub", ""}:
+        await show_oggi_hub(update, context)
+        return
+    if action == "mkt":
+        await show_oggi_markets(update, context)
+        return
+    if action == "nw":
+        await show_oggi_news(update, context)
+        return
+    if action == "m" and extra:
+        await send_oggi_board(update, context, extra)
+        return
+    if action == "n" and extra:
+        await send_oggi_news(update, context, extra, page=int(extra2) if extra2.isdigit() else 0)
+        return
+    if action == "np" and extra:
+        await send_oggi_news(update, context, extra, page=int(extra2) if extra2.isdigit() else 0)
+        return
+    if action == "find":
+        context.user_data[OGGI_ASK_KEY] = True
+        await reply_html(
+            update,
+            context,
+            "🔍 <b>CERCA UN TITOLO</b>\n\n"
+            "Scrivi un nome del catalogo: <code>bitcoin</code>, <code>usd</code>, "
+            "<code>mib</code>, <code>oro</code>, <code>nasdaq</code>…\n"
+            "Apro la bacheca giusta. Non cerco ticker inventati.",
+            reply_markup=InlineKeyboardMarkup([nav_row()]),
+        )
+        return
+    await show_oggi_hub(update, context)
+
+
+async def receive_oggi_search(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    context.user_data[OGGI_ASK_KEY] = False
+    key = resolve_search(text)
+    await delete_user_command(update)
+    if key is None:
+        await reply_html(
+            update,
+            context,
+            f"Niente in catalogo per «{e(text)}». Prova bitcoin, usd, mib, oro, nasdaq…",
+            reply_markup=oggi_markets_keyboard(),
+        )
+        return
+    await send_oggi_board(update, context, key)
 
 
 async def send_fauna_live(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -3215,6 +3358,9 @@ async def on_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     if action == "geo":
         await show_geo_hub(update, context)
+        return
+    if action == "oggi":
+        await show_oggi_hub(update, context)
         return
     if action in {"calc", "bussola", "tool"}:
         await show_tool_hub(update, context)
@@ -6587,6 +6733,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         if action == "geo":
             await show_geo_hub(update, context)
             return
+        if action == "oggi":
+            await show_oggi_hub(update, context)
+            return
         if action in {"calc", "bussola", "tool"}:
             await show_tool_hub(update, context)
             return
@@ -6624,6 +6773,9 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
         return
     if prefix == "geo":
         await dispatch_geo(update, context, token)
+        return
+    if prefix == "og":
+        await dispatch_oggi(update, context, token)
         return
     if prefix == "world" and action == "sky":
         await show_cielo_hub(update, context)
@@ -7281,6 +7433,7 @@ async def on_nav_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             _remember_bot_msg(context, query.message.message_id, kind)
         context.user_data[LOC_ASK_KEY] = False
         context.user_data[METEO_ASK_KEY] = False
+        context.user_data[OGGI_ASK_KEY] = False
         context.user_data["cielo_ask"] = False
         token = nav_pop(context)
         if not token:
@@ -13189,6 +13342,9 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if context.user_data.get(MATH_ASK_KEY):
         await receive_math_text(update, context, text)
         return
+    if context.user_data.get(OGGI_ASK_KEY):
+        await receive_oggi_search(update, context, text)
+        return
     if isinstance(stone, dict) and stone.get("search"):
         await receive_pietre_search(update, context, text)
         return
@@ -13256,7 +13412,7 @@ async def on_plain_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         context,
         "Ho letto il messaggio, ma non è un segno zodiacale.\n"
         "Scrivi un segno (es. <i>vergine</i>) per l'oroscopo, "
-        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 🧰 STRUMENTI o 🧩 QUIZ.",
+        "oppure tocca i pulsanti: 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 📡 OGGI, 🧰 STRUMENTI o 🧩 QUIZ.",
         reply_markup=all_hub_keyboard(),
     )
 
@@ -13266,7 +13422,7 @@ async def on_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update,
         context,
         "I comandi scritti non ci sono più: qui si va a pulsanti.\n"
-        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 🧰 STRUMENTI o 🧩 QUIZ, oppure 📚 Aiuto.",
+        "Tocca 🔮 ORACOLO, 🔭 ASTRO, 🌍 TERRA, 📡 OGGI, 🧰 STRUMENTI o 🧩 QUIZ, oppure 📚 Aiuto.",
         reply_markup=all_hub_keyboard(),
     )
     await delete_user_command(update)
@@ -14233,6 +14389,15 @@ async def on_geo_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await dispatch_geo(update, context, query.data)
 
 
+async def on_og_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    await query.answer()
+    await dispatch_oggi(update, context, query.data)
+
+
 def build_application(token: str) -> Application:
     application = (
         Application.builder()
@@ -14266,6 +14431,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_watch_action, pattern=r"^watch:"))
     application.add_handler(CallbackQueryHandler(on_orb_action, pattern=r"^orb:"))
     application.add_handler(CallbackQueryHandler(on_geo_action, pattern=r"^geo:"))
+    application.add_handler(CallbackQueryHandler(on_og_action, pattern=r"^og:"))
     application.add_handler(CallbackQueryHandler(on_fn_action, pattern=r"^fn:"))
     application.add_handler(CallbackQueryHandler(on_world_action, pattern=r"^world:"))
     application.add_handler(CallbackQueryHandler(on_wx_action, pattern=r"^wx:"))

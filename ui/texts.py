@@ -15,10 +15,11 @@ def _card(title: str, intro: str, body: str = "") -> str:
 def all_hub_text() -> str:
     return _card(
         "🪐 <b>BOTSQUAD</b>",
-        "Cinque bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
+        "Sei bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
         "🌍 <b>TERRA</b> — eventi atmosferici e naturali, animali live, pietre.\n"
+        "📡 <b>OGGI</b> — mercati live e notizie dai feed.\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice, conversioni, bussola, tempo.\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot.\n\n"
         "Tutto a pulsanti. 📚 Aiuto spiega i mondi. 🏠 Inizio torna sempre qui.",
@@ -36,7 +37,8 @@ def oracolo_hub_text() -> str:
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
         "🃏 <b>CONSULTAZIONI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n"
         "🌌 <b>INTERROGA IL CIELO</b> — luna, stelle e pianeti sopra di te (città, default Cuneo)\n\n"
-        "Il cielo misurato sta in 🔭 ASTRO. Eventi e animali live stanno in 🌍 TERRA.",
+        "Il cielo misurato sta in 🔭 ASTRO. Eventi e animali live stanno in 🌍 TERRA. "
+        "Soldi e notizie stanno in 📡 OGGI.",
     )
 
 
@@ -48,7 +50,7 @@ def astro_hub_text() -> str:
         "🌤️ <b>METEO</b> — Cuneo (o l'ultima città), oggi e domani; puoi cambiare giorni\n"
         "🔭 <b>OSSERVATORIO</b> — cielo di adesso (visibilità sulla carta), Horizons NASA, satelliti live\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n\n"
-        "Eventi naturali e animali live stanno in 🌍 TERRA."
+        "Eventi naturali e animali live stanno in 🌍 TERRA. Soldi e notizie stanno in 📡 OGGI."
     )
 
 
@@ -397,6 +399,41 @@ def world_vita_text() -> str:
     )
 
 
+def oggi_hub_text() -> str:
+    return _card(
+        "📡 <b>OGGI</b>",
+        "Bot di BOTSQUAD per soldi e titoli veri. Numeri live, feed RSS. Niente consigli di investimento.",
+        "💹 <b>MERCATI</b> — valute BCE, crypto, indici, materie\n"
+        "📰 <b>NOTIZIE</b> — ANSA e rassegna Google News Italia\n\n"
+        "I due mondi non si mescolano. Un titolo non è un ordine di borsa.",
+    )
+
+
+def oggi_markets_text() -> str:
+    return _card(
+        "💹 <b>MERCATI</b>",
+        "Quotazioni da API pubbliche. Se un feed cade, lo dico. Non invento i prezzi.",
+        "💱 Valute — euro verso dollaro, sterlina, franco, yen (BCE / Frankfurter)\n"
+        "🪙 Crypto — Bitcoin, Ethereum, Solana, XRP (CoinGecko)\n"
+        "📈 Indici — FTSE MIB, S&P 500, NASDAQ, DAX, FTSE 100 (Yahoo chart)\n"
+        "🥇 Materie — oro, argento, platino, palladio, petrolio\n"
+        "🔍 Cerca — scrivi bitcoin, usd, mib, oro…",
+    )
+
+
+def oggi_news_text() -> str:
+    return _card(
+        "📰 <b>NOTIZIE</b>",
+        "Titoli RSS delle agenzie. Non è un giornale nostro e non è un verdetto.",
+        "🇮🇹 Italia — ANSA primo piano\n"
+        "🌍 Mondo — ANSA mondo\n"
+        "💹 Economia — ANSA economia\n"
+        "🔬 Tecnologia — ANSA tecnologia\n"
+        "📰 Rassegna — Google News Italia\n\n"
+        "Cinque titoli a pagina. Tocca per aprire la fonte.",
+    )
+
+
 def geo_hub_text() -> str:
     return _card(
         "🌍 <b>TERRA</b>",
@@ -548,6 +585,7 @@ def quiz_hub_text() -> str:
         "🔮 ORACOLO — segni, rune, Lenormand (niente letture)\n"
         "🔭 ASTRO — sistema solare, lune, enciclopedia live\n"
         "🌍 TERRA — eventi, animali live, pietre\n"
+        "📡 OGGI — valute, crypto, indici, feed di notizie\n"
         "🧰 STRUMENTI — calcolatrice, conversioni, cardinali\n\n"
         "La classifica è solo tua. I mondi non si mescolano.",
     )

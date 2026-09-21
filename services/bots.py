@@ -30,6 +30,14 @@ BOTS: tuple[dict[str, Any], ...] = (
         "worlds": ("flora", "fauna", "pietre"),
     },
     {
+        "id": "oggi",
+        "emoji": "📡",
+        "name": "OGGI",
+        "tag": "Mercati e notizie",
+        "ready": True,
+        "worlds": ("mkt", "nw"),
+    },
+    {
         "id": "tool",
         "emoji": "🧰",
         "name": "STRUMENTI",
@@ -139,4 +147,6 @@ def parent_bot_token(token: str) -> str:
         return "bot:tool"
     if raw.startswith("sq:"):
         return "bot:quiz"
+    if raw.startswith("og:"):
+        return "bot:oggi"
     return "bot:astro"

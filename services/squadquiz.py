@@ -17,6 +17,7 @@ WORLD_META: dict[str, dict[str, str]] = {
     "oracolo": {"emoji": "🔮", "name": "ORACOLO", "blurb": "Tradizione dei mazzi e dei segni. Non è una lettura."},
     "astro": {"emoji": "🔭", "name": "ASTRO", "blurb": "Catalogo e, se vuoi, domande live da Wikipedia."},
     "geo": {"emoji": "🌍", "name": "TERRA", "blurb": "Eventi naturali, animali live, pietre."},
+    "oggi": {"emoji": "📡", "name": "OGGI", "blurb": "Da dove arrivano i numeri e i titoli. Non è un consiglio."},
     "tool": {"emoji": "🧰", "name": "STRUMENTI", "blurb": "Calcoli, cardinali, conversioni. Il risultato si può verificare."},
 }
 
@@ -24,6 +25,7 @@ TOPICS: dict[str, tuple[tuple[str, str], ...]] = {
     "oracolo": (("segni", "♈ Segni"), ("rune", "🪶 Rune"), ("leno", "🌿 Lenormand")),
     "astro": (("solare", "☀️ Sistema solare"), ("lune", "🌑 Lune"), ("live", "📡 Enciclopedia live")),
     "geo": (("pietre", "💎 Pietre"), ("terra", "🌍 Terra"), ("volc", "🔥 Vulcani"), ("ocean", "🌊 Oceani")),
+    "oggi": (("mkt", "💹 Mercati"), ("nw", "📰 Notizie")),
     "tool": (
         ("arit", "➕ Calcoli"),
         ("sci", "🧮 Scientifica"),
@@ -374,6 +376,62 @@ def _bussola_dir() -> dict[str, Any] | None:
     )
 
 
+def _oggi_mkt() -> dict[str, Any] | None:
+    options = [
+        (
+            "I cambi euro di OGGI arrivano da…",
+            "Frankfurter / tassi BCE",
+            ["Frankfurter / tassi BCE", "un listino inventato", "l'oroscopo", "Mindat"],
+            "Frankfurter pubblica i tassi di riferimento della Banca centrale europea. Non è il prezzo dello sportello.",
+        ),
+        (
+            "Le crypto in OGGI arrivano da…",
+            "CoinGecko",
+            ["CoinGecko", "un exchange del bot", "Macrostrat", "Wilhelm 1924"],
+            "Prezzi medi di mercato. Non è un consiglio e non è un ordine.",
+        ),
+        (
+            "Gli indici (FTSE MIB, S&P 500…) in OGGI arrivano da…",
+            "Yahoo Finance chart",
+            ["Yahoo Finance chart", "un listino certificato Borsa Italiana", "USGS", "Horoscopo"],
+            "Lo diciamo in scheda: è un chart pubblico, non un listino certificato.",
+        ),
+        (
+            "L'oro in OGGI è quotato in…",
+            "dollari per oncia",
+            ["dollari per oncia", "euro al chilo inventati", "carati di gioielleria", "token del bot"],
+            "gold-api.com dà USD/oncia. Non è un prezzo da gioielleria.",
+        ),
+    ]
+    question, correct, pool, explain = random.choice(options)
+    return _mcq(question, correct, pool, source="comportamento di OGGI / Mercati", explain=explain, wid="oggi", tid="mkt")
+
+
+def _oggi_nw() -> dict[str, Any] | None:
+    options = [
+        (
+            "I titoli Italia di OGGI arrivano da…",
+            "feed RSS ANSA",
+            ["feed RSS ANSA", "articoli scritti dal bot", "un oracolo", "Wikipedia Pietre"],
+            "ANSA pubblica i titoli. COSMOBOT li elenca, non li scrive.",
+        ),
+        (
+            "La rassegna di OGGI usa…",
+            "Google News Italia",
+            ["Google News Italia", "un giornale inventato", "EONET", "Horoscopo"],
+            "È un aggregatore. Ogni titolo apre la fonte originale.",
+        ),
+        (
+            "Un titolo in OGGI è…",
+            "un link alla fonte",
+            ["un link alla fonte", "un articolo completo nostro", "un consiglio di investimento", "una previsione"],
+            "Cinque titoli a pagina. Tocca e vai sulla fonte.",
+        ),
+    ]
+    question, correct, pool, explain = random.choice(options)
+    return _mcq(question, correct, pool, source="comportamento di OGGI / Notizie", explain=explain, wid="oggi", tid="nw")
+
+
 BUILDERS = {
     ("oracolo", "segni"): _oracolo_segni,
     ("oracolo", "rune"): _oracolo_rune,
@@ -384,6 +442,8 @@ BUILDERS = {
     ("geo", "terra"): lambda: _geo_list(EARTH_TOPICS, "terra", "Terra"),
     ("geo", "volc"): lambda: _geo_list(VOLCANOES, "volc", "Vulcani"),
     ("geo", "ocean"): lambda: _geo_list(OCEANS, "ocean", "Oceani"),
+    ("oggi", "mkt"): _oggi_mkt,
+    ("oggi", "nw"): _oggi_nw,
     ("tool", "arit"): _math_arit,
     ("tool", "sci"): _math_sci,
     ("tool", "pct"): _math_sci,

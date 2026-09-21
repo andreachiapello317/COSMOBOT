@@ -1,4 +1,4 @@
-"""Tastiere Inline: BOTSQUAD e i cinque bot."""
+"""Tastiere Inline: BOTSQUAD e i sei bot."""
 
 from __future__ import annotations
 
@@ -54,6 +54,7 @@ def all_hub_keyboard() -> InlineKeyboardMarkup:
             [kb_btn("🔮 ORACOLO", "bot:oracolo")],
             [kb_btn("🔭 ASTRO", "bot:astro")],
             [kb_btn("🌍 TERRA", "bot:geo")],
+            [kb_btn("📡 OGGI", "bot:oggi")],
             [kb_btn("🧰 STRUMENTI", "bot:tool")],
             [kb_btn("🧩 QUIZ", "bot:quiz")],
             [kb_btn("📚 Aiuto", "home:aiuto")],
@@ -78,6 +79,57 @@ def oracolo_hub_keyboard() -> InlineKeyboardMarkup:
             nav_row(),
         ]
     )
+
+
+def oggi_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("💹 Mercati", "og:mkt"), kb_btn("📰 Notizie", "og:nw")],
+            nav_row(),
+        ]
+    )
+
+
+def oggi_markets_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("💱 Valute", "og:m:fx"), kb_btn("🪙 Crypto", "og:m:cr")],
+            [kb_btn("📈 Indici", "og:m:ix"), kb_btn("🥇 Materie", "og:m:mt")],
+            [kb_btn("🔍 Cerca un titolo", "og:find")],
+            nav_row(),
+        ]
+    )
+
+
+def oggi_news_hub_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🇮🇹 Italia", "og:n:it"), kb_btn("🌍 Mondo", "og:n:wo")],
+            [kb_btn("💹 Economia", "og:n:ec"), kb_btn("🔬 Tecnologia", "og:n:sc")],
+            [kb_btn("📰 Rassegna", "og:n:gn")],
+            nav_row(),
+        ]
+    )
+
+
+def oggi_news_list_keyboard(rows: list, key: str, page: int, pages: int) -> InlineKeyboardMarkup:
+    start = page * 5
+    chunk = rows[start : start + 5]
+    grid: list[list[InlineKeyboardButton]] = []
+    for idx, item in enumerate(chunk, start=start + 1):
+        title = str(item.get("title") or "articolo")[:48]
+        link = str(item.get("link") or "")
+        if link.startswith("http"):
+            grid.append([InlineKeyboardButton(f"{idx}. {title}", url=link)])
+    pager: list[InlineKeyboardButton] = []
+    if page > 0:
+        pager.append(kb_btn("◀️", f"og:np:{key}:{page - 1}"))
+    if page + 1 < pages:
+        pager.append(kb_btn("▶️", f"og:np:{key}:{page + 1}"))
+    if pager:
+        grid.append(pager)
+    grid.append(nav_row())
+    return InlineKeyboardMarkup(grid)
 
 
 def geo_hub_keyboard() -> InlineKeyboardMarkup:
