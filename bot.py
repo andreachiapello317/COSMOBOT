@@ -2689,7 +2689,7 @@ async def send_fauna_list(
         update,
         context,
         format_fauna_list(view=view, place=name, items=items, page=page, extra=extra),
-        reply_markup=fauna_list_keyboard(items, page=page, page_size=FAUNA_PAGE),
+        reply_markup=fauna_list_keyboard(items, page=page, page_size=FAUNA_PAGE, view=view),
         preview=True,
     )
 
@@ -2704,7 +2704,7 @@ async def send_fauna_detail(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     nav_mark(context, f"fn:i:{index}")
     _ensure_fauna_place(context)
     name, _lat, _lon = _fauna_place(context)
-    text = format_fauna_detail(place=name, item=item)
+    text = format_fauna_detail(place=name, item=item, view=str(state.get("view") or ""))
     markup = fauna_detail_keyboard(index)
     photo_url = str(item.get("photo") or "")
     if photo_url.startswith("http"):

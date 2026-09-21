@@ -203,7 +203,7 @@ async def fetch_inat_obs(
 
 
 async def recent_animals(client: httpx.AsyncClient, *, limit: int = 8) -> list[dict[str, Any]]:
-    out = await fetch_inat_obs(client, limit=limit, kind="obs")
+    out = await fetch_inat_obs(client, limit=limit, kind="world")
     if not out:
         raise WildlifeError("Nessun avvistamento in questo giro")
     return out
@@ -706,6 +706,8 @@ def item_emoji(item: dict[str, Any]) -> str:
         return "🐦"
     if kind == "live":
         return "📡"
+    if kind == "world":
+        return "🌍"
     return "🐾"
 
 
@@ -795,30 +797,37 @@ def format_fauna_list(
     return "\n".join(lines)
 
 
-def format_fauna_detail(*, place: str, item: dict[str, Any]) -> str:
+def format_fauna_detail(*, place: str, item: dict[str, Any], view: str = "") -> str:
     title = _html.escape(str(item.get("title") or "Animale"), quote=False)
     sci = _html.escape(str(item.get("sci") or ""), quote=False)
     where = _html.escape(place, quote=False)
     dist = item.get("dist_km")
-    dist_s = f"{float(dist):.1f} km da {where}" if isinstance(dist, (int, float)) else where
+    found = str(item.get("place") or "").strip()
     try:
         coord = _latlon_it(float(item["lat"]), float(item["lon"]))
     except (TypeError, ValueError, KeyError):
         coord = "—"
     kind = str(item.get("kind") or "obs")
+    worldish = view == "world" or kind == "world"
     if kind == "trk":
         live = "Punto di uno studio pubblicato, non un radar LIVE."
     elif kind == "live":
         live = "Ultimo ping del tag satellitare OCEARCH. È la posizione dell'animale, non un avvistamento."
+    elif worldish:
+        live = "Avvistamento iNaturalist nel mondo. Il posto è dove è stato visto."
     else:
         live = "Osservazione recente di un umano. Non è la posizione GPS dell'animale."
+    dist_line = ""
+    if not worldish and kind != "live" and isinstance(dist, (int, float)):
+        dist_line = f"📏 {float(dist):.1f} km da {where}"
+    found_line = _html.escape(found, quote=False)
     lines = [
         f"🐾 <b>{title}</b>",
         f"<i>{sci}</i>" if sci else "",
-        f"📍 {coord}",
-        f"📏 {dist_s}" if kind != "live" else "",
+        f"📍 {found_line}" if found_line else "",
+        f"📍 {coord}" if coord != "—" else "",
+        dist_line,
         f"🕐 {_when_bit(item)}",
-        _html.escape(str(item.get("place") or ""), quote=False),
         _html.escape(live, quote=False),
     ]
     url = str(item.get("url") or "")
@@ -837,11 +846,16 @@ def format_fauna_detail(*, place: str, item: dict[str, Any]) -> str:
     return "\n".join(line for line in lines if line)
 
 
-def item_button_label(item: dict[str, Any], index: int) -> str:
+def item_button_label(item: dict[str, Any], index: int, *, world: bool = False) -> str:
     title = str(item.get("title") or "animale")
+    kind = str(item.get("kind") or "")
     dist = item.get("dist_km")
-    if str(item.get("kind") or "") != "live" and isinstance(dist, (int, float)):
-        title = f"{title} · {float(dist):.0f} km"
-    elif str(item.get("kind") or "") == "live":
+    found = str(item.get("place") or "").strip()
+    if world or kind == "world":
+        if found:
+            title = f"{title} · {found}"
+    elif kind == "live":
         title = f"{title} · {_when_bit(item)}"
+    elif isinstance(dist, (int, float)):
+        title = f"{title} · {float(dist):.0f} km"
     return f"{index} {item_emoji(item)} {title}"[:34]

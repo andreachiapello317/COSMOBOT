@@ -188,7 +188,9 @@ def world_fauna_keyboard() -> InlineKeyboardMarkup:
     return fauna_hub_keyboard()
 
 
-def fauna_list_keyboard(items: list[dict], *, page: int = 0, page_size: int = 5) -> InlineKeyboardMarkup:
+def fauna_list_keyboard(
+    items: list[dict], *, page: int = 0, page_size: int = 5, view: str = "obs"
+) -> InlineKeyboardMarkup:
     from services.wildlife import item_button_label
 
     start = page * page_size
@@ -196,7 +198,9 @@ def fauna_list_keyboard(items: list[dict], *, page: int = 0, page_size: int = 5)
     rows: list[list[InlineKeyboardButton]] = []
     for offset, item in enumerate(chunk):
         idx = start + offset
-        rows.append([kb_btn(item_button_label(item, idx + 1), f"fn:i:{idx}")])
+        rows.append(
+            [kb_btn(item_button_label(item, idx + 1, world=view == "world"), f"fn:i:{idx}")]
+        )
     nav: list[InlineKeyboardButton] = []
     if page > 0:
         nav.append(kb_btn("⬅️", f"fn:pg:{page - 1}"))
