@@ -25,9 +25,9 @@ BOTS: tuple[dict[str, Any], ...] = (
         "id": "geo",
         "emoji": "🌍",
         "name": "TERRA",
-        "tag": "Eventi e calamità, fauna, pietre",
+        "tag": "Eventi, città, fauna, pietre",
         "ready": True,
-        "worlds": ("flora", "fauna", "pietre"),
+        "worlds": ("flora", "life", "fauna", "pietre"),
     },
     {
         "id": "oggi",
@@ -80,7 +80,7 @@ def parent_bot_token(token: str) -> str:
     raw = str(token or "")
     if raw.startswith("bot:"):
         return f"bot:{canonical_bot_id(raw.split(':', 1)[1])}"
-    if raw.startswith("loc:go:natev"):
+    if raw.startswith(("loc:go:natev", "loc:go:life", "loc:go:fauna")):
         return "bot:geo"
     if raw.startswith(("loc:go:gps", "loc:go:compass", "loc:go:brfrom", "loc:go:brto", "loc:go:clock", "loc:go:coord")):
         return "bot:tool"
@@ -132,7 +132,9 @@ def parent_bot_token(token: str) -> str:
         "world:natura",
         "world:flora",
         "world:fauna",
+        "world:life",
         "fn:",
+        "lf:",
         "world:live",
         "world:ocean",
         "world:sea",

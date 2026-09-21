@@ -292,6 +292,18 @@ from services.wildlife import (
     recent_animals,
     stored_items as stored_fauna_items,
 )
+from services.citylife import (
+    PAGE_SIZE as LIFE_PAGE,
+    CityLifeError,
+    dump_items as dump_life_items,
+    fetch_life,
+    format_life_detail,
+    format_life_hub,
+    format_life_list,
+    kind_meta as life_kind_meta,
+    resolve_kind as resolve_life_kind,
+    stored_items as stored_life_items,
+)
 from services.oggi import (
     NEWS_FEEDS,
     fetch_crypto,
@@ -416,6 +428,9 @@ from ui.keyboards import (
     fauna_detail_keyboard,
     fauna_hub_keyboard,
     fauna_list_keyboard,
+    life_detail_keyboard,
+    life_hub_keyboard,
+    life_list_keyboard,
     world_fauna_keyboard,
     world_flora_keyboard,
     world_ice_keyboard,
@@ -661,6 +676,8 @@ GEO_CALAM_KEY = "geo_calam"
 FAUNA_LAST_KEY = "fauna_place"
 FAUNA_STATE_KEY = "fauna_state"
 FAUNA_ASK_KEY = "fauna_ask"
+LIFE_LAST_KEY = "life_place"
+LIFE_STATE_KEY = "life_state"
 OGGI_ASK_KEY = "oggi_ask"
 GAMES_STATE_KEY = "giochi_state"
 BUSSOLA_LAST_KEY = "bussola_last"
@@ -758,6 +775,7 @@ NAV_SKIP_PREFIXES = (
     "geo:pg:",
     "fn:pg:",
     "fn:sm:",
+    "lf:pg:",
     "loc:city:",
     "sq:ans:",
 )
@@ -2646,6 +2664,7 @@ def help_text() -> str:
         "(cielo di adesso con grado sulla carta, Horizons NASA, satelliti live), Studia lo spazio (enciclopedia). "
         "Niente divinazione.\n"
         "🌍 <b>TERRA</b> — Eventi (atmosferici e naturali, live), "
+        "Città (OpenStreetMap intorno al luogo), "
         "Fauna (osservati recenti intorno al luogo; fauna nel mondo).\n"
         "Pietre (catalogo, laboratorio, geologia del luogo).\n"
         "📡 <b>OGGI</b> — mercati (valute BCE, crypto, indici, materie) e notizie (ANSA, Google News IT).\n"
@@ -2955,6 +2974,135 @@ async def on_fn_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     _remember_from_callback(update, context)
     await query.answer()
     await dispatch_fauna(update, context, query.data)
+
+
+async def send_life_hub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "world:life")
+    _ensure_life_place(context)
+    name, _lat, _lon = _life_place(context)
+    await reply_html(
+        update,
+        context,
+        format_life_hub(place=name),
+        reply_markup=life_hub_keyboard(name),
+    )
+
+
+def _life_extra_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "radius_m": bundle.get("radius_m"),
+        "air": bundle.get("air") or {},
+        "air_ok": bundle.get("air_ok"),
+        "alerts": list(bundle.get("alerts") or []),
+        "alerts_ok": bundle.get("alerts_ok"),
+        "alerts_supported": bundle.get("alerts_supported"),
+    }
+
+
+async def send_life_list(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    kind: str,
+    *,
+    page: int | None = None,
+) -> None:
+    cat = resolve_life_kind(kind) or "near"
+    nav_mark(context, f"lf:q:{cat}")
+    _ensure_life_place(context)
+    name, lat, lon = _life_place(context)
+    state = _life_state(context)
+    extra = state.get("extra") if isinstance(state.get("extra"), dict) else {}
+    reload = state.get("kind") != cat or "items" not in state
+    await send_typing(update)
+    if reload:
+        meta = life_kind_meta(cat)
+        await deliver_text(update, context, f"{meta['emoji']} Cerco {meta['it'].lower()}…")
+        client = _http_client(context)
+        try:
+            bundle = await fetch_life(client, lat, lon, cat, place=name)
+        except CityLifeError as exc:
+            await reply_html(
+                update,
+                context,
+                f"🏙️ <b>CITTÀ</b>\n\n{e(str(exc))}",
+                reply_markup=life_hub_keyboard(name),
+            )
+            return
+        except Exception:
+            logger.exception("City life %s", cat)
+            await reply_offline(update, context)
+            return
+        state["kind"] = cat
+        state["items"] = dump_life_items(bundle.get("rows") or [])
+        state["page"] = 0
+        state["extra"] = _life_extra_from_bundle(bundle)
+        extra = state["extra"]
+    items = stored_life_items(state.get("items"))
+    if page is None:
+        page = int(state.get("page") or 0)
+    max_page = max(0, (len(items) - 1) // LIFE_PAGE) if items else 0
+    page = max(0, min(int(page), max_page))
+    state["page"] = page
+    await reply_html(
+        update,
+        context,
+        format_life_list(kind=cat, place=name, items=items, page=page, extra=extra),
+        reply_markup=life_list_keyboard(items, page=page, page_size=LIFE_PAGE, kind=cat),
+        preview=True,
+    )
+
+
+async def send_life_detail(update: Update, context: ContextTypes.DEFAULT_TYPE, index: int) -> None:
+    state = _life_state(context)
+    items = stored_life_items(state.get("items"))
+    if index < 0 or index >= len(items):
+        await send_life_hub(update, context)
+        return
+    item = items[index]
+    nav_mark(context, f"lf:i:{index}")
+    _ensure_life_place(context)
+    name, _lat, _lon = _life_place(context)
+    await reply_html(
+        update,
+        context,
+        format_life_detail(place=name, item=item),
+        reply_markup=life_detail_keyboard(index),
+        preview=True,
+    )
+
+
+async def dispatch_life(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
+    parts = token.split(":")
+    action = parts[1] if len(parts) > 1 else "hub"
+    extra = parts[2] if len(parts) > 2 else ""
+    if action in {"hub", ""}:
+        await send_life_hub(update, context)
+        return
+    if action == "city":
+        await show_place_picker(update, context, "life")
+        return
+    if action == "q" and extra:
+        await send_life_list(update, context, extra)
+        return
+    if action == "pg" and extra.isdigit():
+        kind = str(_life_state(context).get("kind") or "near")
+        if resolve_life_kind(kind) is None:
+            kind = "near"
+        await send_life_list(update, context, kind, page=int(extra))
+        return
+    if action == "i" and extra.isdigit():
+        await send_life_detail(update, context, int(extra))
+        return
+    await send_life_hub(update, context)
+
+
+async def on_lf_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    _remember_from_callback(update, context)
+    await query.answer()
+    await dispatch_life(update, context, query.data)
 
 
 def _calc_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
@@ -6821,6 +6969,12 @@ async def resume_nav(update: Update, context: ContextTypes.DEFAULT_TYPE, token: 
     if prefix == "fn":
         await dispatch_fauna(update, context, token)
         return
+    if prefix == "world" and action == "life":
+        await send_life_hub(update, context)
+        return
+    if prefix == "lf":
+        await dispatch_life(update, context, token)
+        return
     if prefix == "world" and action == "flora":
         await send_calam_hub(update, context)
         return
@@ -7877,6 +8031,9 @@ async def on_world_action(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if action == "fauna":
         await send_fauna_live(update, context)
         return
+    if action == "life":
+        await send_life_hub(update, context)
+        return
     if action == "flora":
         await send_calam_hub(update, context)
         return
@@ -8221,6 +8378,46 @@ def _fauna_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raw = {}
         context.user_data[FAUNA_STATE_KEY] = raw
+    return raw
+
+
+def _remember_life_place(context: ContextTypes.DEFAULT_TYPE, name: str, lat: float, lon: float) -> None:
+    old = context.user_data.get(LIFE_LAST_KEY)
+    context.user_data[LIFE_LAST_KEY] = {"name": name, "lat": lat, "lon": lon}
+    same = (
+        isinstance(old, dict)
+        and abs(float(old.get("lat") or 0) - lat) < 1e-5
+        and abs(float(old.get("lon") or 0) - lon) < 1e-5
+    )
+    if not same:
+        state = _life_state(context)
+        state.pop("items", None)
+        state.pop("kind", None)
+        state.pop("extra", None)
+
+
+def _life_place(context: ContextTypes.DEFAULT_TYPE) -> tuple[str, float, float]:
+    last = context.user_data.get(LIFE_LAST_KEY)
+    if isinstance(last, dict) and last.get("lat") is not None:
+        return (
+            str(last.get("name") or DEFAULT_PLACE_NAME),
+            float(last["lat"]),
+            float(last["lon"]),
+        )
+    return DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON
+
+
+def _ensure_life_place(context: ContextTypes.DEFAULT_TYPE) -> None:
+    last = context.user_data.get(LIFE_LAST_KEY)
+    if not (isinstance(last, dict) and last.get("lat") is not None):
+        _remember_life_place(context, DEFAULT_PLACE_NAME, DEFAULT_LAT, DEFAULT_LON)
+
+
+def _life_state(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    raw = context.user_data.get(LIFE_STATE_KEY)
+    if not isinstance(raw, dict):
+        raw = {}
+        context.user_data[LIFE_STATE_KEY] = raw
     return raw
 
 
@@ -9168,6 +9365,7 @@ async def show_place_picker(
         "watch": "Da dove punta l'osservatorio? La salvo per stelle, eventi e Horizons.",
         "terra": "Quale pezzo di Terra vuoi vedere dal satellite? Vale solo per Osservazione Terra, non per il resto.",
         "fauna": "Da quale città cerco osservati recenti? Vale solo per Fauna.",
+        "life": "Da quale città cerco cosa c'è intorno? Vale solo per Città.",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
     if step == "it":
@@ -9214,6 +9412,10 @@ async def apply_place(
     if purpose == "fauna":
         _remember_fauna_place(context, name, lat, lon)
         await send_fauna_hub(update, context)
+        return
+    if purpose == "life":
+        _remember_life_place(context, name, lat, lon)
+        await send_life_hub(update, context)
         return
     if purpose == "clock":
         await send_tool_clock(update, context, name=name, lat=lat, lon=lon)
@@ -14688,6 +14890,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(on_geo_action, pattern=r"^geo:"))
     application.add_handler(CallbackQueryHandler(on_og_action, pattern=r"^og:"))
     application.add_handler(CallbackQueryHandler(on_fn_action, pattern=r"^fn:"))
+    application.add_handler(CallbackQueryHandler(on_lf_action, pattern=r"^lf:"))
     application.add_handler(CallbackQueryHandler(on_world_action, pattern=r"^world:"))
     application.add_handler(CallbackQueryHandler(on_wx_action, pattern=r"^wx:"))
     application.add_handler(CallbackQueryHandler(on_sheet_action, pattern=r"^w:[a-z]:"))

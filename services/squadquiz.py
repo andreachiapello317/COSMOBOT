@@ -16,7 +16,7 @@ from services.stones import CATS, STONES
 WORLD_META: dict[str, dict[str, str]] = {
     "oracolo": {"emoji": "🔮", "name": "ORACOLO", "blurb": "Tradizione dei mazzi e dei segni. Non è una lettura."},
     "astro": {"emoji": "🔭", "name": "ASTRO", "blurb": "Catalogo e, se vuoi, domande live da Wikipedia."},
-    "geo": {"emoji": "🌍", "name": "TERRA", "blurb": "Eventi naturali, animali osservati, pietre."},
+    "geo": {"emoji": "🌍", "name": "TERRA", "blurb": "Eventi naturali, città, animali osservati, pietre."},
     "oggi": {"emoji": "📡", "name": "OGGI", "blurb": "Da dove arrivano i numeri e i titoli. Non è un consiglio."},
     "tool": {"emoji": "🧰", "name": "STRUMENTI", "blurb": "Calcoli, cardinali, conversioni. Il risultato si può verificare."},
 }

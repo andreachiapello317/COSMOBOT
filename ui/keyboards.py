@@ -136,6 +136,7 @@ def geo_hub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [kb_btn("🌋 Eventi", "world:flora")],
+            [kb_btn("🏙️ Città", "world:life")],
             [kb_btn("🐾 Fauna", "world:fauna")],
             [kb_btn("💎 Pietre", "world:pietre")],
             nav_row(),
@@ -265,6 +266,44 @@ def fauna_list_keyboard(
 
 
 def fauna_detail_keyboard(index: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([nav_row()])
+
+
+def life_hub_keyboard(place: str = "Cuneo") -> InlineKeyboardMarkup:
+    label = str(place or "Cuneo").strip()[:22]
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn(f"📍 {label}", "lf:city")],
+            [kb_btn("📍 Vicino", "lf:q:near")],
+            [kb_btn("🚦 Mobilità", "lf:q:mobility"), kb_btn("🏥 Sicurezza", "lf:q:safety")],
+            [kb_btn("🎭 Vita in città", "lf:q:culture"), kb_btn("⛲ Servizi", "lf:q:services")],
+            [kb_btn("🚶 Passeggiata", "lf:q:walk")],
+            nav_row(),
+        ]
+    )
+
+
+def life_list_keyboard(items: list[dict], *, page: int = 0, page_size: int = 6, kind: str = "near") -> InlineKeyboardMarkup:
+    from services.citylife import item_button_label
+
+    start = page * page_size
+    chunk = items[start : start + page_size]
+    rows: list[list[InlineKeyboardButton]] = []
+    for offset, item in enumerate(chunk):
+        idx = start + offset
+        rows.append([kb_btn(item_button_label(item, idx + 1), f"lf:i:{idx}")])
+    nav: list[InlineKeyboardButton] = []
+    if page > 0:
+        nav.append(kb_btn("⬅️", f"lf:pg:{page - 1}"))
+    if start + page_size < len(items):
+        nav.append(kb_btn("➡️", f"lf:pg:{page + 1}"))
+    if nav:
+        rows.append(nav)
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(rows)
+
+
+def life_detail_keyboard(index: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([nav_row()])
 
 

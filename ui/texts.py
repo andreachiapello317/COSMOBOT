@@ -18,7 +18,7 @@ def all_hub_text() -> str:
         "Sei bot in un solo Telegram. Ognuno ha i suoi mondi, e non si mescolano.",
         "🔮 <b>ORACOLO</b> — te stesso, consultazioni, interroga il cielo.\n"
         "🔭 <b>ASTRO</b> — osservatorio: cielo, meteo, mondi.\n"
-        "🌍 <b>TERRA</b> — eventi atmosferici e naturali, animali osservati, pietre.\n"
+        "🌍 <b>TERRA</b> — eventi atmosferici e naturali, città, animali osservati, pietre.\n"
         "📡 <b>OGGI</b> — mercati live e notizie dai feed.\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice, conversioni, bussola, tempo.\n"
         "🎲 <b>GIOCHI</b> — quiz dei bot, dadi, moneta, morra.\n\n"
@@ -37,7 +37,7 @@ def oracolo_hub_text() -> str:
         "🔮 <b>TE STESSO</b> — oroscopo, tema natale, specchio, compatibilità\n"
         "🃏 <b>CONSULTAZIONI</b> — tarocchi, I Ching, rune, Lenormand, sì/no, pietre\n"
         "🌌 <b>INTERROGA IL CIELO</b> — luna, stelle e pianeti sopra di te (città, default Cuneo)\n\n"
-        "Il cielo misurato sta in 🔭 ASTRO. Eventi e animali osservati stanno in 🌍 TERRA. "
+        "Il cielo misurato sta in 🔭 ASTRO. Eventi, città e animali osservati stanno in 🌍 TERRA. "
         "Soldi e notizie stanno in 📡 OGGI.",
     )
 
@@ -50,7 +50,7 @@ def astro_hub_text() -> str:
         "🌤️ <b>METEO</b> — Cuneo (o l'ultima città), oggi e domani; puoi cambiare giorni\n"
         "🔭 <b>OSSERVATORIO</b> — cielo di adesso (visibilità sulla carta), Horizons NASA, satelliti live\n"
         "🚀 <b>STUDIA LO SPAZIO</b> — enciclopedia Wikipedia, anche i satelliti\n\n"
-        "Eventi naturali e animali osservati stanno in 🌍 TERRA. Soldi e notizie stanno in 📡 OGGI."
+        "Eventi naturali, città e animali osservati stanno in 🌍 TERRA. Soldi e notizie stanno in 📡 OGGI."
     )
 
 
@@ -437,8 +437,9 @@ def oggi_news_text() -> str:
 def geo_hub_text() -> str:
     return _card(
         "🌍 <b>TERRA</b>",
-        "Bot di BOTSQUAD per fenomeni veri. Eventi atmosferici e naturali, animali osservati, pietre.",
+        "Bot di BOTSQUAD per fenomeni veri. Eventi atmosferici e naturali, città, animali osservati, pietre.",
         "🌋 <b>EVENTI</b> — terremoti, incendi, tempeste, vulcani: dati + satellite\n"
+        "🏙️ <b>CITTÀ</b> — vicino, mobilità, sicurezza, vita, servizi (OpenStreetMap)\n"
         "🐾 <b>FAUNA</b> — osservati recenti intorno al luogo, fauna nel mondo\n"
         "💎 <b>PIETRE</b> — esplora il catalogo, laboratorio, geologia del luogo (Macrostrat)",
     )
@@ -450,6 +451,19 @@ def world_flora_text() -> str:
         "Cosa sta succedendo, e la foto della zona. Non è il meteo e non è un'allerta civile.",
         "Sulla città: solo i tasti delle categorie con eventi (500 km, 7 giorni).\n"
         "🌍 Eventi nel mondo e 📡 Cataloghi restano per il quadro globale.",
+    )
+
+
+def world_life_text() -> str:
+    return _card(
+        "🏙️ <b>CITTÀ</b>",
+        "Cosa c'è intorno, da OpenStreetMap. Non è il meteo e non è un allarme civile.",
+        "📍 Vicino — servizi e fermate a circa 1 km\n"
+        "🚦 Mobilità — fermate, sharing, parcheggi (niente ritardi live)\n"
+        "🏥 Sicurezza — ospedali, farmacie, allerte Meteoalarm\n"
+        "🎭 Vita in città — cinema, musei, mercati, ristoranti\n"
+        "⛲ Servizi — fontanelle, WiFi, bagni\n"
+        "🚶 Passeggiata — punti a piedi, dal più vicino",
     )
 
 
@@ -604,7 +618,7 @@ def quiz_hub_text() -> str:
         "Una prova per ogni bot. Scegli il mondo, poi l'argomento. Le domande restano nel recinto di quel bot.",
         "🔮 ORACOLO — segni, rune, Lenormand (niente letture)\n"
         "🔭 ASTRO — sistema solare, lune, enciclopedia live\n"
-        "🌍 TERRA — eventi, animali osservati, pietre\n"
+        "🌍 TERRA — eventi, città, animali osservati, pietre\n"
         "📡 OGGI — valute, crypto, indici, feed di notizie\n"
         "🧰 STRUMENTI — calcolatrice, conversioni, cardinali\n\n"
         "La classifica è solo tua. I mondi non si mescolano.",
