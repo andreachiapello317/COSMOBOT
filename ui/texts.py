@@ -402,7 +402,7 @@ def geo_hub_text() -> str:
         "🌍 <b>TERRA</b>",
         "Bot di BOTSQUAD per fenomeni veri. Eventi atmosferici e naturali, animali live, pietre.",
         "🌋 <b>EVENTI</b> — terremoti, incendi, tempeste, vulcani: dati + satellite\n"
-        "🐾 <b>FAUNA</b> — osservati (GBIF/eBird) e tracciati (studi pubblici)\n"
+        "🐾 <b>FAUNA</b> — osservati recenti (GBIF) e live (iNaturalist); tracciati se pubblici\n"
         "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione",
     )
 
@@ -419,11 +419,12 @@ def world_flora_text() -> str:
 def world_fauna_text() -> str:
     return _card(
         "🐾 <b>FAUNA</b>",
-        "Osservati di recente ≠ animali con collare GPS. Due cose diverse.",
+        "Osservati recenti e osservati live sono due sezioni. Nessuna è un collare GPS.",
+        "🐾 Osservati recenti — GBIF, ultime settimane intorno al luogo\n"
+        "📡 Osservati live — iNaturalist, ultimi 7 giorni\n"
         "🐦 Uccelli vicino — eBird se c'è la chiave, altrimenti GBIF (Aves)\n"
-        "🐾 Animali osservati — GBIF intorno al luogo\n"
         "🗺️ Mappa fauna — GBIF Maps, densità di osservazioni\n"
-        "🛰️ Animali tracciati — solo studi pubblici; non è un radar LIVE\n"
+        "🛰️ Animali tracciati — solo studi pubblici\n"
         "🔎 Cerca specie · 🌍 Fauna nel mondo (iNaturalist)",
     )
 

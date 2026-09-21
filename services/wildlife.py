@@ -29,7 +29,10 @@ AVES = 212
 NEAR_KM = 50.0
 PAGE_SIZE = 5
 MAX_ITEMS = 16
+LIVE_DAYS = 7
+RECENT_DAYS = 45
 MOVEBANK_ORG = "143650ce-d186-4a3f-b6e5-c45572dcc0a8"
+INAT_HEADERS = {"User-Agent": "StelleBot/1.0 (Telegram; educational; iNaturalist observations)"}
 
 FAUNA_VIEWS = {
     "bird": {
@@ -38,9 +41,14 @@ FAUNA_VIEWS = {
         "blurb": "Osservazioni recenti di uccelli, non collari GPS.",
     },
     "obs": {
-        "it": "Animali osservati",
+        "it": "Osservati recenti",
         "emoji": "🐾",
-        "blurb": "Cosa è stato visto qui di recente. Non è un tracciamento LIVE.",
+        "blurb": "Avvistamenti GBIF delle ultime settimane intorno al luogo. Non è un feed LIVE.",
+    },
+    "live": {
+        "it": "Osservati live",
+        "emoji": "📡",
+        "blurb": "Avvistamenti iNaturalist degli ultimi 7 giorni. Pubblicati adesso, non collari GPS.",
     },
     "trk": {
         "it": "Animali tracciati",
@@ -104,21 +112,78 @@ def _tile_xy(lat: float, lon: float, zoom: int) -> tuple[int, int]:
     return max(0, min(n - 1, x)), max(0, min(n - 1, y))
 
 
-async def recent_animals(client: httpx.AsyncClient, *, limit: int = 8) -> list[dict[str, Any]]:
+def _compact_inat(
+    item: dict[str, Any],
+    *,
+    origin_lat: float | None = None,
+    origin_lon: float | None = None,
+    kind: str = "live",
+) -> dict[str, Any] | None:
+    taxon = item.get("taxon") if isinstance(item.get("taxon"), dict) else {}
+    rank = str(taxon.get("rank") or "").lower()
+    if rank not in {"species", "subspecies", "variety", "hybrid"}:
+        return None
+    name = str(taxon.get("preferred_common_name") or taxon.get("name") or "").strip()
+    if not name:
+        return None
+    geo = item.get("geojson") if isinstance(item.get("geojson"), dict) else {}
+    coords = geo.get("coordinates") if isinstance(geo.get("coordinates"), list) else []
+    lat = lon = None
+    if len(coords) >= 2:
+        try:
+            lon, lat = float(coords[0]), float(coords[1])
+        except (TypeError, ValueError):
+            lat = lon = None
+    photo = ""
+    photos = item.get("photos") if isinstance(item.get("photos"), list) else []
+    if photos and isinstance(photos[0], dict):
+        photo = str(photos[0].get("url") or "").replace("square", "medium")
+    dist = None
+    if lat is not None and lon is not None and origin_lat is not None and origin_lon is not None:
+        dist = haversine_km(origin_lat, origin_lon, lat, lon)
+    return {
+        "kind": kind,
+        "title": name,
+        "sci": str(taxon.get("name") or ""),
+        "taxon": taxon.get("id"),
+        "place": str(item.get("place_guess") or ""),
+        "when": _parse_when(item.get("time_observed_at") or item.get("observed_on")),
+        "lat": lat,
+        "lon": lon,
+        "dist_km": dist,
+        "url": str(item.get("uri") or ""),
+        "photo": photo,
+        "src": "iNaturalist",
+    }
+
+
+async def fetch_inat_obs(
+    client: httpx.AsyncClient,
+    *,
+    lat: float | None = None,
+    lon: float | None = None,
+    radius_km: float = NEAR_KM,
+    days: int | None = None,
+    limit: int = MAX_ITEMS,
+    kind: str = "live",
+) -> list[dict[str, Any]]:
+    params: dict[str, Any] = {
+        "iconic_taxa": "Animalia",
+        "lrank": "species",
+        "order": "desc",
+        "order_by": "observed_on",
+        "per_page": str(max(limit * 3, 24)),
+        "photos": "true",
+        "locale": "it",
+    }
+    if lat is not None and lon is not None:
+        params["lat"] = f"{lat:.4f}"
+        params["lng"] = f"{lon:.4f}"
+        params["radius"] = f"{min(500.0, max(1.0, radius_km)):.0f}"
+    if days is not None:
+        params["d1"] = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
     try:
-        response = await client.get(
-            INAT_URL,
-            params={
-                "iconic_taxa": "Animalia",
-                "lrank": "species",
-                "order": "desc",
-                "order_by": "observed_on",
-                "per_page": str(max(limit * 3, 24)),
-                "photos": "true",
-                "locale": "it",
-            },
-            headers={"User-Agent": "StelleBot/1.0 (Telegram; educational; iNaturalist observations)"},
-        )
+        response = await client.get(INAT_URL, params=params, headers=INAT_HEADERS)
         response.raise_for_status()
         payload = response.json()
     except Exception as exc:
@@ -131,42 +196,23 @@ async def recent_animals(client: httpx.AsyncClient, *, limit: int = 8) -> list[d
     for item in rows:
         if not isinstance(item, dict):
             continue
-        taxon = item.get("taxon") if isinstance(item.get("taxon"), dict) else {}
-        rank = str(taxon.get("rank") or "").lower()
-        if rank not in {"species", "subspecies", "variety", "hybrid"}:
+        packed = _compact_inat(item, origin_lat=lat, origin_lon=lon, kind=kind)
+        if packed is None:
             continue
-        name = str(taxon.get("preferred_common_name") or taxon.get("name") or "").strip()
-        if not name or name.casefold() in seen:
+        key = str(packed.get("sci") or packed.get("title") or "").casefold()
+        if not key or key in seen:
             continue
-        seen.add(name.casefold())
-        geo = item.get("geojson") if isinstance(item.get("geojson"), dict) else {}
-        coords = geo.get("coordinates") if isinstance(geo.get("coordinates"), list) else []
-        lat = lon = None
-        if len(coords) >= 2:
-            try:
-                lon, lat = float(coords[0]), float(coords[1])
-            except (TypeError, ValueError):
-                lat = lon = None
-        photo = ""
-        photos = item.get("photos") if isinstance(item.get("photos"), list) else []
-        if photos and isinstance(photos[0], dict):
-            photo = str(photos[0].get("url") or "").replace("square", "medium")
-        out.append(
-            {
-                "kind": "obs",
-                "title": name,
-                "sci": str(taxon.get("name") or ""),
-                "place": str(item.get("place_guess") or ""),
-                "when": _parse_when(item.get("time_observed_at") or item.get("observed_on")),
-                "lat": lat,
-                "lon": lon,
-                "url": str(item.get("uri") or ""),
-                "photo": photo,
-                "src": "iNaturalist",
-            }
-        )
+        seen.add(key)
+        out.append(packed)
         if len(out) >= limit:
             break
+    if lat is not None:
+        out.sort(key=lambda row: row.get("when") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return out
+
+
+async def recent_animals(client: httpx.AsyncClient, *, limit: int = 8) -> list[dict[str, Any]]:
+    out = await fetch_inat_obs(client, limit=limit, kind="obs")
     if not out:
         raise WildlifeError("Nessun avvistamento in questo giro")
     return out
@@ -280,7 +326,7 @@ async def fetch_gbif_near(
     *,
     taxon_key: int = ANIMALIA,
     radius_km: float = NEAR_KM,
-    days: int = 45,
+    days: int = RECENT_DAYS,
     limit: int = MAX_ITEMS,
     kind: str = "obs",
     extra: dict[str, Any] | None = None,
@@ -582,9 +628,11 @@ def format_fauna_hub(*, place: str) -> str:
             "🐾 <b>FAUNA</b>",
             f"📍 <b>{where.upper()}</b>",
             "",
-            "Due cose diverse:",
-            "🐦 <b>Uccelli</b> e 🐾 <b>osservati</b> — visti di recente (eBird se c'è la chiave, altrimenti GBIF).",
-            "🛰️ <b>Tracciati</b> — solo studi con GPS/sensore già pubblici. Non è «tutti gli animali LIVE».",
+            "Due sezioni di osservati, due fonti:",
+            "🐾 <b>Osservati recenti</b> — GBIF, ultime settimane intorno al luogo.",
+            "📡 <b>Osservati live</b> — iNaturalist, ultimi 7 giorni. Non è un collare GPS.",
+            "🐦 <b>Uccelli</b> — eBird se c'è la chiave, altrimenti GBIF (Aves).",
+            "🛰️ <b>Tracciati</b> — solo studi con GPS/sensore già pubblici.",
             "🗺️ <b>Mappa</b> — densità GBIF delle osservazioni, non i collari.",
             "",
             "<i>Non è uno zoo e non è un allarme. Se il feed è vuoto, non invento avvistamenti.</i>",
@@ -614,7 +662,10 @@ def format_fauna_list(
         lines.append("Nessun avvistamento in questo filtro.")
         lines.append("Non invento animali.")
         lines.append("")
-        lines.append("<i>GBIF / eBird / iNaturalist / studi pubblicati. Non è un bollettino LIVE.</i>")
+        if view == "live":
+            lines.append("<i>iNaturalist degli ultimi 7 giorni. Se è vuoto, qui non hanno pubblicato.</i>")
+        else:
+            lines.append("<i>GBIF / eBird / iNaturalist / studi pubblicati. Osservazione ≠ collare GPS.</i>")
         return "\n".join(lines)
     start = page * PAGE_SIZE
     chunk = items[start : start + PAGE_SIZE]
@@ -654,7 +705,12 @@ def format_fauna_detail(*, place: str, item: dict[str, Any]) -> str:
     except (TypeError, ValueError, KeyError):
         coord = "—"
     kind = str(item.get("kind") or "obs")
-    live = "Punto di uno studio pubblicato, non un radar LIVE." if kind == "trk" else "Osservazione recente, non un collare GPS."
+    if kind == "trk":
+        live = "Punto di uno studio pubblicato, non un radar LIVE."
+    elif kind == "live":
+        live = "Osservazione iNaturalist degli ultimi giorni. Non è un collare GPS."
+    else:
+        live = "Osservazione recente, non un collare GPS."
     lines = [
         f"🐾 <b>{title}</b>",
         f"<i>{sci}</i>" if sci else "",

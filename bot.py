@@ -254,6 +254,7 @@ from services.wildlife import (
     fetch_ebird_near,
     fetch_fauna_map,
     fetch_gbif_near,
+    fetch_inat_obs,
     fetch_tracked,
     format_animals_card,
     format_fauna_caption,
@@ -265,6 +266,7 @@ from services.wildlife import (
     stored_items as stored_fauna_items,
     ANIMALIA,
     AVES,
+    LIVE_DAYS,
     NEAR_KM,
 )
 from services.earth import (
@@ -2580,7 +2582,7 @@ def help_text() -> str:
         "(cielo di adesso con grado sulla carta, Horizons NASA, satelliti live), Studia lo spazio (enciclopedia). "
         "Niente divinazione.\n"
         "🌍 <b>TERRA</b> — Eventi (atmosferici e naturali, live), "
-        "Fauna (osservati GBIF/eBird, tracciati se pubblici), Pietre.\n"
+        "Fauna (osservati recenti GBIF, osservati live iNaturalist, tracciati se pubblici), Pietre.\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
         "calendario (ora, eventi, compleanni).\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, terra, strumenti.\n\n"
@@ -2643,7 +2645,7 @@ async def send_fauna_list(
     page: int | None = None,
     query: str | None = None,
 ) -> None:
-    if view not in {"bird", "obs", "trk", "world", "find"}:
+    if view not in {"bird", "obs", "live", "trk", "world", "find"}:
         await send_fauna_hub(update, context)
         return
     nav_mark(context, f"fn:{view}")
@@ -2668,6 +2670,12 @@ async def send_fauna_list(
                     extra = "eBird richiede una chiave. Mostro gli uccelli di GBIF (include eBird e iNaturalist)."
                 elif not items:
                     extra = "eBird è vuoto in questo raggio."
+            elif view == "live":
+                items = await fetch_inat_obs(
+                    client, lat=lat, lon=lon, radius_km=NEAR_KM, days=LIVE_DAYS, kind="live"
+                )
+                if not items:
+                    extra = f"Nessun avvistamento iNaturalist negli ultimi {LIVE_DAYS} giorni in questo raggio."
             elif view == "trk":
                 items, extra = await fetch_tracked(client, lat, lon)
             elif view == "find":
@@ -2827,7 +2835,7 @@ async def dispatch_fauna(update: Update, context: ContextTypes.DEFAULT_TYPE, tok
     if action == "q":
         await send_fauna_search_ask(update, context)
         return
-    if action in {"bird", "obs", "trk", "world"}:
+    if action in {"bird", "obs", "live", "trk", "world"}:
         await send_fauna_list(update, context, action)
         return
     if action == "pg" and extra.isdigit():
@@ -9062,7 +9070,7 @@ async def show_place_picker(
         "coord": "Punto preciso: via e numero, oppure le coordinate decimali o in gradi.",
         "watch": "Da dove punta l'osservatorio? La salvo per stelle, eventi e Horizons.",
         "terra": "Quale pezzo di Terra vuoi vedere dal satellite? Vale solo per Osservazione Terra, non per il resto.",
-        "fauna": "Da quale città cerco uccelli e animali osservati? Vale solo per Fauna.",
+        "fauna": "Da quale città cerco osservati recenti e live? Vale solo per Fauna.",
     }
     prompt = titles.get(purpose, "In quale città ti trovi?")
     if step == "it":
