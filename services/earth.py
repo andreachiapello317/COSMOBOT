@@ -690,3 +690,50 @@ def format_world_events(
         "Non è un bollettino di allerta.</i>"
     )
     return "\n".join(lines)
+
+
+MACRO_MAP = "https://macrostrat.org/api/v2/geologic_units/map"
+
+
+async def fetch_geo_map_here(client: httpx.AsyncClient, lat: float, lon: float) -> list[dict[str, Any]]:
+    response = await client.get(
+        MACRO_MAP,
+        params={"lat": f"{lat:.4f}", "lng": f"{lon:.4f}"},
+        headers={"User-Agent": "StelleBot/1.0 (Telegram; educational; Macrostrat map units)"},
+    )
+    response.raise_for_status()
+    payload = response.json()
+    success = payload.get("success") if isinstance(payload, dict) else None
+    rows = success.get("data") if isinstance(success, dict) else None
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def format_geo_here(*, place: str, lat: float, lon: float, units: list[dict[str, Any]]) -> str:
+    where = html.escape(place, quote=False)
+    lines = [
+        "🗺️ <b>GEOLOGIA QUI</b>",
+        f"📍 {where} · {lat:.2f}°, {lon:.2f}°",
+        "<i>Unità della carta Macrostrat. Non è un invito a scavare e non è Mindat.</i>",
+        "",
+    ]
+    if not units:
+        lines.append("Macrostrat non ha unità su questo punto. Non invento la geologia.")
+        lines.append("")
+        lines.append("<i>La copertura è più densa in Nord America; in Italia a volte c'è, a volte no.</i>")
+        return "\n".join(lines)
+    for row in units[:6]:
+        name = html.escape(str(row.get("name") or "unità"), quote=False)
+        lith = html.escape(str(row.get("lith") or "").strip(), quote=False)
+        age = html.escape(str(row.get("best_int_name") or row.get("t_int_name") or ""), quote=False)
+        note = html.escape(str(row.get("comments") or row.get("descrip") or "").strip(), quote=False)
+        lines.append(f"🪨 <b>{name}</b>")
+        bits = [bit for bit in (age, lith) if bit]
+        if bits:
+            lines.append(" · ".join(bits))
+        if note:
+            lines.append(note)
+        lines.append("")
+    lines.append("<i>Macrostrat · CC-BY 4.0. Nomi della fonte, non tradotti a occhio.</i>")
+    return "\n".join(lines)

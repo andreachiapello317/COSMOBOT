@@ -66,6 +66,42 @@ MUSEUM = {
     "spc": ("☄️", "Meteoriti"),
 }
 
+SYSTEMS = {
+    "trig": ("🔺", "Trigonale"),
+    "cub": ("🧊", "Cubico"),
+    "mono": ("📐", "Monoclino"),
+    "ortho": ("📦", "Ortorombico"),
+    "hex": ("⬡", "Esagonale"),
+    "amorf": ("🫧", "Amorfo"),
+    "tri": ("🔻", "Triclino"),
+    "tetra": ("◼", "Tetragonale"),
+    "rock": ("🌋", "Roccia / misto"),
+}
+
+HARD = {
+    "soft": ("🪶", "Morbide < 4"),
+    "mid": ("🪨", "Medie 4–7"),
+    "hard": ("💎", "Dure > 7"),
+}
+
+FORMS = {
+    "mag": ("🌋", "Magmatico"),
+    "hyd": ("💧", "Idrotermale"),
+    "met": ("🔥", "Metamorfico"),
+    "sed": ("🌊", "Sedimentario"),
+    "peg": ("💎", "Pegmatitico"),
+    "spc": ("☄️", "Impatto / spazio"),
+    "bio": ("🐚", "Biologico / fossile"),
+}
+
+FLAGS = {
+    "mag": ("🧲", "Magnetiche"),
+    "fizz": ("🫧", "Effervescenti"),
+    "metal": ("⚙️", "Metalliche"),
+    "sci": ("🧪", "Per la scienza"),
+    "old": ("🏺", "Storia e mito"),
+}
+
 
 def _s(
     sid: str,
@@ -1348,6 +1384,147 @@ def by_env(env: str) -> list[dict[str, Any]]:
 
 def by_rarity(key: str) -> list[dict[str, Any]]:
     return [s for s in STONES if s["rarity"] == key]
+
+
+def _system_key(system: str) -> str:
+    text = str(system or "").lower()
+    if "trigonale" in text:
+        return "trig"
+    if "cubico" in text:
+        return "cub"
+    if "monoclino" in text:
+        return "mono"
+    if "ortorombico" in text:
+        return "ortho"
+    if "esagonale" in text:
+        return "hex"
+    if "amorfo" in text:
+        return "amorf"
+    if "triclino" in text:
+        return "tri"
+    if "tetragonale" in text:
+        return "tetra"
+    return "rock"
+
+
+def by_system(key: str) -> list[dict[str, Any]]:
+    return [s for s in STONES if _system_key(str(s.get("system") or "")) == key]
+
+
+def by_hard(key: str) -> list[dict[str, Any]]:
+    if key == "soft":
+        return [s for s in STONES if float(s.get("mohs_n") or 0) < 4]
+    if key == "mid":
+        return [s for s in STONES if 4 <= float(s.get("mohs_n") or 0) <= 7]
+    if key == "hard":
+        return [s for s in STONES if float(s.get("mohs_n") or 0) > 7]
+    return []
+
+
+def by_flag(flag: str) -> list[dict[str, Any]]:
+    if flag == "mag":
+        return [s for s in STONES if s.get("magnetic")]
+    if flag == "fizz":
+        return [s for s in STONES if s.get("fizz")]
+    if flag == "metal":
+        return [s for s in STONES if s.get("metallic")]
+    if flag == "sci":
+        return [s for s in STONES if s.get("sci_interest")]
+    if flag == "old":
+        return [s for s in STONES if s.get("ancient")]
+    return []
+
+
+def by_form(key: str) -> list[dict[str, Any]]:
+    needles = {
+        "mag": ("magmatic", "vulcanic", "plutonic", "mantello", "kimberlite"),
+        "hyd": ("idrotermal", "hydrotherm"),
+        "met": ("metamorfic",),
+        "sed": ("sedimentar", "evaporit", "supergenic"),
+        "peg": ("pegmatit",),
+        "spc": ("asteroid", "impatto", "luna", "marte", "nucleo", "spazio"),
+        "bio": ("biologic", "fossile", "resina"),
+    }.get(key, ())
+    hits: list[dict[str, Any]] = []
+    for item in STONES:
+        hay = _fold(str(item.get("origin") or "") + " " + " ".join(item.get("form") or ()))
+        if any(needle in hay for needle in needles):
+            hits.append(item)
+    return hits
+
+
+def format_places_index() -> str:
+    buckets: dict[str, list[str]] = {}
+    flags: dict[str, str] = {}
+    for item in STONES:
+        for name, flag in item.get("places") or ():
+            buckets.setdefault(str(name), []).append(str(item["it"]))
+            flags[str(name)] = str(flag)
+    lines = [
+        "🌍 <b>DOVE SI TROVANO</b>",
+        "",
+        "Giacimenti noti del catalogo. Non è un invito a scavare e non è Mindat.",
+        "",
+    ]
+    for name in sorted(buckets, key=lambda item: (-len(buckets[item]), item)):
+        sample = ", ".join(buckets[name][:3])
+        extra = f" +{len(buckets[name]) - 3}" if len(buckets[name]) > 3 else ""
+        lines.append(f"{flags.get(name, '📍')} <b>{name}</b> — {len(buckets[name])} · {sample}{extra}")
+    lines.append("")
+    lines.append("<i>Sotto: ambienti geologici. Oppure apri una scheda da Cerca.</i>")
+    return "\n".join(lines)
+
+
+def format_explore_index() -> str:
+    lines = [
+        "🧭 <b>ESPLORA</b>",
+        f"{len(STONES)} schede di catalogo. Ogni tasto è un filtro, non un dump Mindat.",
+        "",
+    ]
+    for key, (em, name) in CATS.items():
+        lines.append(f"{em} {name} — {len(by_cat(key))}")
+    lines.append("")
+    for key, (em, name) in SYSTEMS.items():
+        n = len(by_system(key))
+        if n:
+            lines.append(f"{em} {name} — {n}")
+    lines.append("")
+    for key, (em, name) in HARD.items():
+        lines.append(f"{em} {name} — {len(by_hard(key))}")
+    lines.append("")
+    for key, (em, name) in FLAGS.items():
+        n = len(by_flag(key))
+        if n:
+            lines.append(f"{em} {name} — {n}")
+    lines.append("")
+    lines.append("<i>Geologia del luogo: Macrostrat sul punto (default Cuneo). Folklore: ORACOLO.</i>")
+    return "\n".join(lines)
+
+
+def stones_for_lith(text: str) -> list[dict[str, Any]]:
+    blob = _fold(text)
+    if len(blob) < 3:
+        return []
+    pairs = (
+        ("scisto", "schist"),
+        ("argilla", "clay"),
+        ("calcare", "limestone"),
+        ("marmo", "marble"),
+        ("basalto", "basalt"),
+        ("granito", "granite"),
+        ("gneiss", "gneiss"),
+        ("quarzo", "quartz"),
+        ("arenaria", "sandstone"),
+        ("conglomerato", "conglomerate"),
+        ("tefrite", "tephrite"),
+        ("fonolite", "phonolite"),
+    )
+    hits: list[dict[str, Any]] = []
+    for item in STONES:
+        hay = _fold(" ".join([item["it"], item["group"], item["geology"], item["origin"]]))
+        if any((left in blob or right in blob) and (left in hay or right in hay) for left, right in pairs):
+            hits.append(item)
+    return hits
 
 
 def museum_room(room: str) -> list[dict[str, Any]]:

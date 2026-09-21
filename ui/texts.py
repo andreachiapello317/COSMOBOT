@@ -403,7 +403,7 @@ def geo_hub_text() -> str:
         "Bot di BOTSQUAD per fenomeni veri. Eventi atmosferici e naturali, animali live, pietre.",
         "🌋 <b>EVENTI</b> — terremoti, incendi, tempeste, vulcani: dati + satellite\n"
         "🐾 <b>FAUNA</b> — osservati recenti e posizioni live (tag satellitari)\n"
-        "💎 <b>PIETRE</b> — mineralogia, laboratorio, collezione",
+        "💎 <b>PIETRE</b> — esplora il catalogo, laboratorio, geologia del luogo (Macrostrat)",
     )
 
 
@@ -528,8 +528,8 @@ def pietre_hub_text() -> str:
     return _card(
         "💎 <b>PIETRE</b>",
         "Mineralogia da catalogo, nel bot TERRA. Il folklore sta in ORACOLO, a parte.",
-        "Foto: pietra al centro, tavolo uniforme. Non è un'analisi.\n\n"
-        "🧭 Esplora · 🔬 Laboratorio · 🎒 Collezione · 🧠 Giochi",
+        "Mineralogia da catalogo. Laboratorio se hai una pietra in mano. Geologia del luogo da Macrostrat.\n"
+        "Il folklore della pietra del giorno sta in ORACOLO, non qui.",
     )
 
 

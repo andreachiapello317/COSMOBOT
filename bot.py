@@ -144,29 +144,39 @@ from services.stones import (
     CATS,
     COLORS,
     ENVS,
+    FLAGS,
+    FORMS,
+    HARD,
     MUSEUM,
     RARITY,
     STONES,
+    SYSTEMS,
     by_cat,
     by_color,
     by_env,
+    by_flag,
+    by_form,
+    by_hard,
     by_id as stone_by_id,
     by_rarity,
+    by_system,
     build_field_quiz,
     build_guess,
     build_tf,
     filter_lab,
     format_card,
     format_compare,
+    format_explore_index,
     format_list,
+    format_places_index,
     format_section,
     museum_room,
     format_daily_oracle_card,
     oracle_spread,
-    random_stone,
     search_stones,
     stone_curiosity,
     stone_of_day,
+    stones_for_lith,
     stone_wiki_url,
 )
 from services.bots import parent_bot_token
@@ -263,11 +273,13 @@ from services.wildlife import (
 )
 from services.earth import (
     fetch_eonet,
+    fetch_geo_map_here,
     fetch_quakes,
     fetch_quakes_near,
     filter_eonet_world,
     format_earth_topic,
     format_eonet,
+    format_geo_here,
     format_nearby_events,
     format_quakes,
     format_world_events,
@@ -469,7 +481,9 @@ from ui.keyboards import (
     pietre_colors_keyboard,
     pietre_envs_keyboard,
     pietre_explore_keyboard,
+    pietre_forms_keyboard,
     pietre_games_keyboard,
+    pietre_hard_keyboard,
     pietre_hub_keyboard,
     pietre_lab_keyboard,
     pietre_list_keyboard,
@@ -477,6 +491,7 @@ from ui.keyboards import (
     pietre_oracle_keyboard,
     pietre_quiz_keyboard,
     pietre_rarity_keyboard,
+    pietre_systems_keyboard,
     yesno_keyboard,
 )
 from ui.texts import (
@@ -2573,7 +2588,8 @@ def help_text() -> str:
         "(cielo di adesso con grado sulla carta, Horizons NASA, satelliti live), Studia lo spazio (enciclopedia). "
         "Niente divinazione.\n"
         "🌍 <b>TERRA</b> — Eventi (atmosferici e naturali, live), "
-        "Fauna (osservati recenti; posizioni live OCEARCH), Pietre.\n"
+        "Fauna (osservati recenti; posizioni live OCEARCH), "
+        "Pietre (catalogo, laboratorio, geologia del luogo).\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
         "calendario (ora, eventi, compleanni).\n"
         "🧩 <b>QUIZ</b> — una prova per ogni bot: oracolo, astro, terra, strumenti.\n\n"
@@ -11932,7 +11948,14 @@ async def send_stone_sheet(update: Update, context: ContextTypes.DEFAULT_TYPE, s
 
 
 async def send_stone_list(update: Update, context: ContextTypes.DEFAULT_TYPE, rows: list, title: str, blurb: str) -> None:
-    await reply_html(update, context, format_list(rows, title, blurb), reply_markup=pietre_list_keyboard(rows[:40]))
+    shown = rows[:40]
+    extra = f" Prime {len(shown)} di {len(rows)}." if len(rows) > 40 else ""
+    await reply_html(
+        update,
+        context,
+        format_list(shown, title, blurb + extra),
+        reply_markup=pietre_list_keyboard(shown),
+    )
 
 
 async def send_stone_oracle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -12056,23 +12079,36 @@ async def finish_pietre_lab(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await send_stone_list(update, context, rows, "🔬 <b>POSSIBILI MINERALI</b>", blurb)
 
 
-async def show_pietre_bag(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    known = set(await stone_ids(user.id) if user else [])
-    total = len(STONES)
-    shown = [s for s in STONES if s["id"] in known]
-    lines = ["🎒 <b>LA MIA COLLEZIONE</b>", "", f"💎 {len(shown)} / {total} scoperte", ""]
-    if not shown:
-        lines.append("Ancora vuota. 🎲 Casuale o 🔮 del giorno scoprono una pietra.")
-        await reply_html(update, context, "\n".join(lines), reply_markup=pietre_hub_keyboard())
+async def show_pietre_geo_here(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _ensure_natura_place(context)
+    name, lat, lon = _natura_place(context)
+    try:
+        units = await fetch_geo_map_here(_http_client(context), lat, lon)
+    except Exception:
+        units = []
+        text = (
+            "🗺️ <b>GEOLOGIA QUI</b>\n"
+            f"📍 {e(name)} · {lat:.2f}°, {lon:.2f}°\n\n"
+            "Macrostrat non risponde. Non invento la geologia."
+        )
+        await reply_html(update, context, text, reply_markup=pietre_explore_keyboard())
         return
-    for stone in shown:
-        rem, rname = RARITY[stone["rarity"]]
-        lines.append(f"{stone['emoji']} {stone['it']}  {rem} {rname}")
-    missing = total - len(shown)
-    if missing:
-        lines.append(f"\n… e {missing} ancora da scoprire.")
-    await reply_html(update, context, "\n".join(lines), reply_markup=pietre_list_keyboard(shown[:40]))
+    text = format_geo_here(place=name, lat=lat, lon=lon, units=units)
+    lith_blob = " ".join(
+        f"{row.get('lith') or ''} {row.get('name') or ''} {row.get('descrip') or ''}"
+        for row in units
+    )
+    related = stones_for_lith(lith_blob)
+    if related:
+        names = ", ".join(f"{item['emoji']} {item['it']}" for item in related[:8])
+        text += (
+            "\n\n📚 <b>Nel catalogo, vicine a queste litologie</b>\n"
+            f"{names}"
+            "\n<i>Stesso nome di roccia, non un campione raccolto qui.</i>"
+        )
+        await reply_html(update, context, text, reply_markup=pietre_list_keyboard(related[:24]))
+        return
+    await reply_html(update, context, text, reply_markup=pietre_explore_keyboard())
 
 
 async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str) -> None:
@@ -12088,15 +12124,8 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
     if action in {"hub", ""}:
         await show_pietre_hub(update, context)
         return
-    if action == "day":
-        stone = stone_of_day(datetime.now(DEFAULT_TZ))
-        await send_stone_sheet(update, context, stone["id"])
-        return
-    if action == "rand":
-        user = update.effective_user
-        known = await stone_ids(user.id) if user else []
-        stone = random_stone(prefer_undiscovered=known)
-        await send_stone_sheet(update, context, stone["id"])
+    if action in {"day", "rand", "game", "bag", "g"}:
+        await show_pietre_hub(update, context)
         return
     if action == "find":
         _stone_state(context)["search"] = True
@@ -12110,7 +12139,75 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
         )
         return
     if action == "exp":
-        await reply_html(update, context, "🧭 <b>ESPLORA</b>\n\nTipo, colore, ambiente, rarità di catalogo.", reply_markup=pietre_explore_keyboard())
+        await reply_html(update, context, format_explore_index(), reply_markup=pietre_explore_keyboard())
+        return
+    if action == "all":
+        await send_stone_list(
+            update,
+            context,
+            list(STONES),
+            "📚 <b>TUTTE LE SCHEDE</b>",
+            "Catalogo COSMOBOT, non un dump Mindat.",
+        )
+        return
+    if action == "syss":
+        await reply_html(
+            update,
+            context,
+            "📐 <b>SISTEMA CRISTALLINO</b>\n\nCome è fatto il reticolo, nel catalogo. Le rocce miste stanno a parte.",
+            reply_markup=pietre_systems_keyboard(),
+        )
+        return
+    if action == "sys" and extra in SYSTEMS:
+        em, name = SYSTEMS[extra]
+        await send_stone_list(
+            update,
+            context,
+            by_system(extra),
+            f"{em} <b>{name.upper()}</b>",
+            "Sistema cristallino dichiarato in scheda.",
+        )
+        return
+    if action == "hds":
+        await reply_html(
+            update,
+            context,
+            "🧱 <b>DUREZZA MOHS</b>\n\nTre fasce del catalogo: unghia, vetro, acciaio. Non è un test di laboratorio.",
+            reply_markup=pietre_hard_keyboard(),
+        )
+        return
+    if action == "hd" and extra in HARD:
+        em, name = HARD[extra]
+        await send_stone_list(
+            update,
+            context,
+            by_hard(extra),
+            f"{em} <b>{name.upper()}</b>",
+            "Durezza Mohs del catalogo, non un graffio misurato adesso.",
+        )
+        return
+    if action == "fl" and extra in FLAGS:
+        em, name = FLAGS[extra]
+        await send_stone_list(
+            update,
+            context,
+            by_flag(extra),
+            f"{em} <b>{name.upper()}</b>",
+            "Filtro del catalogo (magnetismo, acido, metallo, scienza, storia).",
+        )
+        return
+    if action == "fm" and extra in FORMS:
+        em, name = FORMS[extra]
+        await send_stone_list(
+            update,
+            context,
+            by_form(extra),
+            f"{em} <b>{name.upper()}</b>",
+            "Origine dichiarata in scheda. Una pietra può stare in più porte.",
+        )
+        return
+    if action == "here":
+        await show_pietre_geo_here(update, context)
         return
     if action == "k" and extra in CATS:
         em, name = CATS[extra]
@@ -12138,34 +12235,26 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
         await send_stone_list(update, context, by_rarity(extra), f"{em} <b>{name.upper()}</b>", "Rarità narrativa di catalogo, non quotazione.")
         return
     if action == "maps":
-        await reply_html(
-            update,
-            context,
-            "🌍 <b>DOVE SI TROVANO</b>\n\n"
-            "Apri una scheda e tocca 🌍 Dove, oppure cerca un nome.\n"
-            "Le località sono giacimenti noti, non un invito a scavare.",
-            reply_markup=pietre_explore_keyboard(),
-        )
+        await reply_html(update, context, format_places_index(), reply_markup=pietre_envs_keyboard())
         return
     if action == "forms":
         await reply_html(
             update,
             context,
             "⛏️ <b>COME SI FORMANO</b>\n\n"
-            "🌋 Magmatico — dal fuso (basalto, olivina, granito)\n"
-            "💧 Idrotermale — fluidi caldi (quarzo, ametista, fluorite)\n"
-            "🔥 Metamorfico — pressione e temperatura (marmo, granato, cianite)\n"
-            "🌊 Sedimentario / evaporitico — depositi (calcare, sale, gesso)\n"
-            "☄️ Impatto / spazio — meteoriti e tettiti\n\n"
-            "Apri una pietra e tocca ⛏️ Formazione per la timeline.",
-            reply_markup=pietre_explore_keyboard(),
+            "🌋 Magmatico — dal fuso\n"
+            "💧 Idrotermale — fluidi caldi\n"
+            "🔥 Metamorfico — pressione e temperatura\n"
+            "🌊 Sedimentario / evaporitico — depositi\n"
+            "💎 Pegmatitico — cavità granitiche\n"
+            "☄️ Impatto / spazio — meteoriti e tettiti\n"
+            "🐚 Biologico / fossile — resina, madreperla\n\n"
+            "Tocca una porta. Una pietra può comparire in più origini.",
+            reply_markup=pietre_forms_keyboard(),
         )
         return
     if action == "enc":
-        lines = ["📖 <b>ENCICLOPEDIA</b>", f"{len(STONES)} schede. Tocca una categoria.", ""]
-        for key, (em, name) in CATS.items():
-            lines.append(f"{em} {name} — {len(by_cat(key))}")
-        await reply_html(update, context, "\n".join(lines), reply_markup=pietre_explore_keyboard())
+        await reply_html(update, context, format_explore_index(), reply_markup=pietre_explore_keyboard())
         return
     if action == "val":
         await reply_html(
@@ -12211,9 +12300,6 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
     if action in {"orx", "orcard", "o3t", "o3b"}:
         await send_stone_oracle(update, context)
         return
-    if action == "bag":
-        await show_pietre_bag(update, context)
-        return
     if action == "mus":
         await reply_html(update, context, "🏛️ <b>MUSEO COSMOBOT</b>\n\nSale permanenti. Ogni sala è un filtro del catalogo.", reply_markup=pietre_museum_keyboard())
         return
@@ -12230,12 +12316,6 @@ async def dispatch_pietre(update: Update, context: ContextTypes.DEFAULT_TYPE, to
             "Meteoriti, vetri da impatto, frammenti lunari e marziani identificati. "
             "Si collega al cielo: origine extraterrestre o da impatto, non un oracolo.",
         )
-        return
-    if action == "game":
-        await reply_html(update, context, "🧠 <b>GIOCHI</b>\n\nDomande costruite sul catalogo. Se sbagli, la scheda è lì.", reply_markup=pietre_games_keyboard())
-        return
-    if action == "g" and extra:
-        await send_stone_quiz(update, context, "guess" if extra == "next" else extra)
         return
     if action == "cmp":
         await reply_html(update, context, "⚖️ <b>CONFRONTA</b>\n\nScegli la prima pietra.", reply_markup=pietre_list_keyboard(list(STONES)[:40], prefix="pt:c1:"))
@@ -12336,46 +12416,11 @@ async def on_pt_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await show_pietre_lab(update, context)
         return
 
-    if action == "ga" and extra.isdigit():
+    if action == "ga":
         await query.answer()
         if query.message is not None:
             _remember_bot_msg(context, query.message.message_id, "text" if query.message.text else "photo")
-        quiz = _stone_state(context).get("quiz")
-        if not isinstance(quiz, dict):
-            await send_stone_quiz(update, context, "guess")
-            return
-        idx = int(extra)
-        ok = idx == int(quiz.get("answer") or 0)
-        stone = stone_by_id(str(quiz.get("id") or ""))
-        mark = "Esatto." if ok else "No."
-        more = ""
-        left = _stone_state(context).get("qleft")
-        if isinstance(left, int) and left >= 0:
-            if ok:
-                _stone_state(context)["qok"] = int(_stone_state(context).get("qok") or 0) + 1
-            if left > 0:
-                _stone_state(context)["qleft"] = left - 1
-                more = f"\nQuiz rapido: ancora {left} domande."
-                await reply_html(
-                    update,
-                    context,
-                    f"{'✅' if ok else '❌'} {mark}{more}",
-                    reply_markup=InlineKeyboardMarkup([[_tarot_btn("➡️ Prossima", "pt:g:next")], nav_row()]),
-                )
-                return
-            score = int(_stone_state(context).get("qok") or 0)
-            _stone_state(context).pop("qleft", None)
-            await reply_html(
-                update,
-                context,
-                f"{'✅' if ok else '❌'} {mark}\n\n⚡ Quiz finito: <b>{score}/10</b>",
-                reply_markup=pietre_games_keyboard(),
-            )
-            return
-        text = f"{'✅' if ok else '❌'} <b>{mark}</b>"
-        if stone:
-            text += f"\n\n{stone['emoji']} {e(stone['it'])} · {e(stone['formula'])}"
-        await reply_html(update, context, text, reply_markup=pietre_after_keyboard(stone["id"]) if stone else pietre_games_keyboard())
+        await show_pietre_hub(update, context)
         return
 
     _remember_from_callback(update, context)
