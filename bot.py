@@ -193,14 +193,20 @@ from services.squadquiz import pick_local_question, topic_label, worlds as quiz_
 from services.games import (
     apply_guess,
     apply_highlow,
+    dice_beat,
+    dice_spec,
     flip_coin,
     format_coin,
+    format_coin_ready,
     format_dice,
+    format_dice_menu,
+    format_dice_ready,
     format_guess_result,
     format_guess_start,
     format_highlow_result,
     format_highlow_start,
     format_rps,
+    format_rps_start,
     new_guess,
     new_highlow,
     roll_dice,
@@ -442,7 +448,10 @@ from ui.keyboards import (
     compass_result_keyboard,
     quiz_hub_keyboard,
     giochi_coin_keyboard,
+    giochi_coin_ready_keyboard,
     giochi_dice_keyboard,
+    giochi_dice_pick_keyboard,
+    giochi_dice_ready_keyboard,
     giochi_guess_keyboard,
     giochi_highlow_keyboard,
     giochi_hub_keyboard,
@@ -2642,7 +2651,7 @@ def help_text() -> str:
         "📡 <b>OGGI</b> — mercati (valute BCE, crypto, indici, materie) e notizie (ANSA, Google News IT).\n"
         "🧰 <b>STRUMENTI</b> — calcolatrice scientifica, conversioni, bussola (con coordinate), "
         "calendario (ora, eventi, compleanni).\n"
-        "🎲 <b>GIOCHI</b> — quiz per ogni bot, più un tavolo (dadi, moneta, morra, indovina).\n\n"
+        "🎲 <b>GIOCHI</b> — quiz per ogni bot, più un tavolo guidato (dadi, moneta, morra, indovina).\n\n"
         f"Oroscopo: scegli il segno dai pulsanti. Se non ne indichi uno "
         f"uso {default_emoji} {default_it}. Puoi anche scrivere solo il "
         "nome del segno in chat.\n\n"
@@ -10987,51 +10996,103 @@ async def show_giochi_tavolo(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await reply_html(update, context, giochi_tavolo_text(), reply_markup=giochi_tavolo_keyboard())
 
 
+async def _giochi_beat(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    await send_typing(update)
+    await deliver_text(update, context, text)
+    await asyncio.sleep(0.42)
+
+
+async def send_giochi_dice_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "gm:dice")
+    await reply_html(update, context, format_dice_menu(), reply_markup=giochi_dice_pick_keyboard())
+
+
+async def send_giochi_dice_ready(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    if dice_spec(kind) is None:
+        await send_giochi_dice_menu(update, context)
+        return
+    nav_mark(context, f"gm:d:{kind}")
+    await reply_html(update, context, format_dice_ready(kind), reply_markup=giochi_dice_ready_keyboard(kind))
+
+
 async def send_giochi_dice(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
-    spec = {"6": (1, 6), "2": (2, 6), "3": (3, 6), "20": (1, 20)}.get(kind)
+    spec = dice_spec(kind)
     if spec is None:
-        await show_giochi_tavolo(update, context)
+        await send_giochi_dice_menu(update, context)
         return
     n, sides = spec
+    await _giochi_beat(update, context, dice_beat(kind))
     text = format_dice(roll_dice(n, sides), sides=sides)
     await reply_html(update, context, text, reply_markup=giochi_dice_keyboard(kind))
 
 
+async def send_giochi_coin_ready(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    nav_mark(context, "gm:coin")
+    await reply_html(update, context, format_coin_ready(), reply_markup=giochi_coin_ready_keyboard())
+
+
 async def send_giochi_coin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await _giochi_beat(update, context, "🪙 La moneta è in aria…")
     await reply_html(update, context, format_coin(flip_coin()), reply_markup=giochi_coin_keyboard())
 
 
-async def send_giochi_rps(update: Update, context: ContextTypes.DEFAULT_TYPE, pick: str | None = None) -> None:
-    if pick not in {"r", "p", "s"}:
-        await reply_html(
-            update,
-            context,
-            "✊ <b>MORRA CINESE</b>\n<i>Scegli. Niente posta, niente oracolo.</i>",
-            reply_markup=giochi_rps_keyboard(),
-        )
-        return
-    bot = rps_pick()
-    outcome = rps_outcome(pick, bot)
+def _rps_score(context: ContextTypes.DEFAULT_TYPE) -> dict[str, int]:
     score = _games_state(context).setdefault("rps", {"w": 0, "l": 0, "d": 0})
     if not isinstance(score, dict):
         score = {"w": 0, "l": 0, "d": 0}
         _games_state(context)["rps"] = score
+    return score
+
+
+async def send_giochi_rps(update: Update, context: ContextTypes.DEFAULT_TYPE, pick: str | None = None) -> None:
+    score = _rps_score(context)
+    if pick not in {"r", "p", "s"}:
+        nav_mark(context, "gm:rps")
+        await reply_html(update, context, format_rps_start(score), reply_markup=giochi_rps_keyboard())
+        return
+    await _giochi_beat(update, context, "✊ Uno, due, tre…")
+    bot_hand = rps_pick()
+    outcome = rps_outcome(pick, bot_hand)
     if outcome == "win":
         score["w"] = int(score.get("w") or 0) + 1
     elif outcome == "lose":
         score["l"] = int(score.get("l") or 0) + 1
     else:
         score["d"] = int(score.get("d") or 0) + 1
-    await reply_html(update, context, format_rps(pick, bot, outcome, score), reply_markup=giochi_rps_keyboard())
+    await reply_html(
+        update,
+        context,
+        format_rps(pick, bot_hand, outcome, score),
+        reply_markup=giochi_rps_keyboard(),
+    )
 
 
-async def send_giochi_guess(update: Update, context: ContextTypes.DEFAULT_TYPE, value: int | None = None) -> None:
+async def send_giochi_guess(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    value: int | None = None,
+    *,
+    reset: bool = False,
+) -> None:
     state = _games_state(context)
     game = state.get("guess") if isinstance(state.get("guess"), dict) else None
-    if value is None or game is None:
-        game = new_guess()
-        state["guess"] = game
-        await reply_html(update, context, format_guess_start(), reply_markup=giochi_guess_keyboard())
+    if reset or value is None:
+        nav_mark(context, "gm:guess")
+        if reset or game is None:
+            game = new_guess()
+            state["guess"] = game
+            mid = None
+        else:
+            mid = game
+        await reply_html(
+            update,
+            context,
+            format_guess_start(mid=mid),
+            reply_markup=giochi_guess_keyboard(list((mid or {}).get("guessed") or [])),
+        )
+        return
+    if game is None:
+        await send_giochi_guess(update, context)
         return
     result = apply_guess(game, value)
     state["guess"] = result["state"]
@@ -11042,7 +11103,7 @@ async def send_giochi_guess(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             update,
             context,
             format_guess_result(result),
-            reply_markup=InlineKeyboardMarkup([[_tarot_btn("🔄 Nuovo numero", "gm:guess")], nav_row()]),
+            reply_markup=giochi_guess_keyboard(ended=True),
         )
         return
     await reply_html(
@@ -11053,14 +11114,32 @@ async def send_giochi_guess(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     )
 
 
-async def send_giochi_highlow(update: Update, context: ContextTypes.DEFAULT_TYPE, direction: str | None = None) -> None:
+async def send_giochi_highlow(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    direction: str | None = None,
+    *,
+    reset: bool = False,
+) -> None:
     state = _games_state(context)
     game = state.get("hl") if isinstance(state.get("hl"), dict) else None
-    if direction not in {"up", "dn"} or game is None:
-        game = new_highlow()
-        state["hl"] = game
-        await reply_html(update, context, format_highlow_start(int(game["shown"])), reply_markup=giochi_highlow_keyboard())
+    playing = direction in {"up", "dn"} and isinstance(game, dict) and not reset
+    if not playing:
+        nav_mark(context, "gm:hl")
+        if reset or game is None:
+            game = new_highlow()
+            state["hl"] = game
+            mid = False
+        else:
+            mid = True
+        await reply_html(
+            update,
+            context,
+            format_highlow_start(int(game["shown"]), streak=int(game.get("streak") or 0), mid=mid),
+            reply_markup=giochi_highlow_keyboard(),
+        )
         return
+    await _giochi_beat(update, context, "↕️ Giro il prossimo…")
     result = apply_highlow(game, direction)
     state["hl"] = result["state"]
     await reply_html(update, context, format_highlow_result(result), reply_markup=giochi_highlow_keyboard())
@@ -11073,10 +11152,19 @@ async def dispatch_giochi(update: Update, context: ContextTypes.DEFAULT_TYPE, to
     if action in {"hub", ""}:
         await show_giochi_tavolo(update, context)
         return
+    if action == "dice":
+        await send_giochi_dice_menu(update, context)
+        return
     if action == "d" and extra:
+        await send_giochi_dice_ready(update, context, extra)
+        return
+    if action == "go" and extra:
         await send_giochi_dice(update, context, extra)
         return
     if action == "coin":
+        await send_giochi_coin_ready(update, context)
+        return
+    if action == "flip":
         await send_giochi_coin(update, context)
         return
     if action == "rps":
@@ -11086,13 +11174,13 @@ async def dispatch_giochi(update: Update, context: ContextTypes.DEFAULT_TYPE, to
         await send_giochi_rps(update, context, extra)
         return
     if action == "guess":
-        await send_giochi_guess(update, context)
+        await send_giochi_guess(update, context, reset=extra == "new")
         return
     if action == "g" and extra.isdigit():
         await send_giochi_guess(update, context, int(extra))
         return
     if action == "hl":
-        await send_giochi_highlow(update, context)
+        await send_giochi_highlow(update, context, reset=extra == "new")
         return
     if action == "h" and extra:
         await send_giochi_highlow(update, context, extra)

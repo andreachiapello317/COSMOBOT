@@ -880,10 +880,28 @@ def quiz_hub_keyboard() -> InlineKeyboardMarkup:
 def giochi_tavolo_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🎲 Un dado", "gm:d:6"), kb_btn("🎲 Due dadi", "gm:d:2")],
-            [kb_btn("🎲 Tre dadi", "gm:d:3"), kb_btn("🎲 d20", "gm:d:20")],
+            [kb_btn("🎲 Dadi", "gm:dice")],
             [kb_btn("🪙 Moneta", "gm:coin"), kb_btn("✊ Morra", "gm:rps")],
             [kb_btn("🎯 Indovina", "gm:guess"), kb_btn("↕️ Alto o basso", "gm:hl")],
+            nav_row(),
+        ]
+    )
+
+
+def giochi_dice_pick_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🎲 Un dado", "gm:d:6"), kb_btn("🎲 Due dadi", "gm:d:2")],
+            [kb_btn("🎲 Tre dadi", "gm:d:3"), kb_btn("🎲 d20", "gm:d:20")],
+            nav_row(),
+        ]
+    )
+
+
+def giochi_dice_ready_keyboard(kind: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🎲 Lancia", f"gm:go:{kind}")],
             nav_row(),
         ]
     )
@@ -892,7 +910,17 @@ def giochi_tavolo_keyboard() -> InlineKeyboardMarkup:
 def giochi_dice_keyboard(kind: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔄 Ancora", f"gm:d:{kind}")],
+            [kb_btn("🔄 Lancia ancora", f"gm:go:{kind}")],
+            [kb_btn("🎲 Cambia dadi", "gm:dice")],
+            nav_row(),
+        ]
+    )
+
+
+def giochi_coin_ready_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [kb_btn("🪙 Gira", "gm:flip")],
             nav_row(),
         ]
     )
@@ -901,7 +929,7 @@ def giochi_dice_keyboard(kind: str) -> InlineKeyboardMarkup:
 def giochi_coin_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("🔄 Gira di nuovo", "gm:coin")],
+            [kb_btn("🔄 Gira di nuovo", "gm:flip")],
             nav_row(),
         ]
     )
@@ -916,22 +944,23 @@ def giochi_rps_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def giochi_guess_keyboard(guessed: list[int] | None = None) -> InlineKeyboardMarkup:
-    done = set(guessed or [])
-    buttons = []
-    for n in range(1, 21):
-        label = "·" if n in done else str(n)
-        buttons.append(kb_btn(label, f"gm:g:{n}"))
-    grid = []
-    pair: list = []
-    for btn in buttons:
-        pair.append(btn)
-        if len(pair) == 5:
+def giochi_guess_keyboard(guessed: list[int] | None = None, *, ended: bool = False) -> InlineKeyboardMarkup:
+    grid: list[list] = []
+    if not ended:
+        done = set(guessed or [])
+        buttons = []
+        for n in range(1, 21):
+            label = "·" if n in done else str(n)
+            buttons.append(kb_btn(label, f"gm:g:{n}"))
+        pair: list = []
+        for btn in buttons:
+            pair.append(btn)
+            if len(pair) == 5:
+                grid.append(pair)
+                pair = []
+        if pair:
             grid.append(pair)
-            pair = []
-    if pair:
-        grid.append(pair)
-    grid.append([kb_btn("🔄 Nuovo numero", "gm:guess")])
+    grid.append([kb_btn("🔄 Nuovo numero", "gm:guess:new")])
     grid.append(nav_row())
     return InlineKeyboardMarkup(grid)
 
@@ -939,8 +968,8 @@ def giochi_guess_keyboard(guessed: list[int] | None = None) -> InlineKeyboardMar
 def giochi_highlow_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [kb_btn("⬆️ Alto", "gm:h:up"), kb_btn("⬇️ Basso", "gm:h:dn")],
-            [kb_btn("🔄 Nuova serie", "gm:hl")],
+            [kb_btn("⬆️ Più alto", "gm:h:up"), kb_btn("⬇️ Più basso", "gm:h:dn")],
+            [kb_btn("🔄 Nuova serie", "gm:hl:new")],
             nav_row(),
         ]
     )

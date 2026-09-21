@@ -582,15 +582,15 @@ def giochi_hub_text() -> str:
         "🎲 <b>GIOCHI</b>",
         "Bot di BOTSQUAD per giocare. Prove sui cataloghi, oppure dadi sul tavolo. Non è un oracolo e non si vince soldi.",
         "🧩 <b>QUIZ</b> — una prova per ogni bot, nel suo recinto\n"
-        "🎲 <b>TAVOLO</b> — dadi, moneta, morra, indovina, alto o basso",
+        "🎲 <b>TAVOLO</b> — dadi, moneta, morra: scegli, pronto, lancia",
     )
 
 
 def giochi_tavolo_text() -> str:
     return _card(
         "🎲 <b>TAVOLO</b>",
-        "Lanci a caso, qui e ora. Non predicono niente e non c'è una posta.",
-        "🎲 Dadi — 1d6, 2d6, 3d6, d20\n"
+        "Scegli un gioco. Ti accompagno io, un passo alla volta. Non predice niente e non c'è una posta.",
+        "🎲 Dadi — scegli, poi lancia\n"
         "🪙 Moneta — testa o croce (non è il sì/no di ORACOLO)\n"
         "✊ Morra — sasso, carta, forbici\n"
         "🎯 Indovina — un numero da 1 a 20, sei tentativi\n"

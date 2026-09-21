@@ -15,6 +15,33 @@ RPS_BEATS = {"r": "s", "p": "r", "s": "p"}
 GUESS_MAX = 20
 GUESS_TRIES = 6
 
+DICE_KINDS: dict[str, dict[str, Any]] = {
+    "6": {"n": 1, "sides": 6, "it": "Un dado", "hint": "Sei facce, da 1 a 6."},
+    "2": {"n": 2, "sides": 6, "it": "Due dadi", "hint": "Due dadi a sei facce. Sommo i punti."},
+    "3": {"n": 3, "sides": 6, "it": "Tre dadi", "hint": "Tre dadi a sei facce. Sommo i punti."},
+    "20": {"n": 1, "sides": 20, "it": "Un d20", "hint": "Venti facce, da 1 a 20."},
+}
+
+
+def dice_spec(kind: str) -> tuple[int, int] | None:
+    meta = DICE_KINDS.get(kind)
+    if meta is None:
+        return None
+    return int(meta["n"]), int(meta["sides"])
+
+
+def dice_beat(kind: str) -> str:
+    meta = DICE_KINDS.get(kind) or DICE_KINDS["6"]
+    n = int(meta["n"])
+    sides = int(meta["sides"])
+    if sides == 20:
+        return "🎲 Il d20 gira…"
+    if n == 1:
+        return "🎲 Il dado rotola…"
+    if n == 2:
+        return "🎲 I due dadi rotolano…"
+    return "🎲 I dadi rotolano sul tavolo…"
+
 
 def roll_dice(n: int = 1, sides: int = 6) -> list[int]:
     count = max(1, min(int(n), 8))
@@ -79,9 +106,28 @@ def apply_highlow(state: dict[str, Any], direction: str) -> dict[str, Any]:
         "kind": result,
         "shown": shown,
         "next": nxt,
+        "direction": direction,
         "streak": streak,
         "state": {"shown": nxt, "streak": streak},
     }
+
+
+def format_dice_menu() -> str:
+    return (
+        "🎲 <b>DADI</b>\n"
+        "<i>Un lancio a caso. Non predice niente e non si vince soldi.</i>\n\n"
+        "Prima scegli i dadi. Poi, quando sei pronto, lanci."
+    )
+
+
+def format_dice_ready(kind: str) -> str:
+    meta = DICE_KINDS.get(kind) or DICE_KINDS["6"]
+    title = str(meta["it"]).upper()
+    return (
+        f"🎲 <b>{title}</b>\n"
+        f"<i>{meta['hint']} Non è un oracolo.</i>\n\n"
+        "Tocca <b>Lancia</b> quando sei pronto."
+    )
 
 
 def format_dice(rolls: list[int], *, sides: int) -> str:
@@ -93,14 +139,25 @@ def format_dice(rolls: list[int], *, sides: int) -> str:
     title = f"{len(rolls)}d{sides}"
     lines = [
         f"🎲 <b>{title.upper()}</b>",
-        "<i>Un lancio a caso. Non è un oracolo e non si vince niente.</i>",
+        "<i>È uscito. Caso puro, niente predizione.</i>",
         "",
         faces,
     ]
     if len(rolls) > 1:
-        extra = " · doppio" if sides == 6 and len(set(rolls)) == 1 else ""
+        extra = ""
+        if sides == 6 and len(set(rolls)) == 1:
+            extra = " · doppio" if len(rolls) == 2 else " · tutti uguali"
         lines.append(f"Somma: <b>{total}</b>{extra}")
+    lines.extend(["", "Rilancia, oppure cambia i dadi."])
     return "\n".join(lines)
+
+
+def format_coin_ready() -> str:
+    return (
+        "🪙 <b>MONETA</b>\n"
+        "<i>Due facce, stesso peso. Non è il sì/no di ORACOLO: lì c'è una domanda, qui solo testa o croce.</i>\n\n"
+        "Tocca <b>Gira</b> quando sei pronto."
+    )
 
 
 def format_coin(side: str) -> str:
@@ -108,30 +165,77 @@ def format_coin(side: str) -> str:
     emoji = "🌕" if side == "heads" else "🌑"
     return (
         "🪙 <b>MONETA</b>\n"
-        "<i>Due facce, stesso peso. Non è un sì/no di ORACOLO.</i>\n\n"
-        f"{emoji} <b>{label}</b>"
+        "<i>La moneta si è fermata.</i>\n\n"
+        f"{emoji} <b>{label}</b>\n\n"
+        "Gira di nuovo, se vuoi. Non è un verdetto."
+    )
+
+
+def format_rps_start(score: dict[str, int] | None = None) -> str:
+    score = score or {}
+    w = int(score.get("w") or 0)
+    l = int(score.get("l") or 0)
+    d = int(score.get("d") or 0)
+    serie = f"Serie: tu {w} · io {l} · pari {d}" if (w or l or d) else "Prima mano. Serie a zero."
+    return (
+        "✊ <b>MORRA CINESE</b>\n"
+        "<i>Sasso, carta, forbici. Niente posta, niente oracolo.</i>\n\n"
+        f"{serie}\n\n"
+        "Scegli la tua mano. Poi mostro la mia."
     )
 
 
 def format_rps(user: str, bot: str, outcome: str, score: dict[str, int]) -> str:
     ue, un = RPS[user]
     be, bn = RPS[bot]
-    mark = {"win": "Hai vinto.", "lose": "Ho vinto io.", "draw": "Pareggio."}[outcome]
+    mark = {
+        "win": "✅ Hai vinto questa mano.",
+        "lose": "❌ Questa l'ho presa io.",
+        "draw": "🤝 Pareggio. Stessa mano.",
+    }[outcome]
     return (
         "✊ <b>MORRA CINESE</b>\n"
-        "<i>Sasso, carta, forbici. Niente posta.</i>\n\n"
+        "<i>Uno, due, tre.</i>\n\n"
         f"Tu {ue} <b>{un}</b>\n"
         f"Io {be} <b>{bn}</b>\n\n"
         f"{mark}\n"
-        f"Serie: tu {score.get('w', 0)} · io {score.get('l', 0)} · pari {score.get('d', 0)}"
+        f"Serie: tu {score.get('w', 0)} · io {score.get('l', 0)} · pari {score.get('d', 0)}\n\n"
+        "Scegli per la prossima mano."
     )
 
 
-def format_guess_start() -> str:
+def _tries_bar(left: int, total: int = GUESS_TRIES) -> str:
+    left = max(0, min(int(left), total))
+    return "●" * left + "○" * (total - left)
+
+
+def _guessed_bit(guessed: list[Any]) -> str:
+    nums = sorted(int(n) for n in guessed if str(n).isdigit() or isinstance(n, int))
+    if not nums:
+        return ""
+    return "Già detti: " + ", ".join(str(n) for n in nums)
+
+
+def format_guess_start(*, mid: dict[str, Any] | None = None) -> str:
+    if mid and int(mid.get("tries") or 0) > 0:
+        left = GUESS_TRIES - int(mid.get("tries") or 0)
+        guessed = _guessed_bit(list(mid.get("guessed") or []))
+        lines = [
+            "🎯 <b>INDOVINA IL NUMERO</b>",
+            f"<i>Sempre lo stesso, da 1 a {GUESS_MAX}. Ti dico se sei troppo alto o troppo basso.</i>",
+            "",
+            "Riprendiamo da dove eri.",
+            f"Tentativi: {_tries_bar(left)}  ({left} restanti)",
+        ]
+        if guessed:
+            lines.append(guessed)
+        lines.extend(["", "Tocca il prossimo numero."])
+        return "\n".join(lines)
     return (
-        "🎯 <b>INDOVINA</b>\n"
-        f"<i>Ho in mente un numero da 1 a {GUESS_MAX}. Hai {GUESS_TRIES} tentativi.</i>\n\n"
-        "Tocca un numero."
+        "🎯 <b>INDOVINA IL NUMERO</b>\n"
+        f"<i>Ne ho scelto uno da 1 a {GUESS_MAX}. Hai {GUESS_TRIES} tentativi. "
+        "Dopo ogni prova ti dico se sei troppo alto o troppo basso.</i>\n\n"
+        "Primo passo: tocca un numero."
     )
 
 
@@ -141,46 +245,75 @@ def format_guess_result(result: dict[str, Any]) -> str:
     state = result["state"]
     left = GUESS_TRIES - int(state.get("tries") or 0)
     secret = int(state.get("secret") or 0)
+    guessed = _guessed_bit(list(state.get("guessed") or []))
     if kind == "ok":
         return (
-            "🎯 <b>INDOVINA</b>\n\n"
-            f"✅ <b>{value}</b> era il numero.\n"
-            f"Tentativi: {state['tries']}."
+            "🎯 <b>INDOVINA IL NUMERO</b>\n\n"
+            f"✅ <b>{value}</b> era quello.\n"
+            f"Ci sei riuscito in {state['tries']} "
+            f"{'tentativo' if state['tries'] == 1 else 'tentativi'}.\n\n"
+            "Vuoi un altro numero?"
         )
     if kind == "over":
         return (
-            "🎯 <b>INDOVINA</b>\n\n"
+            "🎯 <b>INDOVINA IL NUMERO</b>\n\n"
             f"❌ {value} no. Tentativi finiti.\n"
-            f"Era <b>{secret}</b>."
+            f"Era <b>{secret}</b>.\n\n"
+            "Si ricomincia quando vuoi."
         )
     if kind == "repeat":
-        return (
-            "🎯 <b>INDOVINA</b>\n\n"
-            f"{value} l'avevi già detto.\n"
-            f"Ne restano {left}."
-        )
+        lines = [
+            "🎯 <b>INDOVINA IL NUMERO</b>",
+            "",
+            f"{value} l'avevi già detto. Quel tasto è spento.",
+            f"Tentativi: {_tries_bar(left)}  ({left} restanti)",
+        ]
+        if guessed:
+            lines.append(guessed)
+        lines.extend(["", "Tocca un altro numero."])
+        return "\n".join(lines)
     word = "più basso" if kind == "alto" else "più alto"
-    return (
-        "🎯 <b>INDOVINA</b>\n\n"
-        f"{value} è troppo {kind}. Prova un numero {word}.\n"
-        f"Ne restano {left}."
-    )
+    lines = [
+        "🎯 <b>INDOVINA IL NUMERO</b>",
+        "",
+        f"<b>{value}</b> è troppo {kind}. Prova un numero {word}.",
+        f"Tentativi: {_tries_bar(left)}  ({left} restanti)",
+    ]
+    if guessed:
+        lines.append(guessed)
+    lines.extend(["", "Tocca il prossimo."])
+    return "\n".join(lines)
 
 
-def format_highlow_start(shown: int) -> str:
+def format_highlow_start(shown: int, *, streak: int = 0, mid: bool = False) -> str:
+    intro = "Riprendiamo da questo numero." if mid else "Ti mostro un numero da 1 a 20. Poi indovini se il prossimo è più alto o più basso."
+    serie = f"Serie: <b>{streak}</b>" if streak else "Serie a zero."
     return (
         "↕️ <b>ALTO O BASSO</b>\n"
-        "<i>Esce un d20. Il prossimo sarà più alto o più basso?</i>\n\n"
-        f"Adesso: <b>{shown}</b>"
+        f"<i>{intro} Pareggio (stesso numero) non conta.</i>\n\n"
+        f"Adesso: <b>{shown}</b>\n"
+        f"{serie}\n\n"
+        "Il prossimo sarà più alto o più basso?"
     )
 
 
 def format_highlow_result(result: dict[str, Any]) -> str:
-    mark = {"ok": "✅ Giusto.", "no": "❌ No.", "tie": "▶ Uguale, non conta."}[result["kind"]]
+    kind = result["kind"]
+    direction = str(result.get("direction") or "")
+    said = "più alto" if direction == "up" else "più basso"
+    mark = {
+        "ok": f"✅ Giusto: era {said}.",
+        "no": f"❌ No: non era {said}.",
+        "tie": "▶ Stesso numero. Non conta, si continua da qui.",
+    }[kind]
+    follow = "Nuovo numero sul tavolo. Alto o basso?"
+    if kind == "no":
+        follow = "Serie a zero. Si continua da questo numero, oppure ricominci."
     return (
         "↕️ <b>ALTO O BASSO</b>\n"
-        "<i>Due d20 di fila. Pareggio = si riparte dal nuovo numero.</i>\n\n"
+        "<i>Due d20 di fila. Niente posta.</i>\n\n"
         f"Prima <b>{result['shown']}</b> → poi <b>{result['next']}</b>\n"
         f"{mark}\n"
-        f"Serie: <b>{result['streak']}</b>"
+        f"Serie: <b>{result['streak']}</b>\n\n"
+        f"{follow}"
     )
